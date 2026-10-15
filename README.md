@@ -166,6 +166,7 @@ scripts/build.sh --install --run  # install to /Applications
 | **macOS** | macOS 14 Sonoma 이상 (Sonoma 14, Sequoia 15, Tahoe 26 이후) |
 | **화면** | 노치가 있는 맥북(14·16형 MacBook Pro 2021 이후, MacBook Air 2022 이후)에 최적화. 노치가 없는 Mac(M1 MacBook Air/Pro 13형, iMac, Mac mini, Mac Studio, 외장 모니터)에서는 메뉴바 가운데에 가상 노치로 동작합니다. |
 | **Intel Mac** | 지원하지 않습니다 (arm64 전용 빌드). |
+빌드와 테스트는 macOS 27에서 진행되었고 최적화도 해당 버전에서 진행되었기 때문에 macOS 27에서 설치를 권장드립니다.
 
 ## 설치
 
