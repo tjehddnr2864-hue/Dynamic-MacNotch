@@ -28,7 +28,8 @@ Live activities, media controls, HUDs, alerts, a file tray and more — all anim
 To verify the download, compare it with the `.sha256` file attached to the release: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`.
 
 ### Updating
-Quit the app (right-click the notch → **Quit Dynamic MacNotch**), replace the app in Applications, and open it again.
+From 1.0.1 the app **updates itself**: it checks GitHub once a day, verifies the download (SHA-256, code signature, bundle ID, newer version), replaces itself and relaunches. Check manually from **right-click the notch → Check for Updates…**, or turn it off in Settings → General.
+To update by hand, quit the app, replace it in Applications, and open it again.
 If Accessibility or Input Monitoring stop working after an update, remove Dynamic MacNotch from that list in System Settings (−) and allow it again.
 
 ## Permissions
@@ -125,6 +126,7 @@ Korean and English. Settings → General → Language (System default / 한국�
 
 - No analytics, no accounts, no tracking. Settings and tray items stay on your Mac.
 - Network access only happens for:
+  - **Update checks** (once a day, can be turned off): GitHub's releases API.
   - **Live lyrics** (off by default): the song title, artist and album are sent to [LRCLIB](https://lrclib.net).
   - **Spotify artwork**: the cover image URL that Spotify provides (HTTPS only).
 - Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist` and `~/Library/Application Support/Dynamic MacNotch/`. Delete both to reset.
@@ -179,7 +181,8 @@ scripts/build.sh --install --run  # install to /Applications
 받은 파일은 릴리스에 함께 올린 `.sha256` 값과 비교해 확인할 수 있습니다: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`
 
 ### 업데이트
-노치 우클릭 → **Dynamic MacNotch 종료** 후 응용 프로그램 폴더의 앱을 새 버전으로 바꾸고 다시 실행합니다.
+1.0.1부터 **자동 업데이트**됩니다. 하루 한 번 GitHub에서 새 버전을 확인하고, 내려받은 파일을 검증(SHA-256, 코드 서명, 번들 ID, 더 높은 버전)한 뒤 스스로 교체하고 다시 실행합니다. **노치 우클릭 → 업데이트 확인…**으로 바로 확인할 수 있고, 설정 → 일반에서 끌 수 있습니다.
+직접 업데이트하려면 앱을 종료하고 응용 프로그램 폴더의 앱을 새 버전으로 바꾼 뒤 다시 실행합니다.
 업데이트 후 손쉬운 사용·입력 모니터링이 허용돼 있는데도 동작하지 않으면, 시스템 설정의 해당 목록에서 Dynamic MacNotch를 지우고(−) 다시 허용하세요.
 
 ## 권한
@@ -276,6 +279,7 @@ scripts/build.sh --install --run  # install to /Applications
 
 - 분석·계정·추적이 없습니다. 설정과 트레이 항목은 내 Mac에만 저장됩니다.
 - 네트워크는 다음 경우에만 씁니다.
+  - **업데이트 확인**(하루 한 번, 끌 수 있음): GitHub 릴리스 API.
   - **실시간 가사**(기본 꺼짐): 곡 제목·아티스트·앨범을 [LRCLIB](https://lrclib.net)로 보냅니다.
   - **Spotify 앨범아트**: Spotify가 알려 주는 표지 이미지 주소(HTTPS만).
 - 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`. 둘 다 지우면 초기화됩니다.

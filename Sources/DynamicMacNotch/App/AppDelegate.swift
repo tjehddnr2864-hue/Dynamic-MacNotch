@@ -78,6 +78,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] show in self?.setStatusItem(visible: show) }
             .store(in: &cancellables)
 
+        // 자동 업데이트: 상태는 노치 상세 알림으로
+        Updater.shared.notify = { [weak self] title, subtitle, success in
+            self?.center.post(NotchActivity(
+                kind: .demo, presentation: .detail, duration: 4,
+                symbol: success ? "arrow.down.circle.fill" : "exclamationmark.triangle.fill",
+                tint: success ? .blue : .orange, value: .none, title: title, subtitle: subtitle))
+        }
+        Updater.shared.announceIfUpdated()
+        Updater.shared.start()
+
         if !settings.onboardingDone {
             showPermissions(onboarding: true)
         }
@@ -123,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "settings": self.showSettings()
             case "permissions": self.showPermissions(onboarding: false)
             case "closewin": self.closeHelper()
+            case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
             case "focuson": self.focus.debugPreview(on: true)    // 개발용: 집중 모드 알림 미리보기
             case "focusoff": self.focus.debugPreview(on: false)
             case "pick": FilePicker.choose(.tray) { self.tray.add($0) }   // 개발용: 트레이 파일 선택 창
@@ -265,6 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(demoItem)
         menu.addItem(item(T("홈 열기", "Open Home"), #selector(openHome)))
         menu.addItem(.separator())
+        menu.addItem(item(T("업데이트 확인…", "Check for Updates…"), #selector(checkForUpdates)))
         menu.addItem(item(T("Dynamic MacNotch 다시 시작", "Restart Dynamic MacNotch"), #selector(restart), key: "r"))
         menu.addItem(item(T("Dynamic MacNotch 종료", "Quit Dynamic MacNotch"), #selector(quit), key: "q"))
         return menu
@@ -280,6 +292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openPermissions() { showPermissions(onboarding: false) }
     @objc private func openHome() { vm.expand(page: .home) }
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func checkForUpdates() { Updater.shared.check(userInitiated: true) }
 
     /// 오류·충돌이 의심될 때 사용자가 직접 앱을 다시 시작한다 (노치 우클릭 · 메뉴바 아이콘 메뉴).
     @objc private func restart() {

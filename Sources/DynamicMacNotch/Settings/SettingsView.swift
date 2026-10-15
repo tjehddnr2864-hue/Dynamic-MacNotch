@@ -48,6 +48,7 @@ struct SettingsView: View {
                 ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
             }
             Toggle(T("메뉴바 아이콘 표시", "Show Menu Bar Icon"), isOn: $settings.showStatusItem)
+            Toggle(T("자동 업데이트 (하루 한 번 확인)", "Automatic updates (checks daily)"), isOn: $settings.autoUpdate)
             Button(T("권한 관리 열기…", "Open Permissions…"), action: openPermissions)
 
             Section {

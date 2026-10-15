@@ -82,6 +82,7 @@ final class AppSettings: ObservableObject {
     @Published var language: AppLanguage { didSet { save(language.rawValue, L10n.languageKey) } }
     @Published var transientDuration: Double { didSet { save(transientDuration, "transientDuration") } }
     @Published var showStatusItem: Bool { didSet { save(showStatusItem, "showStatusItem") } }
+    @Published var autoUpdate: Bool { didSet { save(autoUpdate, "autoUpdate") } }
     @Published var onboardingDone: Bool { didSet { save(onboardingDone, "onboardingDone") } }
 
     // 상호작용
@@ -204,6 +205,7 @@ final class AppSettings: ObservableObject {
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
+        autoUpdate = value("autoUpdate", true)
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)
@@ -298,6 +300,7 @@ final class AppSettings: ObservableObject {
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
+        autoUpdate = value("autoUpdate", true)
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)
