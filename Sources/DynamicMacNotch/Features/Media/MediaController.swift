@@ -1,0 +1,443 @@
+import AppKit
+import SwiftUI
+
+enum MediaSource: String, CaseIterable, Identifiable {
+    case all, appleMusic, spotify
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all: return T("모든 미디어", "All Media")
+        case .appleMusic: return "Apple Music"
+        case .spotify: return "Spotify"
+        }
+    }
+    var bundleID: String? {
+        switch self {
+        case .all: return nil
+        case .appleMusic: return "com.apple.Music"
+        case .spotify: return "com.spotify.client"
+        }
+    }
+}
+
+struct NowPlaying: Equatable {
+    var title: String
+    var artist: String
+    var album: String
+    var duration: Double
+    var elapsed: Double
+    var timestamp: Date
+    var rate: Double
+    var playing: Bool
+    var bundleID: String?
+
+    /// 지금 시점의 재생 위치 (마지막 보고 이후 흐른 시간 반영).
+    func position(at now: Date = Date()) -> Double {
+        let p = elapsed + (playing ? now.timeIntervalSince(timestamp) * max(rate, playing ? 1 : 0) : 0)
+        return duration > 0 ? min(max(0, p), duration) : max(0, p)
+    }
+
+    var trackKey: String { "\(title)|\(artist)|\(album)" }
+}
+
+/// 현재 재생 중인 미디어 (가이드라인 5.7).
+/// 모든 미디어: MediaRemote 어댑터(perl + dylib) · 실패 시 Apple Music/Spotify 분산 알림 + AppleScript로 대체.
+final class MediaController: ObservableObject {
+    @Published private(set) var nowPlaying: NowPlaying?
+    @Published private(set) var artwork: NSImage?
+    @Published private(set) var accent: Color = .white
+    /// 이전/다음 곡 버튼을 누를 때마다 바뀐다 (확장 팝업 앨범아트 회전 시작 신호). 방향: 다음 +1, 이전 -1
+    @Published private(set) var skipToken = 0
+    private(set) var skipDirection: Double = 1
+    @Published private(set) var adapterRunning = false
+    /// 잠금화면 전체화면 배경용 흐린 앨범아트 (처음 필요할 때 한 번 만든다)
+    private var backdropCache: (key: ObjectIdentifier, image: CGImage)?
+
+    var artworkBackdrop: CGImage? {
+        guard let art = artwork else { return nil }
+        let key = ObjectIdentifier(art)
+        if let c = backdropCache, c.key == key { return c.image }
+        guard let cg = art.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let blurred = ImageScaler.blurredBackdrop(cg) else { return nil }
+        backdropCache = (key, blurred)
+        return blurred
+    }
+    /// 즐겨찾기(별) 상태. nil이면 해당 앱이 지원하지 않음 (Apple Music만 지원).
+    @Published private(set) var favorited: Bool?
+
+    private let center: ActivityCenter
+    private let settings = AppSettings.shared
+    private var adapter: Process?
+    private var adapterInput: FileHandle?
+    private var buffer = Data()
+    private var restartDelay: TimeInterval = 1
+    private var hideWork: DispatchWorkItem?
+    /// 곡이 바뀐 직후 새 앨범아트를 기다리는 곡 변경 팝업 (아트·색이 맞은 뒤에 띄운다)
+    private var trackPopupWork: DispatchWorkItem?
+    private var artworkDate = Date.distantPast
+    private var lastTrackKey: String?
+    private var lastArtworkTrack: String?
+    private var fallbackActive = false
+
+    init(center: ActivityCenter) {
+        self.center = center
+    }
+
+    func start() {
+        startAdapter()
+        // 어댑터가 실패해도 Music/Spotify는 분산 알림으로 받는다.
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { [weak self] n in
+            self?.fallbackNotification(n.userInfo, bundle: "com.apple.Music")
+        }
+        dnc.addObserver(forName: .init("com.spotify.client.PlaybackStateChanged"), object: nil, queue: .main) { [weak self] n in
+            self?.fallbackNotification(n.userInfo, bundle: "com.spotify.client")
+        }
+        // 재생 위치는 '마지막 보고 시각 + 흐른 시간'으로 계산하므로 앱 전체 타이머가 필요 없다.
+        // 진행 바를 그리는 화면만 보이는 동안 스스로 다시 그린다(TimelineView).
+    }
+
+    /// 앱 종료 시 어댑터(perl) 하위 프로세스를 함께 끝낸다.
+    func stop() {
+        adapter?.terminationHandler = nil
+        adapter?.terminate()
+        adapter = nil
+    }
+
+    // MARK: - 어댑터
+
+    private func startAdapter() {
+        guard let resources = Bundle.main.resourceURL,
+              FileManager.default.fileExists(atPath: resources.appendingPathComponent("libMRAdapter.dylib").path) else {
+            fallbackActive = true
+            return
+        }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        p.arguments = [resources.appendingPathComponent("mr_run.pl").path,
+                       resources.appendingPathComponent("libMRAdapter.dylib").path]
+        let out = Pipe(), input = Pipe()
+        p.standardOutput = out
+        p.standardInput = input
+        p.standardError = FileHandle.nullDevice
+        out.fileHandleForReading.readabilityHandler = { [weak self] h in
+            let data = h.availableData
+            guard !data.isEmpty else { return }
+            DispatchQueue.main.async { self?.consume(data) }
+        }
+        p.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.adapterRunning = false
+                self.fallbackActive = true
+                // 재시작 (최대 60초 간격)
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.restartDelay) { self.startAdapter() }
+                self.restartDelay = min(60, self.restartDelay * 2)
+            }
+        }
+        do {
+            try p.run()
+            adapter = p
+            adapterInput = input.fileHandleForWriting
+            adapterRunning = true
+            fallbackActive = false
+        } catch {
+            fallbackActive = true
+        }
+    }
+
+    private func consume(_ data: Data) {
+        buffer.append(data)
+        while let nl = buffer.firstIndex(of: 0x0A) {
+            let line = buffer[buffer.startIndex..<nl]
+            buffer.removeSubrange(buffer.startIndex...nl)
+            guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
+            restartDelay = 1
+            handleAdapter(obj)
+        }
+    }
+
+    private func handleAdapter(_ o: [String: Any]) {
+        if o["error"] != nil { fallbackActive = true; return }
+        if let b64 = o["artwork"] as? String, let data = Data(base64Encoded: b64) {
+            setArtwork(data: data)
+        }
+        guard o["empty"] == nil, let title = o["title"] as? String, !title.isEmpty else {
+            if !fallbackActive { update(nil) }
+            return
+        }
+        let ts = (o["timestamp"] as? Double).map { Date(timeIntervalSince1970: $0) } ?? Date()
+        let np = NowPlaying(
+            title: title,
+            artist: o["artist"] as? String ?? "",
+            album: o["album"] as? String ?? "",
+            duration: o["duration"] as? Double ?? 0,
+            elapsed: o["elapsed"] as? Double ?? 0,
+            timestamp: ts,
+            rate: o["rate"] as? Double ?? 0,
+            playing: (o["playing"] as? Bool) ?? ((o["playing"] as? Int) == 1),
+            bundleID: o["bundle"] as? String
+        )
+        update(np)
+    }
+
+    // MARK: - 대체 경로 (Music / Spotify 분산 알림)
+
+    private func fallbackNotification(_ info: [AnyHashable: Any]?, bundle: String) {
+        guard fallbackActive || !adapterRunning, let info else { return }
+        let state = info["Player State"] as? String ?? ""
+        guard state != "Stopped", let title = info["Name"] as? String else {
+            if nowPlaying?.bundleID == bundle { update(nil) }
+            return
+        }
+        // Music은 Total Time(ms), Spotify는 Duration(ms)
+        let durationMS = (info["Total Time"] as? Double) ?? (info["Duration"] as? Double) ?? 0
+        let position = (info["Playback Position"] as? Double) ?? Self.scriptNumber(bundle: bundle, "player position") ?? 0
+        let np = NowPlaying(title: title, artist: info["Artist"] as? String ?? "", album: info["Album"] as? String ?? "",
+                            duration: durationMS / 1000, elapsed: position, timestamp: Date(),
+                            rate: state == "Playing" ? 1 : 0, playing: state == "Playing", bundleID: bundle)
+        update(np)
+        if lastArtworkTrack != np.trackKey { loadScriptArtwork(bundle: bundle, key: np.trackKey) }
+    }
+
+    /// 앨범아트 내려받기: HTTPS만, 5초 제한, 10MB 이하만 (백그라운드에서 호출)
+    private static func download(_ url: URL) -> Data? {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
+        request.httpShouldHandleCookies = false
+        let sem = DispatchSemaphore(value: 0)
+        var result: Data?
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            if (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count <= 10_000_000 { result = data }
+            sem.signal()
+        }.resume()
+        _ = sem.wait(timeout: .now() + 6)
+        return result
+    }
+
+    private func loadScriptArtwork(bundle: String, key: String) {
+        lastArtworkTrack = key
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            var artData: Data?
+            if bundle == "com.apple.Music" {
+                artData = Self.runScript("tell application id \"com.apple.Music\" to get raw data of artwork 1 of current track")?.data
+            } else if let url = Self.runScript("tell application id \"com.spotify.client\" to get artwork url of current track")?.stringValue,
+                      let u = URL(string: url), u.scheme == "https" {
+                artData = Self.download(u)
+            }
+            DispatchQueue.main.async { if let artData { self?.setArtwork(data: artData) } }
+        }
+    }
+
+    @discardableResult
+    static func runScript(_ source: String) -> NSAppleEventDescriptor? {
+        var error: NSDictionary?
+        return NSAppleScript(source: source)?.executeAndReturnError(&error)
+    }
+
+    private static func scriptNumber(bundle: String, _ property: String) -> Double? {
+        runScript("tell application id \"\(bundle)\" to get \(property)")?.doubleValue
+    }
+
+    // MARK: - 상태 반영
+
+    private func accepts(_ np: NowPlaying?) -> Bool {
+        guard let np, let wanted = settings.mediaSource.bundleID else { return true }
+        return np.bundleID == wanted
+    }
+
+    private func update(_ incoming: NowPlaying?) {
+        let np = accepts(incoming) ? incoming : nil
+        let trackChanged = np != nil && np?.trackKey != lastTrackKey
+        nowPlaying = np
+        if let np { lastTrackKey = np.trackKey }
+        if trackChanged || np?.bundleID != "com.apple.Music" { refreshFavorite() }
+        publishActivity(trackChanged: trackChanged)
+    }
+
+    /// 앨범아트: 디코딩 → 600px로 축소 → 평균색. 모두 vImage로 처리 (CoreGraphics draw 누수 회피).
+    private func setArtwork(data: Data) {
+        let decoded: (CGImage, Color)? = autoreleasepool {
+            guard let full = ImageScaler.decode(data), let small = ImageScaler.scaled(full, maxPixels: 600) else { return nil }
+            return (small, Self.accentColor(small))
+        }
+        guard let (cg, color) = decoded else { return }
+        let image = NSImage(cgImage: cg, size: NSSize(width: CGFloat(cg.width) / 2, height: CGFloat(cg.height) / 2))
+        artwork = image
+        accent = color
+        artworkDate = Date()
+        publishActivity(trackChanged: false)
+        // 이미 떠 있는 곡 변경 팝업도 새 아트·색으로 맞춘다
+        center.update(.media) {
+            $0.tint = color
+            $0.artwork = image
+        }
+        // 새 아트를 기다리던 곡 변경 팝업이 있으면 지금 띄운다
+        if let work = trackPopupWork {
+            work.cancel()
+            trackPopupWork = nil
+            postTrackPopup()
+        }
+    }
+
+    private func publishActivity(trackChanged: Bool) {
+        hideWork?.cancel()
+        guard let np = nowPlaying else {
+            center.removePersistent(.media)
+            return
+        }
+        center.setPersistent(NotchActivity(
+            kind: .media, priority: ActivityPriority.media,
+            symbol: "music.note", tint: accent,
+            value: .waveform(np.playing),
+            title: np.title, subtitle: np.artist,
+            wing: 46, artwork: artwork
+        ))
+        if trackChanged, settings.mediaShowTrackChange, np.playing {
+            trackPopupWork?.cancel()
+            trackPopupWork = nil
+            if Date().timeIntervalSince(artworkDate) < 0.4 {
+                // 새 곡 정보와 함께 아트가 방금 도착함 → 바로 띄운다
+                postTrackPopup()
+            } else {
+                // 아트가 따로 늦게 오는 경우: 이전 곡 아트·색으로 뜨지 않게 잠깐(최대 0.8초) 기다린다
+                let work = DispatchWorkItem { [weak self] in
+                    self?.trackPopupWork = nil
+                    self?.postTrackPopup()
+                }
+                trackPopupWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+            }
+        }
+        // 일시정지 후 N초 뒤 숨김
+        if !np.playing, settings.mediaHideAfterPause > 0 {
+            let work = DispatchWorkItem { [weak self] in
+                guard self?.nowPlaying?.playing == false else { return }
+                self?.center.removePersistent(.media)
+            }
+            hideWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + settings.mediaHideAfterPause, execute: work)
+        }
+    }
+
+    private func postTrackPopup() {
+        guard let np = nowPlaying, np.playing else { return }
+        center.post(NotchActivity(
+            kind: .media, priority: ActivityPriority.media, presentation: .detail, duration: 2.2,
+            symbol: "music.note", tint: accent, value: .waveform(true),
+            title: np.title, subtitle: np.artist, detailValue: .waveform(true), artwork: artwork
+        ))
+    }
+
+    /// 파형·강조에 쓸 앨범아트 평균색. 너무 어두우면 파형이 안 보이므로 밝기를 올린다.
+    static func accentColor(_ image: CGImage) -> Color {
+        guard let avg = ImageScaler.averageColor(image) else { return .white }
+        let c = NSColor(red: avg.r, green: avg.g, blue: avg.b, alpha: 1)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        c.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return Color(hue: h, saturation: min(s, 0.8), brightness: max(b, 0.75))
+    }
+
+    // MARK: - 제어
+
+    func togglePlayPause() { command("toggle", script: "playpause", mediaKey: 16) }
+    func next() {
+        skipDirection = 1
+        skipToken &+= 1
+        command("next", script: "next track", mediaKey: 17)
+    }
+
+    func previous() {
+        skipDirection = -1
+        skipToken &+= 1
+        command("prev", script: "previous track", mediaKey: 18)
+    }
+
+    func seek(to seconds: Double) {
+        if let bundle = nowPlaying?.bundleID, ["com.apple.Music", "com.spotify.client"].contains(bundle) {
+            DispatchQueue.global().async { Self.runScript("tell application id \"\(bundle)\" to set player position to \(seconds)") }
+        } else {
+            send("seek \(seconds)")
+        }
+        if var np = nowPlaying {
+            np.elapsed = seconds
+            np.timestamp = Date()
+            nowPlaying = np
+        }
+    }
+
+    // MARK: - 즐겨찾기 (Apple Music)
+
+    /// Apple Music 현재 곡의 즐겨찾기 상태를 다시 읽는다 (곡이 바뀔 때, 음악 팝업을 열 때).
+    func refreshFavorite() {
+        guard nowPlaying?.bundleID == "com.apple.Music" else {
+            if favorited != nil { favorited = nil }
+            return
+        }
+        let key = lastTrackKey
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let value = Self.readFavorite()
+            DispatchQueue.main.async {
+                // 읽는 사이 곡이 바뀌었으면 버린다
+                guard let self, self.lastTrackKey == key, self.nowPlaying?.bundleID == "com.apple.Music" else { return }
+                let v = value ?? false
+                if self.favorited != v { self.favorited = v }
+            }
+        }
+    }
+
+    /// macOS 14+ Music은 favorited, 이전 버전은 loved
+    private static func readFavorite() -> Bool? {
+        (runScript("tell application id \"com.apple.Music\" to get favorited of current track")
+            ?? runScript("tell application id \"com.apple.Music\" to get loved of current track"))?.booleanValue
+    }
+
+    func toggleFavorite() {
+        guard let current = favorited else { return }
+        favorited = !current   // 바로 반영하고, 실제 값으로 다시 맞춘다
+        let key = lastTrackKey
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let v = current ? "false" : "true"
+            if Self.runScript("tell application id \"com.apple.Music\" to set favorited of current track to \(v)") == nil {
+                Self.runScript("tell application id \"com.apple.Music\" to set loved of current track to \(v)")
+            }
+            let actual = Self.readFavorite()
+            DispatchQueue.main.async {
+                guard let self, self.lastTrackKey == key, let actual else { return }
+                if self.favorited != actual { self.favorited = actual }
+            }
+        }
+    }
+
+    func openSourceApp() {
+        guard let id = nowPlaying?.bundleID,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+    }
+
+    /// Music/Spotify는 AppleScript, 그 외는 어댑터 명령. 어댑터가 없으면 미디어 키를 보낸다.
+    private func command(_ adapterCommand: String, script: String, mediaKey: Int) {
+        if let bundle = nowPlaying?.bundleID, ["com.apple.Music", "com.spotify.client"].contains(bundle) {
+            DispatchQueue.global().async { Self.runScript("tell application id \"\(bundle)\" to \(script)") }
+        } else if adapterRunning {
+            send(adapterCommand)
+        } else {
+            Self.postMediaKey(mediaKey)
+        }
+    }
+
+    private func send(_ line: String) {
+        // 어댑터가 막 끝난 경우에도 앱이 죽지 않게 예외를 던지는 쓰기를 쓴다 (SIGPIPE는 main.swift에서 무시)
+        try? adapterInput?.write(contentsOf: Data((line + "\n").utf8))
+    }
+
+    /// NX_KEYTYPE_PLAY(16) / NEXT(17) / PREVIOUS(18) 키 이벤트를 합성한다.
+    static func postMediaKey(_ key: Int) {
+        for down in [true, false] {
+            let flags = NSEvent.ModifierFlags(rawValue: down ? 0xA00 : 0xB00)
+            let data1 = (key << 16) | ((down ? 0xA : 0xB) << 8)
+            NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
+                               windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)?
+                .cgEvent?.post(tap: .cghidEventTap)
+        }
+    }
+}

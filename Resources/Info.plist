@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Dynamic MacNotch</string>
+	<key>CFBundleExecutable</key>
+	<string>DynamicMacNotch</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.dynamicmacnotch.app</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ko</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>Dynamic MacNotch</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSArchitecturePriority</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Used to read and control playback in Apple Music and Spotify.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Used to show Bluetooth accessory connections and battery levels.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Used to show today's events in the notch.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Used to show today's events in the notch.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used for the camera (mirror) in the notch.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Used to save and detect screenshots.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Used to show browser download progress.</string>
+	<key>NSFocusStatusUsageDescription</key>
+	<string>Used to show in the notch when a Focus turns on or off.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSLocationUsageDescription</key>
+	<string>Used to show the name (SSID) of the connected Wi-Fi network.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to show the name (SSID) of the connected Wi-Fi network.</string>
+</dict>
+</plist>

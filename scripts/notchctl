@@ -1,0 +1,5 @@
+#!/bin/bash
+# 개발용: 실행 중인 Dynamic MacNotch(개발 빌드: scripts/build.sh --dev)에 테스트 명령을 보낸다.
+# Dev only: send a test command to a running dev build (scripts/build.sh --dev).
+# 예 / e.g.: scripts/notchctl home | collapse | media | volume | charger | low | wifi | lock | unlock
+exec /usr/bin/swift -e 'import Foundation; DistributedNotificationCenter.default().postNotificationName(.init("com.dynamicmacnotch.app.command"), object: CommandLine.arguments[1], userInfo: nil, deliverImmediately: true)' "$1"

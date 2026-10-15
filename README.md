@@ -1,0 +1,301 @@
+# Dynamic MacNotch
+
+**Turn your MacBook's notch into a Dynamic Island.**
+Live activities, media controls, HUDs, alerts, a file tray and more — all animated in and around the notch.
+
+[한국어 설명은 아래에 있습니다 ↓](#한국어)
+
+---
+
+## Requirements
+
+| | |
+|---|---|
+| **Mac** | Apple Silicon (M1 or later: M1 · M2 · M3 · M4 and their Pro/Max/Ultra variants) |
+| **macOS** | macOS 14 Sonoma or later (Sonoma 14, Sequoia 15, Tahoe 26 and newer) |
+| **Display** | Best on MacBooks with a notch (14"/16" MacBook Pro 2021+, MacBook Air 2022+). Macs without a notch (M1 MacBook Air/Pro 13", iMac, Mac mini, Mac Studio, external displays) get a virtual notch centered in the menu bar. |
+| **Intel Macs** | Not supported (the build is arm64 only). |
+
+## Installation
+
+1. Download `Dynamic-MacNotch-x.y.z.zip` from [Releases](https://github.com/tjehddnr2864-hue/Dynamic-MacNotch/releases) and unzip it.
+2. Move **Dynamic MacNotch.app** to your **Applications** folder.
+3. The app is ad-hoc signed and not notarized by Apple, so macOS blocks it the first time:
+   - Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**, **or**
+   - run `xattr -dr com.apple.quarantine "/Applications/Dynamic MacNotch.app"` in Terminal.
+4. On first launch the **Welcome / Permissions** window opens. Allow the permissions for the features you want (see below).
+
+To verify the download, compare it with the `.sha256` file attached to the release: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`.
+
+### Updating
+Quit the app (right-click the notch → **Quit Dynamic MacNotch**), replace the app in Applications, and open it again.
+If Accessibility or Input Monitoring stop working after an update, remove Dynamic MacNotch from that list in System Settings (−) and allow it again.
+
+## Permissions
+
+Every permission is optional — without one, only the matching feature turns off. Manage them anytime from **right-click the notch → Permissions…**.
+
+| Permission | Used for |
+|---|---|
+| Accessibility | Replacing the volume/brightness HUD, stopping screen recordings, detecting file drags |
+| Input Monitoring | Intercepting the brightness and volume keys |
+| Screen & System Audio Recording | Detecting that the screen is being recorded |
+| Camera | The camera mirror on the Home screen (off until you click it) |
+| Calendars (Full Access) | Today's events and upcoming-event alerts |
+| Bluetooth | Accessory connections and battery levels |
+| Location Services | Showing the connected Wi-Fi name (macOS requires this for SSIDs) |
+| Automation (Music, Spotify) | Media control, favorites, lyrics |
+| Focus Status | Showing when a Focus turns on/off |
+| Full Disk Access | Showing the Focus *name and icon* (Work, Sleep, …) |
+| Files & Folders | Watching Downloads, saving screenshots to Desktop |
+| Open at Login | Starting automatically when you log in |
+
+## How it works & how to use it
+
+### The notch
+The notch has four states and morphs between them with spring animations:
+
+- **Idle** — looks like the normal notch (it grows slightly on hover, optional).
+- **Compact** — widens left and right: an icon on the left, a value on the right (e.g. 🔋 `82%`).
+- **Detail** — a larger card under the notch with a title and subtitle, used for important alerts.
+- **Expanded** — the Home screen or a full popup (music, timer, download…).
+
+When two compact alerts follow each other, the notch briefly tucks in and comes back out with the new one.
+
+### Gestures
+| Action | Result |
+|---|---|
+| **Long-press** the notch (default 0.35 s) | Opens Home, or the popup of the activity currently shown (e.g. the music player) |
+| **Force click** (Force Touch trackpad) | Opens immediately |
+| **Click** a compact activity | Opens its app or page (battery → Battery settings, timer → timer, …) |
+| **Two-finger swipe left/right** while open | Switches Home pages (or click the dots under the notch) |
+| **Two-finger swipe up** while open | Closes |
+| **Two-finger swipe up / down** on a compact live activity | Hides / shows live activities |
+| **Right-click** the notch | Menu: Open Home, Settings, Permissions, Preview alerts, Restart, Quit |
+| **Hover** | Optional: grow slightly, or open on hover (Settings → Interaction) |
+
+### Home (4 pages)
+1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it and turns off when the notch closes.
+2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
+3. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts.
+4. **AirDrop · Tray**
+   - **Click** the AirDrop or Tray box to choose files; **or drag files** onto the notch — while dragging, the boxes only act as drop zones.
+   - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
+   - Tray files: click / ⌘-click / ⇧-click to select, double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
+   - Options: keep copies in the tray, auto-clean after 1 or 7 days.
+
+### Music
+- Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Activities).
+- **Compact**: album art on the left, an animated waveform tinted by the artwork on the right.
+- **Song change**: a short card with the new song (optional).
+- **Player** (long-press while music shows):
+  - Scrolling title, artist, waveform; click the artwork to open the source app.
+  - Progress bar: drag to seek. Hovering makes it slightly thicker; while you hold it, it grows and the times slide outward.
+  - Previous / Play-Pause / Next — the artwork flips to the new song (opposite directions for next/previous).
+  - ⭐ **Favorite** — synced with Apple Music's Favorite.
+  - **Output** icon (MacBook speakers, headphones, AirPods, display, AirPlay…): **click** to pick an output (paired Bluetooth headphones that aren't connected are listed too and get connected); **long-press** to show a volume bar under the controls.
+- Hides N seconds after pausing (optional).
+
+### System HUD replacement
+Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
+
+### Alerts
+- **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard), personal hotspot (can stay pinned), and a card when every network is lost.
+- **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
+- **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
+- **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable).
+- **Downloads** — progress for Safari, Chrome and Firefox downloads in Downloads (plus extra folders you add); a **Show in Finder** button when done.
+- **AirDrop** — sending progress and result; an alert when files arrive.
+- **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
+- **Screen recording** — a pulsing red dot while the screen is recorded; long-press for a Stop button.
+
+Every alert can be **compact or detailed**, and durations are configurable.
+
+### Live activity priority
+When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → General → Live Activity Priority** is shown. Drag to reorder.
+
+### Lock screen
+- Locking shows a padlock in the notch; unlocking swings the shackle open.
+- While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Song info can be hidden. The widget is hidden while the screen saver runs.
+
+### Language
+Korean and English. Settings → General → Language (System default / 한국어 / English), then **Restart Now**.
+
+## Privacy
+
+- No analytics, no accounts, no tracking. Settings and tray items stay on your Mac.
+- Network access only happens for:
+  - **Live lyrics** (off by default): the song title, artist and album are sent to [LRCLIB](https://lrclib.net).
+  - **Spotify artwork**: the cover image URL that Spotify provides (HTTPS only).
+- Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist` and `~/Library/Application Support/Dynamic MacNotch/`. Delete both to reset.
+
+## Notes & limitations
+
+- Some features use private macOS APIs (lock screen windows, now-playing info, brightness, keyboard backlight). They are loaded dynamically and fail safely, but may stop working after a macOS update.
+- AirPods listening modes (noise cancellation / transparency) can't be read by third-party apps on macOS.
+- The app is not sandboxed (it needs system-wide key and window access) and is not notarized.
+
+## Building from source
+
+Requires Xcode Command Line Tools (Swift 5.10+) on an Apple Silicon Mac.
+
+```bash
+git clone https://github.com/tjehddnr2864-hue/Dynamic-MacNotch.git
+cd Dynamic-MacNotch
+scripts/build.sh --run            # build/Dynamic MacNotch.app
+scripts/build.sh --zip            # + release zip and SHA-256
+scripts/build.sh --install --run  # install to /Applications
+```
+
+`--dev` builds a development version that also accepts test commands from `scripts/notchctl` (never ship it).
+
+
+---
+
+<a id="한국어"></a>
+# 한국어
+
+**맥북 노치를 다이내믹 아일랜드처럼.**
+라이브 액티비티, 음악 제어, HUD, 알림, 파일 트레이 등이 노치 안팎에서 애니메이션으로 나타납니다.
+
+## 지원 사양
+
+| | |
+|---|---|
+| **Mac** | Apple Silicon (M1 이상: M1 · M2 · M3 · M4 및 Pro/Max/Ultra) |
+| **macOS** | macOS 14 Sonoma 이상 (Sonoma 14, Sequoia 15, Tahoe 26 이후) |
+| **화면** | 노치가 있는 맥북(14·16형 MacBook Pro 2021 이후, MacBook Air 2022 이후)에 최적화. 노치가 없는 Mac(M1 MacBook Air/Pro 13형, iMac, Mac mini, Mac Studio, 외장 모니터)에서는 메뉴바 가운데에 가상 노치로 동작합니다. |
+| **Intel Mac** | 지원하지 않습니다 (arm64 전용 빌드). |
+
+## 설치
+
+1. [Releases](https://github.com/tjehddnr2864-hue/Dynamic-MacNotch/releases)에서 `Dynamic-MacNotch-x.y.z.zip`을 받아 압축을 풉니다.
+2. **Dynamic MacNotch.app**을 **응용 프로그램** 폴더로 옮깁니다.
+3. Apple 공증을 받지 않은 애드혹 서명 앱이라 처음에는 macOS가 실행을 막습니다.
+   - 한 번 실행한 뒤 **시스템 설정 → 개인정보 보호 및 보안**에서 **그래도 열기**를 누르거나,
+   - 터미널에서 `xattr -dr com.apple.quarantine "/Applications/Dynamic MacNotch.app"`을 실행하세요.
+4. 처음 실행하면 **환영 / 권한 관리** 창이 열립니다. 쓰려는 기능의 권한을 허용하세요.
+
+받은 파일은 릴리스에 함께 올린 `.sha256` 값과 비교해 확인할 수 있습니다: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`
+
+### 업데이트
+노치 우클릭 → **Dynamic MacNotch 종료** 후 응용 프로그램 폴더의 앱을 새 버전으로 바꾸고 다시 실행합니다.
+업데이트 후 손쉬운 사용·입력 모니터링이 허용돼 있는데도 동작하지 않으면, 시스템 설정의 해당 목록에서 Dynamic MacNotch를 지우고(−) 다시 허용하세요.
+
+## 권한
+
+모든 권한은 선택 사항이며, 없으면 해당 기능만 꺼집니다. **노치 우클릭 → 권한 관리…**에서 언제든 바꿀 수 있습니다.
+
+| 권한 | 쓰는 곳 |
+|---|---|
+| 손쉬운 사용 | 음량·밝기 HUD 대체, 화면 녹화 정지, 파일 드래그 감지 |
+| 입력 모니터링 | 밝기·음량 키 가로채기 |
+| 화면 및 시스템 오디오 녹음 | 화면 녹화 중인지 감지 |
+| 카메라 | 홈 화면의 카메라 거울 (누르기 전까지 꺼져 있음) |
+| 캘린더(전체 접근) | 오늘 일정, 일정 시작 전 알림 |
+| 블루투스 | 액세서리 연결·배터리 표시 |
+| 위치 서비스 | 연결된 Wi-Fi 이름 표시 (macOS가 SSID에 요구) |
+| 자동화(Music, Spotify) | 미디어 제어, 즐겨찾기, 가사 |
+| 집중 모드 상태 | 집중 모드 켜짐/꺼짐 표시 |
+| 전체 디스크 접근 | 집중 모드 *이름·아이콘*(업무, 수면 등) 표시 |
+| 파일 및 폴더 | 다운로드 폴더 감시, 데스크탑에 스크린샷 저장 |
+| 로그인 시 실행 | 로그인하면 자동 실행 |
+
+## 기능과 사용법
+
+### 노치
+노치는 네 가지 상태를 스프링 애니메이션으로 오갑니다.
+
+- **기본** — 평소 노치 모양 (커서를 올리면 살짝 커짐, 선택).
+- **컴팩트** — 좌우로 넓어져 왼쪽에 아이콘, 오른쪽에 값을 보여 줍니다 (예: 🔋 `82%`).
+- **상세** — 노치 아래로 커진 카드에 제목과 설명. 중요한 알림에 씁니다.
+- **확장** — 홈 화면 또는 음악·타이머·다운로드 등의 팝업.
+
+컴팩트 알림이 연달아 오면 노치가 잠깐 들어갔다가 새 알림으로 다시 나옵니다.
+
+### 조작
+| 동작 | 결과 |
+|---|---|
+| 노치를 **길게 누르기** (기본 0.35초) | 홈 화면, 또는 지금 표시 중인 활동의 팝업(예: 음악 플레이어) 열기 |
+| **깊게 누르기** (포스터치 트랙패드) | 바로 열기 |
+| 컴팩트 활동 **클릭** | 해당 앱·화면 열기 (배터리 → 배터리 설정, 타이머 → 타이머 등) |
+| 열린 상태에서 **두 손가락 좌우 쓸기** | 홈 페이지 넘기기 (노치 아래 점을 눌러도 됨) |
+| 열린 상태에서 **두 손가락 위로 쓸기** | 닫기 |
+| 컴팩트 라이브 활동 위에서 **두 손가락 위 / 아래** | 라이브 활동 숨기기 / 다시 보이기 |
+| 노치 **우클릭** | 메뉴: 홈 열기, 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
+| **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 상호작용) |
+
+### 홈 (4페이지)
+1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 노치를 닫으면 꺼집니다.
+2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
+3. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택).
+4. **에어드랍 · 트레이**
+   - 에어드랍·트레이 칸을 **클릭**해 파일을 고르거나, 파일을 노치로 **끌어다 놓습니다**. 끄는 동안에는 칸이 놓는 곳으로만 동작합니다.
+   - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
+   - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
+   - 옵션: 트레이에 복사본 보관, 1일·7일 뒤 자동 정리.
+
+### 음악
+- **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 활동).
+- **컴팩트**: 왼쪽 앨범아트, 오른쪽에 앨범아트 색의 파형.
+- **곡 변경**: 새 곡을 잠깐 크게 보여 줍니다 (선택).
+- **플레이어** (음악 표시 중 길게 누르기):
+  - 흐르는 제목, 아티스트, 파형. 앨범아트를 누르면 재생 중인 앱이 열립니다.
+  - 재생 바: 끌어서 이동. 커서를 올리면 살짝 굵어지고, 누른 채 조절하면 커지며 양옆 시간이 밀려납니다.
+  - 이전 / 재생·일시정지 / 다음 — 앨범아트가 돌아가며 새 곡으로 바뀝니다 (다음·이전은 반대 방향).
+  - ⭐ **즐겨찾기** — Apple Music의 즐겨찾기와 연동.
+  - **출력 기기** 아이콘(맥북 스피커, 헤드폰, AirPods, 디스플레이, AirPlay 등): **클릭**하면 출력 기기 선택(연결이 끊긴 블루투스 헤드폰도 목록에 나오고 고르면 연결), **길게 누르면** 아래에 음량 바가 펼쳐집니다.
+- 일시정지 후 N초 뒤 숨기기 (선택).
+
+### 시스템 HUD 대체
+음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
+
+### 알림
+- **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
+- **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
+- **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
+- **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능).
+- **다운로드** — 다운로드 폴더(추가 폴더 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
+- **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
+- **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
+- **화면 녹화** — 녹화 중 빨간 점이 깜빡이고, 길게 누르면 정지 버튼.
+
+모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다.
+
+### 라이브 활동 우선순위
+여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 일반 → 상시 표시 우선순위**에서 위에 있는 것이 표시됩니다. 끌어서 순서를 바꿉니다.
+
+### 잠금화면
+- 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.
+- 음악 재생 중에는 프로필 사진·암호 입력란 위에 **미디어 위젯**이 뜹니다. 앨범아트를 누르면 전체화면 플레이어(앨범아트, 조작 버튼, **가사**: Apple Music, LRCLIB 실시간 가사는 선택)로 커집니다. 곡 정보 숨기기 가능. 화면 보호기가 도는 동안에는 숨겨집니다.
+
+### 언어
+한국어와 영어. 설정 → 일반 → 언어(시스템 설정 따름 / 한국어 / English) 선택 후 **지금 다시 시작**.
+
+## 개인정보
+
+- 분석·계정·추적이 없습니다. 설정과 트레이 항목은 내 Mac에만 저장됩니다.
+- 네트워크는 다음 경우에만 씁니다.
+  - **실시간 가사**(기본 꺼짐): 곡 제목·아티스트·앨범을 [LRCLIB](https://lrclib.net)로 보냅니다.
+  - **Spotify 앨범아트**: Spotify가 알려 주는 표지 이미지 주소(HTTPS만).
+- 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`. 둘 다 지우면 초기화됩니다.
+
+## 참고 및 제한
+
+- 일부 기능(잠금화면 창, 재생 정보, 밝기, 키보드 백라이트)은 macOS 비공개 API를 씁니다. 동적으로 불러와 실패해도 앱이 멈추지 않지만, macOS 업데이트 후 동작하지 않을 수 있습니다.
+- AirPods 듣기 모드(노이즈 캔슬링·주변음 허용)는 macOS에서 다른 앱이 읽을 수 없어 지원하지 않습니다.
+- 시스템 전체의 키·창 접근이 필요해 샌드박스가 아니며, 공증되지 않았습니다.
+
+## 소스에서 빌드
+
+Apple Silicon Mac과 Xcode Command Line Tools(Swift 5.10 이상)가 필요합니다.
+
+```bash
+git clone https://github.com/tjehddnr2864-hue/Dynamic-MacNotch.git
+cd Dynamic-MacNotch
+scripts/build.sh --run            # build/Dynamic MacNotch.app
+scripts/build.sh --zip            # + 배포용 zip과 SHA-256
+scripts/build.sh --install --run  # /Applications 에 설치
+```
+
+`--dev`는 `scripts/notchctl` 테스트 명령을 받는 개발용 빌드입니다 (배포하지 마세요).

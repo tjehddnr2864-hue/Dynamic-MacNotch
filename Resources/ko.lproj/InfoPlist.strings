@@ -1,0 +1,11 @@
+"NSAppleEventsUsageDescription" = "Apple Music과 Spotify의 재생 정보를 가져오고 제어하는 데 사용합니다.";
+"NSBluetoothAlwaysUsageDescription" = "블루투스 액세서리 연결과 배터리를 표시하는 데 사용합니다.";
+"NSCalendarsFullAccessUsageDescription" = "노치에 오늘 일정을 표시하는 데 사용합니다.";
+"NSCalendarsUsageDescription" = "노치에 오늘 일정을 표시하는 데 사용합니다.";
+"NSCameraUsageDescription" = "노치의 카메라(거울) 기능에 사용합니다.";
+"NSDesktopFolderUsageDescription" = "스크린샷을 저장하고 감지하는 데 사용합니다.";
+"NSDownloadsFolderUsageDescription" = "브라우저 다운로드 진행률을 표시하는 데 사용합니다.";
+"NSFocusStatusUsageDescription" = "집중 모드가 켜지고 꺼질 때 노치에 표시하는 데 사용합니다.";
+"NSLocationUsageDescription" = "연결된 Wi-Fi 이름(SSID)을 표시하는 데 사용합니다.";
+"NSLocationWhenInUseUsageDescription" = "연결된 Wi-Fi 이름(SSID)을 표시하는 데 사용합니다.";
+"CFBundleDisplayName" = "Dynamic MacNotch";
