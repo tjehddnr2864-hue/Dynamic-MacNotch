@@ -411,7 +411,7 @@ struct AXControl {
                     }
                 } else if found.end == nil, matches(text, endWords) { found.end = AXControl(element: el, action: kAXPressAction) }
             } else if found.caller == nil, let desc = rawDescription(el), let caller = Self.callerName(from: desc) {
-                // 통화 배너의 상대 칸: "홍길동, iPhone으로부터 전달됨" / "‪1588-3819‬, iPhone으로부터 전달됨 - 0:12"
+                // 통화 배너의 상대 칸: "홍길동, iPhone으로부터 전달됨" / "‪010-0000-0000‬, iPhone으로부터 전달됨 - 0:12"
                 found.caller = caller
             }
             // 알림 배너의 사용자 정의 동작 (예: "수락", "거절")
