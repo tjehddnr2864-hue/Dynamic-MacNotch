@@ -156,6 +156,10 @@ struct ActivityLeading: View {
                 .frame(width: size * 0.5, height: size * 0.66)
         } else if activity.kind == .recording {
             RecordingDot()   // 화면 녹화: 좌측 박동하는 빨간 점
+        } else if activity.kind == .call, let since = activity.startDate {
+            // 통화 중: 왼쪽에 통화 시간
+            CallDurationText(since: since, font: NotchActivity.compactSmallNumberFont)
+                .fixedSize()
         } else if let battery = activity.battery {
             BatteryGlyph(info: battery, tint: activity.tint, width: size * 1.15)
         } else if let art = activity.artwork {

@@ -144,7 +144,7 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Published var persistentOrder: [String] { didSet { save(persistentOrder, "persistentOrder") } }
-    static let defaultPersistentOrder = ["recording", "timer", "airdrop", "download", "media", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "hotspot", "focusPinned"]
 
     // 미디어 (5.7)
     @Published var mediaSource: MediaSource { didSet { save(mediaSource.rawValue, "mediaSource") } }
@@ -175,6 +175,7 @@ final class AppSettings: ObservableObject {
 
     // 화면 녹화·카메라·캘린더
     @Published var recordingEnabled: Bool { didSet { save(recordingEnabled, "recordingEnabled") } }
+    @Published var callEnabled: Bool { didSet { save(callEnabled, "callEnabled") } }
     @Published var cameraMirror: Bool { didSet { save(cameraMirror, "cameraMirror") } }
     /// 일정 시작 N분 전 알림 (0 = 끄기)
     @Published var calendarAlertMinutes: Double { didSet { save(calendarAlertMinutes, "calendarAlertMinutes") } }
@@ -253,8 +254,9 @@ final class AppSettings: ObservableObject {
         batteryStyle = AlertStyle(rawValue: value("batteryStyle", "")) ?? .compact
         let savedOrder: [String] = value("persistentOrder", AppSettings.defaultPersistentOrder)
         // 새로 생긴 항목은 기본 순서대로 뒤에 붙인다.
-        persistentOrder = savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
-            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) }
+        persistentOrder = (savedOrder.contains("call") ? [] : ["call"])   // 통화는 기존 사용자도 맨 위로
+            + savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
+            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) && $0 != "call" }
 
         lockNotchEnabled = value("lockNotchEnabled", true)
         lockMediaWidget = value("lockMediaWidget", true)
@@ -284,6 +286,7 @@ final class AppSettings: ObservableObject {
         screenshotAutoClose = value("screenshotAutoClose", 10.0)
 
         recordingEnabled = value("recordingEnabled", true)
+        callEnabled = value("callEnabled", true)
         cameraMirror = value("cameraMirror", true)
         calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
     }
@@ -348,8 +351,9 @@ final class AppSettings: ObservableObject {
         batteryStyle = AlertStyle(rawValue: value("batteryStyle", "")) ?? .compact
         let savedOrder: [String] = value("persistentOrder", AppSettings.defaultPersistentOrder)
         // 새로 생긴 항목은 기본 순서대로 뒤에 붙인다.
-        persistentOrder = savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
-            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) }
+        persistentOrder = (savedOrder.contains("call") ? [] : ["call"])   // 통화는 기존 사용자도 맨 위로
+            + savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
+            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) && $0 != "call" }
 
         lockNotchEnabled = value("lockNotchEnabled", true)
         lockMediaWidget = value("lockMediaWidget", true)
@@ -379,6 +383,7 @@ final class AppSettings: ObservableObject {
         screenshotAutoClose = value("screenshotAutoClose", 10.0)
 
         recordingEnabled = value("recordingEnabled", true)
+        callEnabled = value("callEnabled", true)
         cameraMirror = value("cameraMirror", true)
         calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
     }

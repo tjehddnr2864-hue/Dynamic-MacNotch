@@ -354,6 +354,12 @@ final class NotchController: NotchGestureDelegate {
             guard abs(scrollAccum.height) > abs(scrollAccum.width) * 1.5 else { return }
             let fingerUp = natural ? -scrollAccum.height : scrollAccum.height
             let center = vm.center
+            // 상세(확장) 알림 위로 올리기: 알림만 올려 보낸다 (전화 수신이면 거절이 아니라 접기)
+            if fingerUp > 30, vm.state == .detail, center.transient != nil {
+                if let handler = vm.onDetailSwipeUp { withAnimation(vm.closeSpring) { handler() } }
+                Haptics.perform()
+                return
+            }
             if fingerUp > 30, center.transient == nil, center.topPersistent != nil {
                 withAnimation(vm.closeSpring) { center.setPersistentHidden(true) }
                 Haptics.perform()

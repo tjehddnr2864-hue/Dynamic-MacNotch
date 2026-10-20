@@ -84,6 +84,7 @@ struct SettingsView: View {
 
     static func persistentName(_ key: String) -> String {
         switch key {
+        case "call": return T("통화", "Phone Call")
         case "recording": return T("화면 녹화", "Screen Recording")
         case "timer": return T("타이머", "Timer")
         case "airdrop": return T("에어드랍 전송", "AirDrop Transfer")
@@ -97,6 +98,7 @@ struct SettingsView: View {
 
     static func persistentSymbol(_ key: String) -> String {
         switch key {
+        case "call": return "phone.fill"
         case "recording": return "record.circle"
         case "timer": return "timer"
         case "airdrop": return "airplayaudio"
@@ -295,6 +297,7 @@ struct SettingsView: View {
             }
             Section(T("기타", "Other")) {
                 Toggle(T("화면 녹화 표시", "Show screen recording"), isOn: $settings.recordingEnabled)
+                Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)
                 Toggle(T("카메라 좌우 반전(거울)", "Mirror camera"), isOn: $settings.cameraMirror)
                 Picker(T("일정 알림", "Event Alerts"), selection: $settings.calendarAlertMinutes) {
                     Text(T("끄기", "Off")).tag(0.0)

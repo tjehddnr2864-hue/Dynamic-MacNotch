@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var tray = TrayStore(center: center)
     private lazy var screenshot = ScreenshotMonitor(center: center)
     private lazy var recording = RecordingMonitor(center: center)
+    private lazy var call = CallMonitor(center: center)
     private lazy var calendar = CalendarController(center: center)
 
     private var notch: NotchController?
@@ -28,11 +29,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar)
+        let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar, call: call)
         let root = NotchRootView(vm: vm, timer: timer, battery: battery, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
         vm.onMediaSwipe = { [weak self] forward in forward ? self?.media.next() : self?.media.previous() }
+        vm.onDetailSwipeUp = { [weak self] in
+            guard let self else { return }
+            if self.center.transient?.kind == .call { self.call.minimizeIncoming() } else { self.center.dismissTransient() }
+        }
         notch = NotchController(
             vm: vm,
             rootView: root,
@@ -72,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         downloads.start()
         screenshot.start()
         recording.start()
+        call.start()
         calendar.start()
 
         settings.$showStatusItem
@@ -134,6 +140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "permissions": self.showPermissions(onboarding: false)
             case "closewin": self.closeHelper()
             case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
+            case let c where c.hasPrefix("call:"): self.call.debugSimulate(String(c.dropFirst(5)))   // 개발용: 가짜 통화
+            case let c where c.hasPrefix("inject:"):   // 개발용: 가짜 재생 보고 → 결과를 로그 파일에
+                self.media.debugInject(String(c.dropFirst(7)))
+                let line = "\(c) => \(self.media.debugState)\n"
+                let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-media.txt")
+                if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+                else { try? line.write(to: url, atomically: true, encoding: .utf8) }
             case "focuson": self.focus.debugPreview(on: true)    // 개발용: 집중 모드 알림 미리보기
             case "focusoff": self.focus.debugPreview(on: false)
             case "pick": FilePicker.choose(.tray) { self.tray.add($0) }   // 개발용: 트레이 파일 선택 창
@@ -236,6 +249,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             downloads.revealLastCompleted()
         case .recording:
             vm.expand(page: .activity(.recording))
+        case .call:
+            // 접어 둔 수신 표시를 누르면 다시 카드로, 통화 중이면 통화 팝업
+            if case .incoming = call.state { call.expandIncoming() } else { vm.expand(page: .activity(.call)) }
         case .airdrop:
             if let url = activity.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .screenshot:
