@@ -42,6 +42,8 @@ final class NotchViewModel: ObservableObject {
     @Published var hasPhysicalNotch = true
     @Published private(set) var isExpanded = false
     @Published var expandedPage: ExpandedPage = .home
+    /// 상세 알림 위에서 두 손가락으로 위로 올렸을 때 (전화 수신 카드는 접기, 그 밖은 닫기)
+    var onDetailSwipeUp: (() -> Void)?
     /// 음악 팝업 아래에 음량 줄을 펼쳤는지 (출력 기기 아이콘을 길게 눌러 토글)
     @Published private(set) var mediaVolumeShown = false
     /// 음량 줄이 더하는 높이
@@ -180,6 +182,9 @@ final class NotchViewModel: ObservableObject {
                           height: n.height + 152 + (mediaVolumeShown ? Self.mediaVolumeRowHeight : 0))
         case .timer:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 120)
+        case .call:
+            // 음악 팝업과 같은 폭, 한 줄(상대·버튼)
+            return CGSize(width: max(n.width + 125, 300) + 2 * topRadius, height: n.height + 84)
         case .download:
             // 음악 팝업과 같은 폭, 두 줄(아이콘·파일명 / 진행 바)에 맞춘 높이
             return CGSize(width: max(n.width + 125, 300) + 2 * topRadius, height: n.height + 104)

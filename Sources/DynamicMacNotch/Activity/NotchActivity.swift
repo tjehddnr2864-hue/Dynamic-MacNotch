@@ -1,12 +1,13 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).
 enum ActivityPriority {
     static let hud = 100
+    static let call = 95
     static let lock = 90
     static let batteryLow = 85
     static let screenshot = 70
@@ -88,4 +89,6 @@ struct NotchActivity: Identifiable, Equatable {
     var battery: BatteryGlyphInfo? = nil
     /// 관련 파일 (다운로드 완료 시 Finder에서 보기)
     var fileURL: URL? = nil
+    /// 시작 시각 (통화: 왼쪽에 통화 시간을 센다)
+    var startDate: Date? = nil
 }

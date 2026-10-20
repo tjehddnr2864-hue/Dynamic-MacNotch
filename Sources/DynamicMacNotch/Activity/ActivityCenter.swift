@@ -97,6 +97,12 @@ final class ActivityCenter: ObservableObject {
         }
     }
 
+    /// 지금 떠 있는 일회성 알림이 그 종류일 때만 닫는다.
+    func dismissTransient(kind: ActivityKind) {
+        if transient?.kind == kind { dismissTransient() }
+        pending.removeAll { $0.kind == kind }
+    }
+
     func dismissTransient() {
         MemoryTrim.soon()
         expireWork?.cancel()

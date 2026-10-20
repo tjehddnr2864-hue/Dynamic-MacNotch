@@ -9,6 +9,7 @@ struct NotchFeatures {
     let recording: RecordingMonitor
     let tray: TrayStore
     let calendar: CalendarController
+    let call: CallMonitor
 }
 
 struct NotchRootView: View {
@@ -91,6 +92,8 @@ struct NotchRootView: View {
                 Group {
                     if a.kind == .screenshot {
                         ScreenshotCard(monitor: features.screenshot, notchSize: vm.notchSize)
+                    } else if a.kind == .call {
+                        CallIncomingCard(monitor: features.call, activity: a, notchSize: vm.notchSize)
                     } else {
                         DetailActivityView(activity: a, notchSize: vm.notchSize)
                     }
@@ -154,6 +157,8 @@ struct ExpandedView: View {
             MediaPage(media: features.media, volumeShown: vm.mediaVolumeShown) { vm.toggleMediaVolume() }
         case .recording:
             RecordingPage(monitor: features.recording)
+        case .call:
+            CallPage(monitor: features.call)
         case .download:
             if let a = vm.center.displayed, a.kind == .download {
                 DownloadPage(activity: a)

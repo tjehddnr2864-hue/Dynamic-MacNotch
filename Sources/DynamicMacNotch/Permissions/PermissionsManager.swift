@@ -59,7 +59,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
 
     var purpose: String {
         switch self {
-        case .accessibility: return T("HUD 대체, 화면 녹화 정지, 드래그 감지", "HUD replacement, stop recording, drag detection")
+        case .accessibility: return T("HUD 대체, 화면 녹화 정지, 드래그 감지, 전화 받기·끊기", "HUD replacement, stop recording, drag detection, answer/end calls")
         case .inputMonitoring: return T("밝기·음량 키 가로채기", "Intercept brightness and volume keys")
         case .screenRecording: return T("화면 녹화 감지", "Detect screen recording")
         case .camera: return T("노치 카메라(거울)", "Notch camera (mirror)")

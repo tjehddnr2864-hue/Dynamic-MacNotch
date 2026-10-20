@@ -38,7 +38,7 @@ Every permission is optional — without one, only the matching feature turns of
 
 | Permission | Used for |
 |---|---|
-| Accessibility | Replacing the volume/brightness HUD, stopping screen recordings, detecting file drags |
+| Accessibility | Replacing the volume/brightness HUD, stopping screen recordings, detecting file drags, answering/ending calls |
 | Input Monitoring | Intercepting the brightness and volume keys |
 | Screen & System Audio Recording | Detecting that the screen is being recorded |
 | Camera | The camera mirror on the Home screen (off until you click it) |
@@ -96,6 +96,14 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
   - ⭐ **Favorite** — synced with Apple Music's Favorite.
   - **Output** icon (MacBook speakers, headphones, AirPods, display, AirPlay…): **click** to pick an output (paired Bluetooth headphones that aren't connected are listed too and get connected); **long-press** to show a volume bar under the controls.
 - Hides N seconds after pausing (optional).
+- When two apps play at the same time, the one that **started first stays** in the notch; when it pauses or stops, the notch switches to the other one. With the source set to Apple Music or Spotify, other apps (YouTube in a browser, …) never replace it.
+
+### Phone calls
+Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch.
+- **Incoming** — the notch expands with the caller (saved contact name, otherwise the number; long numbers scroll) and red **Decline** / green **Accept** buttons. **Swipe up with two fingers** to tuck the card away without declining — a small ringing indicator stays; click it to bring the card back.
+- **On a call** — call time on the left, a voice waveform on the right.
+- **Long-press** — the caller's avatar and name, **Mute** and **End** buttons. While muted the waveform stops, like paused music.
+- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Activities → Other.
 
 ### System HUD replacement
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
@@ -191,7 +199,7 @@ scripts/build.sh --install --run  # install to /Applications
 
 | 권한 | 쓰는 곳 |
 |---|---|
-| 손쉬운 사용 | 음량·밝기 HUD 대체, 화면 녹화 정지, 파일 드래그 감지 |
+| 손쉬운 사용 | 음량·밝기 HUD 대체, 화면 녹화 정지, 파일 드래그 감지, 전화 받기·끊기 |
 | 입력 모니터링 | 밝기·음량 키 가로채기 |
 | 화면 및 시스템 오디오 녹음 | 화면 녹화 중인지 감지 |
 | 카메라 | 홈 화면의 카메라 거울 (누르기 전까지 꺼져 있음) |
@@ -249,6 +257,14 @@ scripts/build.sh --install --run  # install to /Applications
   - ⭐ **즐겨찾기** — Apple Music의 즐겨찾기와 연동.
   - **출력 기기** 아이콘(맥북 스피커, 헤드폰, AirPods, 디스플레이, AirPlay 등): **클릭**하면 출력 기기 선택(연결이 끊긴 블루투스 헤드폰도 목록에 나오고 고르면 연결), **길게 누르면** 아래에 음량 바가 펼쳐집니다.
 - 일시정지 후 N초 뒤 숨기기 (선택).
+- 두 앱이 동시에 재생되면 **먼저 재생한 앱이 계속** 노치에 남고, 그 앱이 멈추거나 일시정지되면 다른 앱으로 넘어갑니다. 재생 소스를 Apple Music이나 Spotify로 정하면 다른 앱(브라우저의 유튜브 등)이 대신 표시되지 않습니다.
+
+### 전화
+iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니다.
+- **수신** — 노치가 확장되며 상대(저장된 연락처면 이름, 아니면 번호. 긴 번호는 흐름)와 빨간 **거절** / 초록 **받기** 버튼이 뜹니다. **두 손가락으로 위로 올리면** 거절하지 않고 카드만 접히고 작은 수신 표시가 남습니다. 누르면 다시 펼쳐집니다.
+- **통화 중** — 왼쪽에 통화 시간, 오른쪽에 음성 파형.
+- **길게 누르기** — 상대 아이콘과 이름, **음소거**·**끊기** 버튼. 음소거하면 파형이 일시정지한 음악처럼 멈춥니다.
+- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 활동 → 기타에서 끌 수 있습니다.
 
 ### 시스템 HUD 대체
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.

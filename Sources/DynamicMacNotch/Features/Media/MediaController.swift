@@ -159,11 +159,13 @@ final class MediaController: ObservableObject {
 
     private func handleAdapter(_ o: [String: Any]) {
         if o["error"] != nil { fallbackActive = true; return }
-        if let b64 = o["artwork"] as? String, let data = Data(base64Encoded: b64) {
-            setArtwork(data: data)
-        }
+        let artwork = (o["artwork"] as? String).flatMap { Data(base64Encoded: $0) }
         guard o["empty"] == nil, let title = o["title"] as? String, !title.isEmpty else {
-            if !fallbackActive { update(nil) }
+            // 시스템에 재생 중인 앱이 없다고 보고됨.
+            // Music·Spotify는 자체 알림으로 상태를 받으므로 그 앱을 보여 주는 중이면 여기서 지우지 않는다.
+            if deferred?.np.bundleID.map(Self.trusted.contains) != true { deferred = nil }
+            if !fallbackActive, !(nowPlaying?.bundleID.map(Self.trusted.contains) ?? false) { update(nil) }
+            if artwork != nil, let np = nowPlaying { receive(np, artwork: artwork) }
             return
         }
         let ts = (o["timestamp"] as? Double).map { Date(timeIntervalSince1970: $0) } ?? Date()
@@ -178,26 +180,116 @@ final class MediaController: ObservableObject {
             playing: (o["playing"] as? Bool) ?? ((o["playing"] as? Int) == 1),
             bundleID: o["bundle"] as? String
         )
+        receive(np, artwork: artwork)
+    }
+
+    #if DEV
+    /// 개발용: 가짜 보고 주입. "adapter|<bundle>|<title>|<playing 0/1>", "adapter-empty", "music|<Playing/Paused/Stopped>|<title>"
+    func debugInject(_ spec: String) {
+        let p = spec.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        switch p.first {
+        case "adapter" where p.count == 4:
+            handleAdapter(["title": p[2], "artist": "Test", "bundle": p[1], "playing": p[3] == "1", "duration": 200.0, "elapsed": 10.0])
+        case "adapter-empty":
+            handleAdapter(["empty": true])
+        case "music" where p.count == 3:
+            fallbackNotification(["Player State": p[1], "Name": p[2], "Artist": "Test", "Album": "Test", "Total Time": 200000.0,
+                                  "Playback Position": 10.0], bundle: "com.apple.Music")
+        default: break
+        }
+    }
+
+    var debugState: String {
+        "\(nowPlaying.map { "\($0.bundleID ?? "?"):\($0.title):\($0.playing ? "playing" : "paused")" } ?? "none") deferred=\(deferred.map { "\($0.np.bundleID ?? "?"):\($0.np.title)" } ?? "-")"
+    }
+    #endif
+
+    // MARK: - 어떤 앱을 보여 줄지 판정
+
+    /// 자체 분산 알림으로 재생 상태를 알려 주는 앱 (재생 여부를 직접 확인할 수 있음)
+    private static let trusted: Set<String> = ["com.apple.Music", "com.spotify.client"]
+    /// 먼저 재생 중인 앱 때문에 보류한 다른 앱의 보고 (먼저 앱이 멈추면 이어서 보여 줌)
+    private var deferred: (np: NowPlaying, artwork: Data?)?
+    private var verifying = false
+    private var lastVerify = Date.distantPast
+
+    /// 모든 보고(시스템 Now Playing, Music·Spotify 알림)는 여기서 판정한다.
+    /// ① 재생 소스를 Apple Music/Spotify로 정했으면 다른 앱의 보고는 무시한다 (지우지도 않음).
+    /// ② 두 앱이 동시에 재생되면 먼저 재생한 앱을 계속 보여 준다. 먼저 앱이 멈추면 보류해 둔 앱으로 넘어간다.
+    private func receive(_ np: NowPlaying, artwork: Data?) {
+        if let wanted = settings.mediaSource.bundleID, np.bundleID != wanted { return }
+        if let cur = nowPlaying, cur.playing, np.playing, cur.bundleID != np.bundleID {
+            deferred = (np, artwork ?? deferred.flatMap { $0.np.bundleID == np.bundleID ? $0.artwork : nil })
+            if let owner = cur.bundleID, Self.trusted.contains(owner) {
+                verifyOwnerStillPlaying(owner)
+                return
+            }
+            // 재생 여부를 확인할 수 없는 앱(브라우저 등)이 먼저였으면 시스템이 알려 준 새 앱으로 넘어간다
+        }
+        if deferred?.np.bundleID == np.bundleID { deferred = nil }
+        apply(np, artwork: artwork)
+    }
+
+    private func apply(_ np: NowPlaying?, artwork: Data?) {
+        if let artwork { setArtwork(data: artwork) }
         update(np)
+    }
+
+    /// 먼저 재생한 Music/Spotify가 아직 재생 중인지 백그라운드에서 확인한다 (앱을 새로 띄우지 않음).
+    private func verifyOwnerStillPlaying(_ bundle: String) {
+        guard !verifying, Date().timeIntervalSince(lastVerify) > 3 else { return }
+        verifying = true
+        lastVerify = Date()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let state = Self.runScript("""
+                if application id "\(bundle)" is running then
+                    tell application id "\(bundle)" to return (player state as text)
+                end if
+                return "stopped"
+                """)?.stringValue ?? "stopped"
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.verifying = false
+                if state != "playing", self.nowPlaying?.bundleID == bundle { self.promoteDeferred() }
+            }
+        }
+    }
+
+    /// 먼저 재생하던 앱이 멈추면 보류해 둔 앱으로 넘어간다.
+    @discardableResult
+    private func promoteDeferred() -> Bool {
+        guard let d = deferred, d.np.playing else { return false }
+        deferred = nil
+        apply(d.np, artwork: d.artwork)
+        if d.np.bundleID.map(Self.trusted.contains) == true, lastArtworkTrack != d.np.trackKey, let b = d.np.bundleID {
+            loadScriptArtwork(bundle: b, key: d.np.trackKey)
+        }
+        return true
     }
 
     // MARK: - 대체 경로 (Music / Spotify 분산 알림)
 
     private func fallbackNotification(_ info: [AnyHashable: Any]?, bundle: String) {
-        guard fallbackActive || !adapterRunning, let info else { return }
+        guard let info else { return }
         let state = info["Player State"] as? String ?? ""
         guard state != "Stopped", let title = info["Name"] as? String else {
-            if nowPlaying?.bundleID == bundle { update(nil) }
+            if deferred?.np.bundleID == bundle { deferred = nil }
+            if nowPlaying?.bundleID == bundle, !promoteDeferred() { update(nil) }
             return
         }
+        // 먼저 재생하던 이 앱이 일시정지되면, 그사이 재생을 시작한 다른 앱으로 넘어간다
+        if state != "Playing", nowPlaying?.bundleID == bundle, promoteDeferred() { return }
         // Music은 Total Time(ms), Spotify는 Duration(ms)
         let durationMS = (info["Total Time"] as? Double) ?? (info["Duration"] as? Double) ?? 0
-        let position = (info["Playback Position"] as? Double) ?? Self.scriptNumber(bundle: bundle, "player position") ?? 0
+        let key = "\(title)|\(info["Artist"] as? String ?? "")|\(info["Album"] as? String ?? "")"
+        // 위치: 알림에 있으면 그 값, 같은 곡을 이미 보고 있으면 계산한 값, 그 밖에만 AppleScript로 묻는다
+        let known = nowPlaying.flatMap { $0.bundleID == bundle && $0.trackKey == key ? $0.position(at: Date()) : nil }
+        let position = (info["Playback Position"] as? Double) ?? known ?? Self.scriptNumber(bundle: bundle, "player position") ?? 0
         let np = NowPlaying(title: title, artist: info["Artist"] as? String ?? "", album: info["Album"] as? String ?? "",
                             duration: durationMS / 1000, elapsed: position, timestamp: Date(),
                             rate: state == "Playing" ? 1 : 0, playing: state == "Playing", bundleID: bundle)
-        update(np)
-        if lastArtworkTrack != np.trackKey { loadScriptArtwork(bundle: bundle, key: np.trackKey) }
+        receive(np, artwork: nil)
+        if nowPlaying?.bundleID == bundle, lastArtworkTrack != np.trackKey { loadScriptArtwork(bundle: bundle, key: np.trackKey) }
     }
 
     /// 앨범아트 내려받기: HTTPS만, 5초 제한, 10MB 이하만 (백그라운드에서 호출)
