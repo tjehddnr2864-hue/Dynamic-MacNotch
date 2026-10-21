@@ -97,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tint: success ? .blue : .orange, value: .none, title: title, subtitle: subtitle))
         }
         Updater.shared.announceIfUpdated()
-        center.objectWillChange
+        center.objectWillChange.merge(with: recording.objectWillChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.collapseIfActivityGone() }
             .store(in: &previewObservers)
@@ -260,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard vm.isExpanded, case .activity(let kind) = vm.expandedPage,
               ![.timer, .battery, .media].contains(kind) else { return }
         let stillShown = center.transient?.kind == kind || center.persistentKinds.contains(kind)
-            || (kind == .recording && recording.startedAt != nil)   // 녹화가 계속되는 동안은 녹화 화면 유지
+            || (kind == .recording && (recording.startedAt != nil || recording.finished != nil))   // 녹화 중·완료 화면 유지
         if !stillShown { vm.collapse() }
     }
 
@@ -277,7 +277,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             downloads.revealLastCompleted()
         case .recording:
             // 녹화 중 노치 왼쪽(녹화 시간·아이콘)을 누르면 정지·저장, 오른쪽은 녹화 화면 열기
-            if recording.startedAt == nil { center.dismissTransient() }
+            // 끝난 뒤의 '저장됨' 알림을 누르면 저장된 파일을 Finder에서 보여 준다
+            if recording.startedAt == nil { recording.revealFinished(); center.dismissTransient() }
             else if leftSide { recording.stop() } else { vm.expand(page: .activity(.recording)) }
         case .call:
             // 접어 둔 수신 표시를 누르면 다시 카드로, 통화 중이면 통화 팝업

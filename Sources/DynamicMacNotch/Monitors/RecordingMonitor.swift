@@ -7,6 +7,14 @@ import SwiftUI
 /// (screencaptureui는 '앱'으로 실행되지 않아 앱 실행 알림으로는 알 수 없다)
 final class RecordingMonitor: ObservableObject {
     @Published private(set) var startedAt: Date?
+    /// 방금 끝난 녹화 (저장된 파일을 찾으면 url이 채워짐). 잠시 뒤 비운다.
+    @Published private(set) var finished: Finished?
+
+    struct Finished: Equatable {
+        var date: Date
+        var url: URL?
+        var folder: URL
+    }
 
     private let center: ActivityCenter
     private let settings = AppSettings.shared
@@ -47,10 +55,10 @@ final class RecordingMonitor: ObservableObject {
         startedAt = now
         stopRequested = false
         if settings.recordingStyle == .persistent {
-            // 계속 표시: 왼쪽 녹화 시간, 오른쪽 깜빡이는 빨간 점 (왼쪽을 누르면 정지)
+            // 계속 표시: 왼쪽 깜빡이는 빨간 점(누르면 정지), 오른쪽 녹화 시간
             center.setPersistent(NotchActivity(
                 kind: .recording, priority: ActivityPriority.recording, symbol: "record.circle.fill", tint: .red,
-                value: .recordingDot, title: T("화면 녹화", "Screen Recording"), wing: NotchActivity.compactWing, startDate: now))
+                value: .elapsed(now), title: T("화면 녹화", "Screen Recording"), wing: NotchActivity.compactWing))
         } else {
             // 잠깐 알림 후 들어감
             center.post(NotchActivity(
@@ -61,13 +69,79 @@ final class RecordingMonitor: ObservableObject {
     }
 
     private func stopped() {
+        let began = startedAt ?? Date()
         startedAt = nil
+        finished = Finished(date: Date(), url: nil, folder: Self.saveFolder())
+        locateSavedFile(since: began)
         center.removePersistent(.recording)
         center.dismissTransient(kind: .recording)
         let text = stopRequested ? T("저장됨", "Saved") : T("녹화 종료", "Ended")
         stopRequested = false
         center.post(NotchActivity(kind: .recording, duration: 2.5, symbol: "checkmark.circle.fill", tint: .green,
                                   value: .text(text), title: T("화면 녹화", "Screen Recording"), wing: NetworkMonitor.wing(for: text)))
+    }
+
+    // MARK: - 저장된 파일 찾기
+
+    private var locateWork: DispatchWorkItem?
+    private var clearWork: DispatchWorkItem?
+
+    /// macOS 화면 기록 저장 위치 (스크린샷 설정의 저장 위치, 기본은 데스크탑)
+    static func saveFolder() -> URL {
+        if let path = CFPreferencesCopyAppValue("location" as CFString, "com.apple.screencapture" as CFString) as? String {
+            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
+    }
+
+    /// 녹화가 끝난 뒤 저장 위치에 새로 생긴 동영상을 찾는다.
+    /// macOS는 화면 오른쪽 아래 썸네일이 사라진 뒤 저장하므로 최대 15초 동안 0.5초마다 확인한다.
+    private func locateSavedFile(since began: Date) {
+        locateWork?.cancel()
+        clearWork?.cancel()
+        var tries = 0
+        func attempt() {
+            tries += 1
+            guard let current = finished else { return }
+            if let url = Self.newestRecording(in: current.folder, since: began.addingTimeInterval(-2)) {
+                finished?.url = url
+                center.update(.recording) { $0.fileURL = url }
+                scheduleClear()
+                return
+            }
+            guard tries < 30 else { scheduleClear(); return }
+            let work = DispatchWorkItem { attempt() }
+            locateWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        }
+        attempt()
+    }
+
+    private static func newestRecording(in folder: URL, since: Date) -> URL? {
+        let keys: [URLResourceKey] = [.creationDateKey]
+        guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys,
+                                                                       options: [.skipsHiddenFiles]) else { return nil }
+        return files
+            .filter { ["mov", "mp4"].contains($0.pathExtension.lowercased()) }
+            .compactMap { url -> (URL, Date)? in
+                guard let d = try? url.resourceValues(forKeys: Set(keys)).creationDate, d >= since else { return nil }
+                return (url, d)
+            }
+            .max { $0.1 < $1.1 }?.0
+    }
+
+    /// 완료 화면은 잠시 뒤 비운다 (열린 녹화 화면도 그때 닫힘)
+    private func scheduleClear() {
+        clearWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.finished = nil }
+        clearWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+    }
+
+    func revealFinished() {
+        guard let f = finished else { return }
+        if let url = f.url { NSWorkspace.shared.activateFileViewerSelecting([url]) } else { NSWorkspace.shared.open(f.folder) }
     }
 
     /// 시스템 녹화 중인지
@@ -106,6 +180,7 @@ final class RecordingMonitor: ObservableObject {
     func stop() {
         guard startedAt != nil else { return }
         stopRequested = true
+        finished = nil
         let esc: CGKeyCode = 53
         for down in [true, false] {
             let e = CGEvent(keyboardEventSource: nil, virtualKey: esc, keyDown: down)
@@ -116,26 +191,53 @@ final class RecordingMonitor: ObservableObject {
     }
 }
 
-/// 확장 상태의 화면 녹화 페이지. 빨간 녹화 아이콘을 누르면 녹화가 멈추고 저장된다.
+/// 확장 상태의 화면 녹화 페이지.
+/// 녹화 중: 빨간 정지 아이콘(누르면 정지·저장)과 녹화 시간. 끝나면: '녹화 완료'와 저장 위치를 여는 버튼.
 struct RecordingPage: View {
     @ObservedObject var monitor: RecordingMonitor
 
     var body: some View {
-        VStack(spacing: 8) {
-            Button { monitor.stop() } label: {
-                ZStack {
-                    Circle().fill(Color.red.opacity(0.9))
-                    RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white).frame(width: 14, height: 14)
+        if let since = monitor.startedAt {
+            VStack(spacing: 8) {
+                Button { monitor.stop() } label: {
+                    ZStack {
+                        Circle().fill(Color.red.opacity(0.9))
+                        RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white).frame(width: 14, height: 14)
+                    }
+                    .frame(width: 40, height: 40)
+                    .contentShape(Circle())
                 }
-                .frame(width: 40, height: 40)
-                .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help(T("녹화 중지·저장", "Stop and save recording"))
-            Text(T("화면 녹화 중 · 아이콘을 누르면 저장", "Recording · click to stop and save"))
-                .font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.75))
-            if let since = monitor.startedAt {
+                .buttonStyle(.plain)
+                .help(T("녹화 중지·저장", "Stop and save recording"))
+                Text(T("화면 녹화 중 · 아이콘을 누르면 저장", "Recording · click to stop and save"))
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.75))
                 CallDurationText(since: since, font: .system(size: 22, weight: .semibold, design: .rounded))
+            }
+        } else if let done = monitor.finished {
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(.green)
+                    Text(T("녹화 완료", "Recording Saved")).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                }
+                if let url = done.url {
+                    Text(url.lastPathComponent).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1).truncationMode(.middle)
+                } else {
+                    Text(T("저장 중…", "Saving…")).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
+                }
+                Button { monitor.revealFinished() } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(.blue)
+                        Text(T("Finder에서 보기", "Show in Finder")).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        Spacer(minLength: 0)
+                        Text(done.folder.lastPathComponent).font(.system(size: 11)).foregroundStyle(.white.opacity(0.5)).lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.1), in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
     }

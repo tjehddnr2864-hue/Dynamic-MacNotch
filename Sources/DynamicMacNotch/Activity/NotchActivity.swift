@@ -32,6 +32,7 @@ enum ActivityValue: Equatable {
     case spinner              // 진행률을 알 수 없을 때 회전 링
     case check                // 완료 체크
     case bigNumber(Double)    // 0...1, % 없이 큰 숫자 (밝기·음량 HUD)
+    case elapsed(Date)        // 그 시각부터 흐른 시간 (화면 녹화: 오른쪽 녹화 시간)
 }
 
 enum ActivityPresentation: Equatable {

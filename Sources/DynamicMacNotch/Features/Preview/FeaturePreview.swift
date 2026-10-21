@@ -136,8 +136,8 @@ final class FeaturePreview {
         case .recording:
             if AppSettings.shared.recordingStyle == .persistent {
                 showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.recording, symbol: "record.circle.fill", tint: .red,
-                                             value: .recordingDot, title: T("화면 녹화", "Screen Recording"),
-                                             wing: NotchActivity.compactWing, startDate: Date()), for: 6)
+                                             value: .elapsed(Date()), title: T("화면 녹화", "Screen Recording"),
+                                             wing: NotchActivity.compactWing), for: 6)
             } else {
                 center.post(NotchActivity(kind: .demo, duration: 3, symbol: "record.circle.fill", tint: .red,
                                           value: .text(T("녹화 시작", "Recording")), title: T("화면 녹화", "Screen Recording"),
