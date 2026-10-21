@@ -298,6 +298,10 @@ struct SettingsView: View {
             }
             Section(T("기타", "Other")) {
                 Toggle(T("화면 녹화 표시", "Show screen recording"), isOn: $settings.recordingEnabled)
+                Picker(T("화면 녹화 표시 방식", "Screen Recording Display"), selection: $settings.recordingStyle) {
+                    ForEach(RecordingStyle.allCases) { Text($0.label).tag($0) }
+                }
+                .disabled(!settings.recordingEnabled)
                 Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)
                 Toggle(T("카메라 좌우 반전(거울)", "Mirror camera"), isOn: $settings.cameraMirror)
                 Picker(T("일정 알림", "Event Alerts"), selection: $settings.calendarAlertMinutes) {

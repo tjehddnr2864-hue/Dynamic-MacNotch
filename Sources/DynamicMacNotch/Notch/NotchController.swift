@@ -15,7 +15,8 @@ final class NotchController: NotchGestureDelegate {
     private let hostingView: NotchHostingView
     private let settings = AppSettings.shared
     private let menuProvider: () -> NSMenu
-    private let clickHandler: (NotchActivity?) -> Void
+    /// 짧은 클릭: (표시 중인 활동, 노치 가운데보다 왼쪽을 눌렀는지)
+    private let clickHandler: (NotchActivity?, Bool) -> Void
 
     private var monitors: [Any] = []
     /// 잠금 중에는 노치를 펼치지 않는다 (잠금화면 정보 노출 방지).
@@ -40,7 +41,7 @@ final class NotchController: NotchGestureDelegate {
     init(vm: NotchViewModel,
          rootView: NotchRootView,
          menuProvider: @escaping () -> NSMenu,
-         clickHandler: @escaping (NotchActivity?) -> Void) {
+         clickHandler: @escaping (NotchActivity?, Bool) -> Void) {
         self.vm = vm
         self.menuProvider = menuProvider
         self.clickHandler = clickHandler
@@ -266,12 +267,13 @@ final class NotchController: NotchGestureDelegate {
 
     func pointerUp(_ event: NSEvent) {
         let wasPressing = pressOrigin != nil
+        let leftSide = (pressOrigin?.x ?? panel.frame.midX) < panel.frame.midX
         cancelPress()
         guard !vm.isExpanded else { return }
         vm.endPress()
         if wasPressing, !pressFired {
             // 짧은 클릭: 액티비티 소스 열기. Idle에서는 아무것도 하지 않는다.
-            clickHandler(vm.center.displayed)
+            clickHandler(vm.center.displayed, leftSide)
         }
     }
 

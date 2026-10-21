@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             vm: vm,
             rootView: root,
             menuProvider: { [weak self] in self?.makeMenu() ?? NSMenu() },
-            clickHandler: { [weak self] activity in self?.handleClick(activity) }
+            clickHandler: { [weak self] activity, leftSide in self?.handleClick(activity, leftSide: leftSide) }
         )
         if let notch {
             let manager = LockScreenManager(center: center, vm: vm, media: media)
@@ -97,6 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tint: success ? .blue : .orange, value: .none, title: title, subtitle: subtitle))
         }
         Updater.shared.announceIfUpdated()
+        center.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.collapseIfActivityGone() }
+            .store(in: &previewObservers)
         // 재생 테스트 중 노치에 커서를 올리거나 열면 '조작'으로 보고 자동 중지 시간을 늘린다
         vm.$isHovering.merge(with: vm.$isExpanded).filter { $0 }
             .sink { [weak self] _ in self?.media.noteTestInteraction() }
@@ -149,6 +153,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "closewin": self.closeHelper()
             case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
             case let c where c.hasPrefix("call:"): self.call.debugSimulate(String(c.dropFirst(5)))   // 개발용: 가짜 통화
+            case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
+            case "recstate":   // 개발용: 녹화 감지 결과를 로그로
+                let line = "\(Date()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
+                let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-rec.txt")
+                if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+                else { try? line.write(to: url, atomically: true, encoding: .utf8) }
             case let c where c.hasPrefix("inject:"):   // 개발용: 가짜 재생 보고 → 결과를 로그 파일에
                 self.media.debugInject(String(c.dropFirst(7)))
                 let line = "\(c) => \(self.media.debugState)\n"
@@ -188,7 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "prev": self.vm.switchExpandedPage(forward: false)
             case let c where c.hasPrefix("page"):
                 if let i = Int(c.dropFirst(4)), let o = HomeOption(rawValue: i) { self.vm.selectHomeOption(o) }
-            default: DemoActivity(rawValue: command)?.run(center: self.center, battery: self.battery)
+            default: if let id = PreviewID(rawValue: command) { self.featurePreview.run(id) }
             }
     }
     #endif
@@ -244,7 +254,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 짧은 클릭
 
-    private func handleClick(_ activity: NotchActivity?) {
+    /// 알림·활동을 길게 눌러 연 확장 노치는 그 알림이 사라지면 자동으로 닫는다.
+    /// (타이머·배터리·음악 화면은 알림이 없어도 내용이 있으므로 그대로 둔다)
+    private func collapseIfActivityGone() {
+        guard vm.isExpanded, case .activity(let kind) = vm.expandedPage,
+              ![.timer, .battery, .media].contains(kind) else { return }
+        let stillShown = center.transient?.kind == kind || center.persistentKinds.contains(kind)
+            || (kind == .recording && recording.startedAt != nil)   // 녹화가 계속되는 동안은 녹화 화면 유지
+        if !stillShown { vm.collapse() }
+    }
+
+    private func handleClick(_ activity: NotchActivity?, leftSide: Bool) {
         guard let activity else { return }
         switch activity.kind {
         case .battery:
@@ -256,7 +276,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .download:
             downloads.revealLastCompleted()
         case .recording:
-            vm.expand(page: .activity(.recording))
+            // 녹화 중 노치 왼쪽(녹화 시간·아이콘)을 누르면 정지·저장, 오른쪽은 녹화 화면 열기
+            if recording.startedAt == nil { center.dismissTransient() }
+            else if leftSide { recording.stop() } else { vm.expand(page: .activity(.recording)) }
         case .call:
             // 접어 둔 수신 표시를 누르면 다시 카드로, 통화 중이면 통화 팝업
             if case .incoming = call.state { call.expandIncoming() } else { vm.expand(page: .activity(.call)) }
@@ -290,11 +312,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
 
         let demo = NSMenu()
-        for d in DemoActivity.allCases {
+        for d in PreviewID.menuItems {
             let mi = item(d.menuTitle, #selector(runDemo(_:)))
             mi.representedObject = d.rawValue
             demo.addItem(mi)
         }
+        demo.addItem(.separator())
+        let stop = item(T("모든 미리보기 중지", "Stop All Previews"), #selector(runDemo(_:)))
+        stop.representedObject = PreviewID.stopAll.rawValue
+        demo.addItem(stop)
         let demoItem = NSMenuItem(title: T("알림 미리보기", "Preview Alerts"), action: nil, keyEquivalent: "")
         demoItem.submenu = demo
         menu.addItem(demoItem)
@@ -332,8 +358,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func runDemo(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let d = DemoActivity(rawValue: raw) else { return }
-        d.run(center: center, battery: battery)
+        guard let raw = sender.representedObject as? String, let d = PreviewID(rawValue: raw) else { return }
+        featurePreview.run(d)
     }
 
     // MARK: - 창

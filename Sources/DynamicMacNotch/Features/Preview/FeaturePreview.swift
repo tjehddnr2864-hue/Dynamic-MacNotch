@@ -26,6 +26,29 @@ enum PreviewID: String, CaseIterable {
     case stopAll = "stop-all"
 }
 
+extension PreviewID {
+    /// 노치 우클릭 메뉴 '알림 미리보기'에 넣는 대표 항목 (전체는 설정 → 테스트)
+    static let menuItems: [PreviewID] = [.wifiConnected, .vpnOff, .btCompact, .focusOn, .hudVolume, .charger, .low,
+                                          .download, .recording, .callIncoming, .mediaStart]
+
+    var menuTitle: String {
+        switch self {
+        case .wifiConnected: return T("Wi-Fi 연결", "Wi-Fi Connected")
+        case .vpnOff: return T("VPN 해제", "VPN Disconnected")
+        case .btCompact: return T("AirPods 연결", "AirPods Connected")
+        case .focusOn: return T("집중 모드 켜짐", "Focus On")
+        case .hudVolume: return T("음량 HUD", "Volume HUD")
+        case .charger: return T("충전기 연결", "Charger Connected")
+        case .low: return T("배터리 부족", "Low Battery")
+        case .download: return T("다운로드", "Download")
+        case .recording: return T("화면 녹화", "Screen Recording")
+        case .callIncoming: return T("수신 전화", "Incoming Call")
+        case .mediaStart: return T("음악 재생 테스트", "Music Playback Test")
+        default: return rawValue
+        }
+    }
+}
+
 /// 미리보기 실행기. 미리보기가 만든 것(예약 작업, 상시 표시, 가짜 음악·통화·잠금·스크린샷)을 모두 기록해 두고,
 /// 끝나거나 '모든 미리보기 중지'를 누르면 남김없이 거둔다 (타이머·참조가 남아 메모리·CPU를 쓰지 않게).
 final class FeaturePreview {
@@ -69,18 +92,34 @@ final class FeaturePreview {
         case .vpnOff: network("lock.open", .gray, T("해제됨", "Disconnected"), "VPN", T("연결 해제됨", "Disconnected"))
         case .hotspot:
             network("personalhotspot", .green, T("연결됨", "Connected"), T("개인용 핫스팟", "Personal Hotspot"), "iPhone")
-        case .offline: DemoActivity.offline.run(center: center, battery: battery)
+        case .offline:
+            center.post(NotchActivity(kind: .network, presentation: .detail, duration: 4, symbol: "antenna.radiowaves.left.and.right.slash",
+                                      tint: .orange, value: .text(T("없음", "None")), title: T("연결된 네트워크 없음", "No Network Connection"),
+                                      subtitle: T("Wi-Fi·셀룰러 연결이 끊겼습니다", "Wi-Fi and cellular are disconnected")))
         case .btCompact: runBluetooth("bt-compact")
         case .btDetail: runBluetooth("bt-detail")
-        case .btLow: DemoActivity.bluetoothLow.run(center: center, battery: battery)
-        case .btNoBattery: DemoActivity.bluetoothNoBattery.run(center: center, battery: battery)
+        case .btLow:
+            center.post(NotchActivity(kind: .bluetooth, symbol: "computermouse", tint: .red, value: .percent(0.12), wing: 56, valueTint: .red))
+        case .btNoBattery:
+            let text = T("연결됨", "Connected")
+            center.post(NotchActivity(kind: .bluetooth, symbol: "gamecontroller.fill", tint: .green, value: .text(text),
+                                      wing: NetworkMonitor.wing(for: text), valueTint: .white))
         case .focusOn: focus.debugPreview(on: true)
         case .focusOff: focus.debugPreview(on: false)
-        case .hudVolume: DemoActivity.volume.run(center: center, battery: battery)
-        case .hudBrightness: DemoActivity.brightness.run(center: center, battery: battery)
+        case .hudVolume:
+            // 연속으로 조절할 때처럼 값만 바뀌는지 보여 준다
+            for (i, v) in [0.40, 0.46, 0.53, 0.60].enumerated() {
+                schedule(after: Double(i) * 0.25) { [weak self] in
+                    self?.center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "speaker.wave.2.fill",
+                                                    value: Self.hudValue(v), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
+                }
+            }
+        case .hudBrightness:
+            center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "sun.max.fill", tint: .yellow,
+                                      value: Self.hudValue(0.7), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .hudKeyboard:
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "light.max",
-                                      value: AppSettings.shared.hudStyle == .number ? .bigNumber(0.6) : .ring(0.6), wing: 56))
+                                      value: Self.hudValue(0.6), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .charger:
             battery.postCharger(BatteryMonitor.read() ?? .init(percent: 64, isCharging: true, onAC: true, isCharged: false, minutesToFull: 48))
         case .low:
@@ -95,8 +134,15 @@ final class FeaturePreview {
                                       value: .check, title: T("에어드랍 받음", "AirDrop Received"), subtitle: "Photo.heic"))
         case .screenshot: screenshot.presentPreview()
         case .recording:
-            showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.recording, symbol: "record.circle", tint: .red,
-                                         value: .recordingDot, title: T("화면 녹화", "Screen Recording"), wing: 44), for: 5)
+            if AppSettings.shared.recordingStyle == .persistent {
+                showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.recording, symbol: "record.circle.fill", tint: .red,
+                                             value: .recordingDot, title: T("화면 녹화", "Screen Recording"),
+                                             wing: NotchActivity.compactWing, startDate: Date()), for: 6)
+            } else {
+                center.post(NotchActivity(kind: .demo, duration: 3, symbol: "record.circle.fill", tint: .red,
+                                          value: .text(T("녹화 시작", "Recording")), title: T("화면 녹화", "Screen Recording"),
+                                          wing: NetworkMonitor.wing(for: T("녹화 시작", "Recording"))))
+            }
         case .timerDone: timer.previewDone()
         case .calendar:
             center.post(NotchActivity(kind: .calendar, priority: ActivityPriority.info, presentation: .detail, duration: 6,
@@ -127,6 +173,15 @@ final class FeaturePreview {
     }
 
     // MARK: - 각 미리보기
+
+    /// HUD 수치 표시 방식(숫자·바·원형)에 맞춘 값
+    private static func hudValue(_ v: Double) -> ActivityValue {
+        switch AppSettings.shared.hudStyle {
+        case .number: return .bigNumber(v)
+        case .bar: return .bar(v)
+        case .ring: return .ring(v)
+        }
+    }
 
     private func network(_ symbol: String, _ tint: Color, _ short: String, _ title: String, _ detail: String) {
         let detailed = AppSettings.shared.netStyle == .detail

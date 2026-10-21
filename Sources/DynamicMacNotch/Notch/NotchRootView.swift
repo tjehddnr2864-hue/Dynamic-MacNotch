@@ -171,12 +171,13 @@ struct ExpandedView: View {
     }
 }
 
-/// 좁은 확장 영역용 세로 카드 (네트워크·블루투스 등).
+/// 알림을 길게 눌러 연 확장 카드 (네트워크·블루투스·집중 모드 등): 아이콘 | 이름·설명 | 값.
+/// 세로로 쌓으면 팝업 높이를 넘어 아래쪽 값('켬/끔' 등)이 잘리므로 가로로 놓는다.
 struct ActivityCard: View {
     var activity: NotchActivity
 
     var body: some View {
-        VStack(spacing: 6) {
+        HStack(spacing: 12) {
             ZStack {
                 Circle().fill(activity.tint.opacity(0.2))
                 Image(systemName: activity.symbol)
@@ -184,14 +185,20 @@ struct ActivityCard: View {
                     .foregroundStyle(activity.tint)
             }
             .frame(width: 40, height: 40)
-            if let title = activity.title {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                if let title = activity.title {
+                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                }
+                if let subtitle = activity.subtitle {
+                    Text(subtitle).font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6)).lineLimit(2)
+                }
             }
-            if let subtitle = activity.subtitle {
-                Text(subtitle).font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(2).multilineTextAlignment(.center)
-            }
-            ActivityValueView(value: activity.detailValue ?? activity.value, tint: activity.tint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            ActivityValueView(value: activity.detailValue ?? activity.value, tint: activity.tint, large: true,
+                              textColor: activity.valueTint)
+                .fixedSize()
         }
+        .padding(.horizontal, 6)
+        .frame(maxHeight: .infinity)
     }
 }
