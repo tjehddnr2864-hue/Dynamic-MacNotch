@@ -188,8 +188,11 @@ final class NotchViewModel: ObservableObject {
         case .download:
             // 음악 팝업과 같은 폭, 두 줄(아이콘·파일명 / 진행 바)에 맞춘 높이
             return CGSize(width: max(n.width + 125, 300) + 2 * topRadius, height: n.height + 104)
-        default:
+        case .recording:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 110)
+        default:
+            // 알림 확장 카드(아이콘 | 이름·설명 | 값): 아래 여백을 좌우 여백(28pt)과 같게
+            return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 84)
         }
     }
 

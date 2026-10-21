@@ -88,6 +88,9 @@ struct ActivityValueView: View {
                 .font(large ? .system(size: 24, weight: .regular, design: .rounded) : numberFont)
                 .monospacedDigit()
                 .foregroundStyle(textColor ?? .white)
+        case .elapsed(let since):
+            CallDurationText(since: since, font: large ? .system(size: 18, weight: .semibold, design: .rounded) : numberFont)
+                .fixedSize()
         case .check:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: large ? 22 : 14, weight: .semibold))
