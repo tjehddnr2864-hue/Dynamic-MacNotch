@@ -154,12 +154,12 @@ struct ActivityLeading: View {
             // 자물쇠는 다른 아이콘보다 작게
             LockGlyph(open: activity.symbol == "lock.open")
                 .frame(width: size * 0.5, height: size * 0.66)
-        } else if activity.kind == .recording {
-            RecordingDot()   // 화면 녹화: 좌측 박동하는 빨간 점
-        } else if activity.kind == .call, let since = activity.startDate {
-            // 통화 중: 왼쪽에 통화 시간
+        } else if let since = activity.startDate {
+            // 통화·화면 녹화(계속 표시): 왼쪽에 경과 시간
             CallDurationText(since: since, font: NotchActivity.compactSmallNumberFont)
                 .fixedSize()
+        } else if activity.kind == .recording {
+            RecordingDot()   // 화면 녹화(잠깐 알림): 좌측 박동하는 빨간 점
         } else if let battery = activity.battery {
             BatteryGlyph(info: battery, tint: activity.tint, width: size * 1.15)
         } else if let art = activity.artwork {

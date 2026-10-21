@@ -116,9 +116,9 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Downloads** — progress for Safari, Chrome and Firefox downloads in Downloads (plus extra folders you add); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
-- **Screen recording** — a pulsing red dot while the screen is recorded; long-press for a Stop button.
+- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Activities → Other: a **brief alert** when recording starts, or **keep showing** the recording time on the left and a red dot on the right. **Click the left side** of the notch to stop and save (macOS saves the file as usual); long-press opens the recording page, where the red stop icon does the same.
 
-Every alert can be **compact or detailed**, and durations are configurable.
+Every alert can be **compact or detailed**, and durations are configurable. If you long-press an alert to expand it, the notch closes by itself when the alert ends.
 
 ### Live activity priority
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → General → Live Activity Priority** is shown. Drag to reorder.
@@ -282,9 +282,9 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **다운로드** — 다운로드 폴더(추가 폴더 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
-- **화면 녹화** — 녹화 중 빨간 점이 깜빡이고, 길게 누르면 정지 버튼.
+- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 활동 → 기타에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 녹화 시간, 오른쪽 빨간 점)할지 고릅니다. 노치 **왼쪽을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 빨간 정지 아이콘도 같습니다.
 
-모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다.
+모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. 알림을 길게 눌러 확장해도 알림이 끝나면 노치가 자동으로 줄어듭니다.
 
 ### 라이브 활동 우선순위
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 일반 → 상시 표시 우선순위**에서 위에 있는 것이 표시됩니다. 끌어서 순서를 바꿉니다.

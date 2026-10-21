@@ -51,6 +51,7 @@ final class ActivityCenter: ObservableObject {
     }
 
     var hasPersistent: Bool { !persistent.isEmpty }
+    var persistentKinds: Set<ActivityKind> { Set(persistent.keys) }
 
     func setPersistentHidden(_ hidden: Bool) {
         guard hidden != persistentHidden, hasPersistent || !hidden else { return }

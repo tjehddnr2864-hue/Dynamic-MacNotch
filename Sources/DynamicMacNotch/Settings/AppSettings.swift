@@ -72,6 +72,13 @@ enum ScreenshotSource: String, CaseIterable, Identifiable {
 }
 
 /// UserDefaults에 저장되는 앱 설정. SwiftUI는 @ObservedObject로, AppKit 코드는 AppSettings.shared로 읽는다.
+/// 화면 녹화 표시: 잠깐 알림 후 들어감 / 녹화 내내 노치에 표시(왼쪽 녹화 시간)
+enum RecordingStyle: String, CaseIterable, Identifiable {
+    case brief, persistent
+    var id: String { rawValue }
+    var label: String { self == .brief ? T("잠깐 알림", "Brief Alert") : T("계속 표시 (녹화 시간)", "Keep Showing (Elapsed Time)") }
+}
+
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
     private let defaults = UserDefaults.standard
@@ -176,6 +183,7 @@ final class AppSettings: ObservableObject {
     // 화면 녹화·카메라·캘린더
     @Published var recordingEnabled: Bool { didSet { save(recordingEnabled, "recordingEnabled") } }
     @Published var callEnabled: Bool { didSet { save(callEnabled, "callEnabled") } }
+    @Published var recordingStyle: RecordingStyle { didSet { save(recordingStyle.rawValue, "recordingStyle") } }
     @Published var cameraMirror: Bool { didSet { save(cameraMirror, "cameraMirror") } }
     /// 일정 시작 N분 전 알림 (0 = 끄기)
     @Published var calendarAlertMinutes: Double { didSet { save(calendarAlertMinutes, "calendarAlertMinutes") } }
@@ -287,6 +295,7 @@ final class AppSettings: ObservableObject {
 
         recordingEnabled = value("recordingEnabled", true)
         callEnabled = value("callEnabled", true)
+        recordingStyle = RecordingStyle(rawValue: value("recordingStyle", "")) ?? .persistent
         cameraMirror = value("cameraMirror", true)
         calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
     }
@@ -384,6 +393,7 @@ final class AppSettings: ObservableObject {
 
         recordingEnabled = value("recordingEnabled", true)
         callEnabled = value("callEnabled", true)
+        recordingStyle = RecordingStyle(rawValue: value("recordingStyle", "")) ?? .persistent
         cameraMirror = value("cameraMirror", true)
         calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
     }
