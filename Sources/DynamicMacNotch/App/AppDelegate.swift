@@ -21,6 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var screenshot = ScreenshotMonitor(center: center)
     private lazy var recording = RecordingMonitor(center: center)
     private lazy var call = CallMonitor(center: center)
+    private lazy var featurePreview = FeaturePreview(
+        center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
+        lockScreen: { [weak self] in self?.lockScreen },
+        runBluetooth: { [weak self] which in self?.runPreview(which) })
+    private var previewObservers = Set<AnyCancellable>()
     private lazy var calendar = CalendarController(center: center)
 
     private var notch: NotchController?
@@ -92,6 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tint: success ? .blue : .orange, value: .none, title: title, subtitle: subtitle))
         }
         Updater.shared.announceIfUpdated()
+        // 재생 테스트 중 노치에 커서를 올리거나 열면 '조작'으로 보고 자동 중지 시간을 늘린다
+        vm.$isHovering.merge(with: vm.$isExpanded).filter { $0 }
+            .sink { [weak self] _ in self?.media.noteTestInteraction() }
+            .store(in: &previewObservers)
         Updater.shared.start()
 
         if !settings.onboardingDone {
@@ -112,8 +121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, let command = note.object as? String else { return }
             switch command {
             case let c where c.hasPrefix("preview:"):
-                let which = String(c.dropFirst(8))
-                if Self.previewCommands.contains(which) { self.runPreview(which) }
+                // 허용 목록(PreviewID)에 있는 미리보기만 실행
+                if let id = PreviewID(rawValue: String(c.dropFirst(8))) { self.featurePreview.run(id) }
             case "restart": self.restart()
             default:
                 #if DEV
@@ -123,7 +132,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private static let previewCommands: Set<String> = ["bt-compact", "bt-detail", "charger", "low", "full"]
 
     #if DEV
     /// 개발용: `scripts/notchctl <명령>`으로 테스트 액티비티·화면을 띄운다 (개발 빌드에만 포함).

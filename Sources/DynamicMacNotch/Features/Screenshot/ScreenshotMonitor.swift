@@ -14,6 +14,8 @@ final class ScreenshotMonitor: ObservableObject {
         var date: Date
         var fileURL: URL?       // 파일로 저장된 스크린샷일 때
         var pasteboardCount: Int?
+        /// 설정 → 테스트의 미리보기 (복사·저장·삭제가 실제로 일어나지 않음)
+        var isPreview = false
     }
 
     @Published private(set) var shot: Shot?
@@ -179,7 +181,44 @@ final class ScreenshotMonitor: ObservableObject {
 
     // MARK: - 동작
 
+    /// 미리보기 카드의 버튼: 실제 파일·클립보드는 건드리지 않고 상태만 보여 준다.
+    private func previewOnly(_ label: String) -> Bool {
+        guard shot?.isPreview == true else { return false }
+        status = label
+        dismiss()
+        return true
+    }
+
+    /// 설정 → 테스트: 가짜 이미지로 스크린샷 카드를 띄운다.
+    func presentPreview() {
+        let size = 320
+        var pixels = [UInt8](repeating: 255, count: size * 200 * 4)
+        for y in 0..<200 {
+            for x in 0..<size {
+                let i = (y * size + x) * 4
+                pixels[i] = UInt8(40 + x * 120 / size)
+                pixels[i + 1] = UInt8(90 + y * 100 / 200)
+                pixels[i + 2] = 200
+            }
+        }
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let cg = CGImage(width: size, height: 200, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                               provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent),
+              let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { return }
+        present(Shot(image: nil, thumb: nil, data: png, date: Date(), fileURL: nil, pasteboardCount: nil, isPreview: true))
+    }
+
+    /// 미리보기 카드가 떠 있으면 바로 닫는다.
+    func endPreview() {
+        guard shot?.isPreview == true else { return }
+        if center.transient?.kind == .screenshot { center.dismissTransient() }
+        shot = nil
+        status = nil
+    }
+
     func copy() {
+        if previewOnly(T("복사됨", "Copied")) { return }
         guard let s = shot else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
@@ -192,6 +231,7 @@ final class ScreenshotMonitor: ObservableObject {
     }
 
     func save() {
+        if previewOnly(T("저장됨", "Saved")) { return }
         guard let s = shot else { return }
         let folder = settings.screenshotFolder.isEmpty
             ? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
@@ -208,6 +248,7 @@ final class ScreenshotMonitor: ObservableObject {
     }
 
     func delete() {
+        if previewOnly(T("삭제됨", "Deleted")) { return }
         guard let s = shot else { return }
         let pb = NSPasteboard.general
         if let count = s.pasteboardCount, pb.changeCount == count { pb.clearContents() }

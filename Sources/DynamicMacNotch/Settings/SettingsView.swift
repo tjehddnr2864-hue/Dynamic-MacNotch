@@ -17,6 +17,7 @@ struct SettingsView: View {
             battery.tabItem { Label(T("배터리", "Battery"), systemImage: "battery.75percent") }
             hudTab.tabItem { Label("HUD", systemImage: "speaker.wave.2") }
             lockTab.tabItem { Label(T("잠금화면", "Lock Screen"), systemImage: "lock") }
+            testTab.tabItem { Label(T("테스트", "Test"), systemImage: "play.rectangle") }
             about.tabItem { Label(T("정보", "About"), systemImage: "info.circle") }
         }
         .frame(width: 700, height: 560)
@@ -367,6 +368,64 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    // MARK: - 테스트 (기능별 미리보기)
+
+    private var testTab: some View {
+        Form {
+            Section {
+                HStack {
+                    Text(T("각 버튼을 누르면 노치에 해당 기능이 미리 표시됩니다. 실제 설정·파일·통화에는 영향이 없습니다.",
+                           "Each button previews that feature in the notch. Your real settings, files and calls are not affected."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(T("모든 미리보기 중지", "Stop All Previews")) { preview("stop-all") }
+                }
+            }
+            Section(T("음악", "Music")) {
+                HStack {
+                    Button(T("재생 테스트 시작", "Start Playback Test")) { preview("media-start") }
+                    Button(T("테스트 중지", "Stop Test")) { preview("media-stop") }
+                }
+                Text(T("테스트 곡이 노치에 재생됩니다. 길게 눌러 플레이어를 열고 재생·다음·이전·재생 바를 시험해 보세요. 30초 동안 조작이 없으면 자동으로 중지됩니다.",
+                       "A test song plays in the notch. Long-press to open the player and try play, next, previous and the progress bar. It stops automatically after 30 seconds without interaction."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            previewSection(T("전화", "Phone Calls"), [("call-incoming", T("수신 전화", "Incoming Call")), ("call-active", T("통화 중", "On a Call"))],
+                           note: T("가짜 통화입니다. 받기·거절·음소거·끊기 버튼을 눌러 보세요. 30초 동안 조작이 없으면 끝납니다.",
+                                   "A fake call. Try Accept, Decline, Mute and End. It ends after 30 seconds without interaction."))
+            previewSection(T("네트워크", "Network"), [("wifi-on", T("Wi-Fi 켜짐", "Wi-Fi On")), ("wifi-off", T("Wi-Fi 꺼짐", "Wi-Fi Off")),
+                                                     ("wifi-connected", T("Wi-Fi 연결", "Wi-Fi Connected")), ("wifi-disconnected", T("Wi-Fi 해제", "Wi-Fi Disconnected")),
+                                                     ("vpn-on", T("VPN 연결", "VPN Connected")), ("vpn-off", T("VPN 해제", "VPN Disconnected")),
+                                                     ("hotspot", T("핫스팟", "Hotspot")), ("offline", T("네트워크 끊김", "Network Lost"))])
+            previewSection(T("블루투스·집중 모드", "Bluetooth & Focus"), [("bt-compact", T("AirPods (컴팩트)", "AirPods (Compact)")), ("bt-detail", T("AirPods (상세)", "AirPods (Detailed)")),
+                                                                    ("bt-low", T("배터리 낮은 마우스", "Low-Battery Mouse")), ("bt-nobattery", T("배터리 정보 없음", "No Battery Info")),
+                                                                    ("focus-on", T("집중 모드 켜짐", "Focus On")), ("focus-off", T("집중 모드 꺼짐", "Focus Off"))])
+            previewSection("HUD", [("hud-volume", T("음량", "Volume")), ("hud-brightness", T("화면 밝기", "Display Brightness")),
+                                   ("hud-keyboard", T("키보드 밝기", "Keyboard Brightness"))])
+            previewSection(T("배터리", "Battery"), [("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
+            previewSection(T("활동", "Activities"), [("download", T("다운로드", "Download")), ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")),
+                                                     ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
+                                                     ("recording", T("화면 녹화", "Screen Recording")), ("timer-done", T("타이머 종료", "Timer Done")),
+                                                     ("calendar", T("일정 알림", "Event Alert"))])
+            previewSection(T("잠금화면", "Lock Screen"), [("lock", T("자물쇠·위젯 (5초)", "Padlock & Widget (5s)"))],
+                           note: T("실제로 잠그지 않고 5초 동안 잠금 상태를 보여 준 뒤 풀림 애니메이션을 보여 줍니다.",
+                                   "Shows the locked state for 5 seconds without actually locking, then the unlock animation."))
+        }
+        .formStyle(.grouped)
+    }
+
+    private func previewSection(_ title: String, _ items: [(id: String, label: String)], note: String? = nil) -> some View {
+        Section(title) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .leading), count: 3), alignment: .leading, spacing: 8) {
+                ForEach(items, id: \.id) { item in
+                    Button(item.label) { preview(item.id) }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            if let note { Text(note).font(.caption).foregroundStyle(.secondary) }
+        }
     }
 
     private var about: some View {

@@ -46,7 +46,53 @@ final class CallMonitor: ObservableObject {
 
     // MARK: - 사용자 동작
 
+    // MARK: - 미리보기 (설정 → 테스트)
+    // 가짜 통화를 띄운다. 미리보기 중에는 실제 통화 확인이 상태를 덮어쓰지 않고, 버튼은 가짜 통화만 바꾼다.
+    // 30초 동안 조작이 없거나 끝내면 예약 작업·타이머를 모두 취소하고 실제 상태로 돌아간다.
+
+    private(set) var previewActive = false
+    private var previewEnd: DispatchWorkItem?
+
+    func startPreview(incoming: Bool) {
+        previewActive = true
+        pollTimer?.invalidate()
+        pollTimer = nil
+        let name = T("김민지", "Alex Kim")
+        setState(incoming ? .incoming(name: name) : .active(name: name, since: Date(), muted: false))
+        schedulePreviewEnd()
+    }
+
+    func stopPreview() {
+        guard previewActive else { return }
+        previewEnd?.cancel()
+        previewEnd = nil
+        previewActive = false
+        setState(.idle)
+        refresh()   // 실제 통화가 있으면 다시 표시
+    }
+
+    private func schedulePreviewEnd() {
+        previewEnd?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.stopPreview() }
+        previewEnd = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
+    }
+
+    /// 미리보기 중 버튼 동작 (실제 통화에는 손대지 않음). 처리했으면 true.
+    private func previewAction(_ action: String) -> Bool {
+        guard previewActive else { return false }
+        switch (action, state) {
+        case ("answer", .incoming(let name)): setState(.active(name: name, since: Date(), muted: false))
+        case ("mute", .active(let n, let s, let m)): setState(.active(name: n, since: s, muted: !m))
+        case ("decline", _), ("hangup", _): stopPreview(); return true
+        default: break
+        }
+        schedulePreviewEnd()
+        return true
+    }
+
     func answer() {
+        if previewAction("answer") { return }
         if let call = tuIncomingCall(), let tu = tuCenter {
             tu.perform(NSSelectorFromString("answerCall:"), with: call)
         }
@@ -60,6 +106,7 @@ final class CallMonitor: ObservableObject {
     }
 
     func decline() {
+        if previewAction("decline") { return }
         if let call = tuIncomingCall(), let tu = tuCenter {
             tu.perform(NSSelectorFromString("disconnectCall:"), with: call)
         }
@@ -71,6 +118,7 @@ final class CallMonitor: ObservableObject {
     }
 
     func hangUp() {
+        if previewAction("hangup") { return }
         if let call = tuCurrentCalls().first, let tu = tuCenter {
             tu.perform(NSSelectorFromString("disconnectCall:"), with: call)
         }
@@ -82,6 +130,7 @@ final class CallMonitor: ObservableObject {
     }
 
     func toggleMute() {
+        if previewAction("mute") { return }
         guard case .active(let name, let since, let muted) = state else { return }
         if let call = tuCurrentCalls().first, call.responds(to: NSSelectorFromString("setUplinkMuted:")) {
             call.setValue(!muted, forKey: "uplinkMuted")
@@ -95,6 +144,7 @@ final class CallMonitor: ObservableObject {
     /// 수신 카드를 두 손가락으로 위로 올림: 거절하지 않고 작은 표시로 접는다.
     func minimizeIncoming() {
         guard case .incoming = state else { return }
+        if previewActive { schedulePreviewEnd() }
         incomingMinimized = true
         publish()
     }
@@ -227,6 +277,7 @@ final class CallMonitor: ObservableObject {
     // MARK: - 상태 갱신
 
     func refresh() {
+        if previewActive { return }   // 미리보기 중에는 가짜 통화를 유지
         guard settings.callEnabled else { setState(.idle); return }
         let new = tuState() ?? axState() ?? .idle
         setState(new)
