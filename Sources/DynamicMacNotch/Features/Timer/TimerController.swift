@@ -194,6 +194,13 @@ final class TimerController: ObservableObject {
     private func finish() {
         let totalText = Self.format(total)
         cancel()
+        postDone(totalText)
+    }
+
+    /// 미리보기: 진행 중인 타이머는 건드리지 않고 '타이머 종료' 알림만 띄운다.
+    func previewDone() { postDone(Self.format(300)) }
+
+    private func postDone(_ totalText: String) {
         center.post(NotchActivity(
             kind: .timer,
             priority: ActivityPriority.batteryLow,

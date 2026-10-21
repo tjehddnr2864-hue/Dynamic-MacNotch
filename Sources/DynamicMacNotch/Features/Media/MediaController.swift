@@ -158,6 +158,7 @@ final class MediaController: ObservableObject {
     }
 
     private func handleAdapter(_ o: [String: Any]) {
+        if testActive { return }   // 재생 테스트 중에는 실제 보고를 무시 (끝나면 이전 상태로 되돌림)
         if o["error"] != nil { fallbackActive = true; return }
         let artwork = (o["artwork"] as? String).flatMap { Data(base64Encoded: $0) }
         guard o["empty"] == nil, let title = o["title"] as? String, !title.isEmpty else {
@@ -217,6 +218,7 @@ final class MediaController: ObservableObject {
     /// ① 재생 소스를 Apple Music/Spotify로 정했으면 다른 앱의 보고는 무시한다 (지우지도 않음).
     /// ② 두 앱이 동시에 재생되면 먼저 재생한 앱을 계속 보여 준다. 먼저 앱이 멈추면 보류해 둔 앱으로 넘어간다.
     private func receive(_ np: NowPlaying, artwork: Data?) {
+        if testActive { return }
         if let wanted = settings.mediaSource.bundleID, np.bundleID != wanted { return }
         if let cur = nowPlaying, cur.playing, np.playing, cur.bundleID != np.bundleID {
             deferred = (np, artwork ?? deferred.flatMap { $0.np.bundleID == np.bundleID ? $0.artwork : nil })
@@ -333,7 +335,7 @@ final class MediaController: ObservableObject {
     // MARK: - 상태 반영
 
     private func accepts(_ np: NowPlaying?) -> Bool {
-        guard let np, let wanted = settings.mediaSource.bundleID else { return true }
+        guard let np, np.bundleID != Self.testBundle, let wanted = settings.mediaSource.bundleID else { return true }
         return np.bundleID == wanted
     }
 
@@ -431,20 +433,26 @@ final class MediaController: ObservableObject {
 
     // MARK: - 제어
 
-    func togglePlayPause() { command("toggle", script: "playpause", mediaKey: 16) }
+    func togglePlayPause() {
+        if testActive { testControl { $0.playing.toggle() }; return }
+        command("toggle", script: "playpause", mediaKey: 16)
+    }
     func next() {
+        if testActive { testSkip(1); return }
         skipDirection = 1
         skipToken &+= 1
         command("next", script: "next track", mediaKey: 17)
     }
 
     func previous() {
+        if testActive { testSkip(-1); return }
         skipDirection = -1
         skipToken &+= 1
         command("prev", script: "previous track", mediaKey: 18)
     }
 
     func seek(to seconds: Double) {
+        if testActive { testControl { $0.elapsed = seconds }; return }
         if let bundle = nowPlaying?.bundleID, ["com.apple.Music", "com.spotify.client"].contains(bundle) {
             DispatchQueue.global().async { Self.runScript("tell application id \"\(bundle)\" to set player position to \(seconds)") }
         } else {
@@ -532,4 +540,117 @@ final class MediaController: ObservableObject {
                 .cgEvent?.post(tap: .cghidEventTap)
         }
     }
+
+    // MARK: - 재생 테스트 (설정 → 테스트)
+    // 실제 음악과 상관없는 가짜 곡을 노치에 띄운다. 조작(재생·다음·이전·이동·노치 호버/열기)이
+    // 30초 동안 없으면 스스로 끝나고, 끝나면 타이머·가짜 앨범아트를 모두 놓고 테스트 전 상태로 되돌린다.
+
+    static let testBundle = "com.dynamicmacnotch.test"
+    private(set) var testActive = false
+    private var testSaved: (np: NowPlaying?, artwork: NSImage?, accent: Color, key: String?)?
+    private var testIndex = 0
+    private var testIdleTimer: Timer?
+    private var testLastInteraction = Date()
+    private static let testIdleLimit: TimeInterval = 30
+    private static let testTracks: [(title: String, artist: String, hue: Double)] = [
+        (T("미리보기 테스트 곡", "Preview Test Song"), "Dynamic MacNotch", 0.58),
+        (T("두 번째 테스트 곡", "Second Test Song"), "Dynamic MacNotch", 0.83),
+        (T("세 번째 테스트 곡", "Third Test Song"), "Dynamic MacNotch", 0.08),
+    ]
+
+    func startTest() {
+        guard !testActive else { noteTestInteraction(); return }
+        testSaved = (nowPlaying, artwork, accent, lastTrackKey)
+        testActive = true
+        deferred = nil
+        testIndex = 0
+        applyTestTrack(playing: true, elapsed: 0)
+        noteTestInteraction()
+        let t = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
+            guard let self, Date().timeIntervalSince(self.testLastInteraction) >= Self.testIdleLimit else { return }
+            self.stopTest()
+        }
+        t.tolerance = 1
+        RunLoop.main.add(t, forMode: .common)
+        testIdleTimer = t
+    }
+
+    func stopTest() {
+        guard testActive else { return }
+        testIdleTimer?.invalidate()
+        testIdleTimer = nil
+        testActive = false
+        center.dismissTransient(kind: .media)
+        // 테스트 전 상태로 (가짜 곡·앨범아트 참조를 모두 놓는다)
+        let saved = testSaved
+        testSaved = nil
+        artwork = saved?.artwork
+        accent = saved?.accent ?? .white
+        backdropCache = nil
+        nowPlaying = nil
+        lastTrackKey = saved?.key
+        update(saved?.np)
+        MemoryTrim.soon()
+    }
+
+    /// 노치 호버·열기, 미디어 조작 때 호출 → 자동 중지까지 남은 시간을 다시 30초로
+    func noteTestInteraction() {
+        if testActive { testLastInteraction = Date() }
+    }
+
+    private func testControl(_ change: (inout NowPlaying) -> Void) {
+        guard var np = nowPlaying, np.bundleID == Self.testBundle else { return }
+        noteTestInteraction()
+        np.elapsed = np.position(at: Date())
+        np.timestamp = Date()
+        change(&np)
+        np.rate = np.playing ? 1 : 0
+        update(np)
+    }
+
+    private func testSkip(_ direction: Double) {
+        noteTestInteraction()
+        skipDirection = direction
+        skipToken &+= 1
+        testIndex = (testIndex + (direction > 0 ? 1 : Self.testTracks.count - 1)) % Self.testTracks.count
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.testActive else { return }
+            self.applyTestTrack(playing: true, elapsed: 0)
+        }
+    }
+
+    private func applyTestTrack(playing: Bool, elapsed: Double) {
+        let track = Self.testTracks[testIndex]
+        if let cg = Self.testArtwork(hue: track.hue) {
+            artwork = NSImage(cgImage: cg, size: NSSize(width: 150, height: 150))
+            accent = Self.accentColor(cg)
+            backdropCache = nil
+        }
+        update(NowPlaying(title: track.title, artist: track.artist, album: T("테스트", "Test"), duration: 184,
+                          elapsed: elapsed, timestamp: Date(), rate: playing ? 1 : 0, playing: playing,
+                          bundleID: Self.testBundle))
+    }
+
+    /// 테스트 앨범아트: 300×300 대각선 그라데이션을 픽셀로 직접 만든다 (그리기 API를 쓰지 않음)
+    private static func testArtwork(hue: Double) -> CGImage? {
+        let size = 300
+        var pixels = [UInt8](repeating: 255, count: size * size * 4)
+        let a = NSColor(hue: hue, saturation: 0.75, brightness: 0.95, alpha: 1).usingColorSpace(.deviceRGB)!
+        let b = NSColor(hue: (hue + 0.12).truncatingRemainder(dividingBy: 1), saturation: 0.85, brightness: 0.55, alpha: 1)
+            .usingColorSpace(.deviceRGB)!
+        for y in 0..<size {
+            for x in 0..<size {
+                let t = CGFloat(x + y) / CGFloat(2 * size - 2)
+                let i = (y * size + x) * 4
+                pixels[i] = UInt8((a.redComponent * (1 - t) + b.redComponent * t) * 255)
+                pixels[i + 1] = UInt8((a.greenComponent * (1 - t) + b.greenComponent * t) * 255)
+                pixels[i + 2] = UInt8((a.blueComponent * (1 - t) + b.blueComponent * t) * 255)
+            }
+        }
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData) else { return nil }
+        return CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                       space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+    }
+
 }
