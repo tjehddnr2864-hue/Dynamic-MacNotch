@@ -42,6 +42,12 @@ final class NotchViewModel: ObservableObject {
     @Published var hasPhysicalNotch = true
     @Published private(set) var isExpanded = false
     @Published var expandedPage: ExpandedPage = .home
+    /// 길게누르기 전에 묻는다: 이 활동을 확장 화면으로 열지(true), 앱이 따로 처리했는지(false).
+    var longPressShouldExpand: ((NotchActivity?) -> Bool)?
+    /// 누르고 있을 때 커지는 반응을 보일지 (상세 알림처럼 길게누르기가 없는 경우 false → 클릭만 반응)
+    var allowsPressFeedback: ((NotchActivity?) -> Bool)?
+    /// 홈의 카메라 거울을 켰는지 (켜면 노치가 더 커져 화면을 크게 보여 줌)
+    @Published var cameraOn = false
     /// 상세 알림 위에서 두 손가락으로 위로 올렸을 때 (전화 수신 카드는 접기, 그 밖은 닫기)
     var onDetailSwipeUp: (() -> Void)?
     /// 음악 팝업 아래에 음량 줄을 펼쳤는지 (출력 기기 아이콘을 길게 눌러 토글)
@@ -57,7 +63,9 @@ final class NotchViewModel: ObservableObject {
     @Published var shakeTrigger: CGFloat = 0
     /// 현재 홈 옵션. 마지막으로 본 옵션을 기억한다.
     @Published private(set) var homeOption: HomeOption =
-        HomeOption(rawValue: UserDefaults.standard.integer(forKey: "homeOption")) ?? .camera
+        HomeOption(rawValue: UserDefaults.standard.integer(forKey: "homeOption")) ?? .camera {
+        didSet { if homeOption != .camera { cameraOn = false } }   // 다른 페이지로 넘기면 카메라 끔
+    }
     /// 페이지 전환 방향 (true = 다음 페이지가 오른쪽에서 들어옴).
     @Published private(set) var pageForward = true
     /// 파일을 든 채 노치로 가져와 확장된 상태 (가이드라인 5.2).
@@ -165,7 +173,7 @@ final class NotchViewModel: ObservableObject {
         case .expanded:
             switch expandedPage {
             case .home:
-                return expandedBaseSize
+                return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)
             }
@@ -191,13 +199,19 @@ final class NotchViewModel: ObservableObject {
         case .recording:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 110)
         default:
-            // 알림 확장 카드(아이콘 | 이름·설명 | 값): 아래 여백을 좌우 여백(28pt)과 같게
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 84)
         }
     }
 
     /// 기본 확장(길게누르기): 좌우로는 넓어지지 않고 노치 폭 그대로 아래로만 커진다.
     /// 도형의 위쪽 오목 모서리 폭(topRadius)만큼 양옆을 더해야 몸통이 노치 폭과 일치한다.
+    /// 카메라를 켰을 때: 16:9 화면(약 356×200pt)이 들어가도록 좌우·아래로 더 커진다.
+    var cameraSize: CGSize {
+        let contentHeight: CGFloat = 200
+        let contentWidth = (contentHeight * 16 / 9).rounded()
+        return CGSize(width: contentWidth + 2 * (topRadius + 22), height: notchSize.height + 6 + contentHeight + 22)
+    }
+
     var expandedBaseSize: CGSize {
         // 기본 팝업(홈): 노치 폭보다 좌우 8% 넓게, 아래로 확장
         CGSize(width: (notchSize.width * 1.08).rounded() + 2 * topRadius, height: ((notchSize.height + 154) * 0.9).rounded())
@@ -335,7 +349,10 @@ final class NotchViewModel: ObservableObject {
         guard isExpanded else { return }
         let animation = expandedPage == .activity(.media) ? mediaCollapseSpring : closeSpring
         animationOverride = animation
-        withAnimation(animation) { isExpanded = false }
+        withAnimation(animation) {
+            isExpanded = false
+            cameraOn = false   // 노치를 닫으면 카메라 끔
+        }
         MemoryTrim.soon()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.animationOverride = nil }
     }

@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
         vm.onMediaSwipe = { [weak self] forward in forward ? self?.media.next() : self?.media.previous() }
+        vm.longPressShouldExpand = { [weak self] activity in self?.longPress(activity) ?? true }
+        vm.allowsPressFeedback = { [weak self] activity in self?.hasLongPressAction(activity) ?? true }
         vm.onDetailSwipeUp = { [weak self] in
             guard let self else { return }
             if self.center.transient?.kind == .call { self.call.minimizeIncoming() } else { self.center.dismissTransient() }
@@ -153,6 +155,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "closewin": self.closeHelper()
             case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
             case let c where c.hasPrefix("call:"): self.call.debugSimulate(String(c.dropFirst(5)))   // 개발용: 가짜 통화
+            case "longpress":   // 개발용: 길게누르기와 같은 판단
+                if self.vm.longPressShouldExpand?(self.center.displayed) ?? true {
+                    self.vm.expand(page: self.center.displayed.map { .activity($0.kind) } ?? .home)
+                }
+            case "sizes":   // 개발용: 홈 기본·카메라 크기
+                let line = "home=\(self.vm.expandedBaseSize) camera=\(self.vm.cameraSize) notch=\(self.vm.notchSize) panel=\(NotchGeometry.panelSize) dots=\(NotchViewModel.dotsAreaHeight)\n"
+                try? line.write(to: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-sizes.txt"), atomically: true, encoding: .utf8)
             case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
             case "recstate":   // 개발용: 녹화 감지 결과를 로그로
                 let line = "\(Date()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
@@ -253,6 +262,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     // MARK: - 짧은 클릭
+
+    /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
+    private static let pagedKinds: Set<ActivityKind> = [.timer, .battery, .media, .recording, .call, .download]
+
+    /// 길게누르기·누름 반응이 있는지: 상세로 이미 떠 있는 알림과 HUD는 클릭만 받는다.
+    private func hasLongPressAction(_ activity: NotchActivity?) -> Bool {
+        guard let a = activity else { return true }   // 빈 노치: 홈 열기
+        if Self.pagedKinds.contains(a.kind) { return true }
+        if [.hud, .lock].contains(a.kind) { return false }
+        if center.transient?.id == a.id { return !center.showingDetail }
+        return true
+    }
+
+    /// 길게누르기: 확장 화면을 열면 true. 알림은 확장 화면 대신 상세 카드로 바꾼다.
+    private func longPress(_ activity: NotchActivity?) -> Bool {
+        guard let a = activity, !Self.pagedKinds.contains(a.kind) else { return true }
+        guard hasLongPressAction(a) else { return false }
+        Haptics.perform()
+        if center.transient?.id == a.id {
+            center.promoteToDetail()   // 컴팩트 알림 → 상세 카드
+        } else {
+            // 상시 표시(핫스팟·집중 모드 등)는 같은 내용을 상세 카드로 잠깐 보여 준다
+            var detail = a
+            detail.id = UUID()
+            detail.presentation = .detail
+            detail.duration = nil
+            center.post(detail)
+        }
+        return false
+    }
 
     /// 알림·활동을 길게 눌러 연 확장 노치는 그 알림이 사라지면 자동으로 닫는다.
     /// (타이머·배터리·음악 화면은 알림이 없어도 내용이 있으므로 그대로 둔다)

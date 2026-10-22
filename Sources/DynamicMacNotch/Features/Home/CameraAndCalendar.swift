@@ -8,13 +8,13 @@ import EventKit
 /// 홈의 카메라 페이지. 페이지가 보이는 동안만 세션을 켜고, 닫히면 즉시 끈다 (초록 표시등 꺼짐).
 struct CameraPage: View {
     @ObservedObject var settings = AppSettings.shared
-    /// 기본은 꺼짐. 누르면 켜지고, 노치가 닫히거나 다른 페이지로 넘기면 다시 꺼진다.
-    private let activeState = State(initialValue: false)
+    /// 켜짐 상태는 노치와 공유한다: 켜면 노치가 커지고, 끄거나 노치를 닫거나 다른 페이지로 넘기면 작아진다.
+    @ObservedObject var vm: NotchViewModel
     private let statusState = State(initialValue: AVCaptureDevice.authorizationStatus(for: .video))
 
     private var active: Bool {
-        get { activeState.wrappedValue }
-        nonmutating set { activeState.wrappedValue = newValue }
+        get { vm.cameraOn }
+        nonmutating set { withAnimation(vm.openSpring) { vm.cameraOn = newValue } }
     }
 
     private var status: AVAuthorizationStatus {
@@ -59,12 +59,12 @@ struct CameraPage: View {
     private func turnOn() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { active = true }
+            active = true
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
                     status = AVCaptureDevice.authorizationStatus(for: .video)
-                    if granted { withAnimation { active = true } }
+                    if granted { active = true }
                 }
             }
         default:
