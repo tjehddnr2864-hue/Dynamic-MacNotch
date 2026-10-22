@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar, call: call)
-        let root = NotchRootView(vm: vm, timer: timer, battery: battery, features: features) { [weak self] in self?.showSettings() }
+        let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
         vm.onMediaSwipe = { [weak self] forward in forward ? self?.media.next() : self?.media.previous() }
@@ -264,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 짧은 클릭
 
     /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
-    private static let pagedKinds: Set<ActivityKind> = [.timer, .battery, .media, .recording, .call, .download]
+    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download]
 
     /// 길게누르기·누름 반응이 있는지: 상세로 이미 떠 있는 알림과 HUD는 클릭만 받는다.
     private func hasLongPressAction(_ activity: NotchActivity?) -> Bool {
@@ -297,7 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (타이머·배터리·음악 화면은 알림이 없어도 내용이 있으므로 그대로 둔다)
     private func collapseIfActivityGone() {
         guard vm.isExpanded, case .activity(let kind) = vm.expandedPage,
-              ![.timer, .battery, .media].contains(kind) else { return }
+              ![.timer, .media].contains(kind) else { return }
         let stillShown = center.transient?.kind == kind || center.persistentKinds.contains(kind)
             || (kind == .recording && (recording.startedAt != nil || recording.finished != nil))   // 녹화 중·완료 화면 유지
         if !stillShown { vm.collapse() }
