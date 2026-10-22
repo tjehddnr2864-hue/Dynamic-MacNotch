@@ -225,6 +225,11 @@ final class NotchController: NotchGestureDelegate {
 
     private func expand(haptic: Bool) {
         guard !isLocked(), !vm.isExpanded, Date().timeIntervalSince(lastCollapse) > 0.3 else { return }
+        // 알림은 확장 화면 대신 앱이 처리한다 (컴팩트 → 상세 카드, 상세 → 반응 없음)
+        if let decide = vm.longPressShouldExpand, !decide(vm.center.displayed) {
+            vm.endPress()
+            return
+        }
         let page: ExpandedPage = vm.center.displayed.map { .activity($0.kind) } ?? .home
         vm.expand(page: page)
         if haptic { Haptics.perform() }
@@ -245,6 +250,8 @@ final class NotchController: NotchGestureDelegate {
         guard !vm.isExpanded else { return }
         pressFired = false
         pressOrigin = NSEvent.mouseLocation
+        // 상세 알림처럼 길게누르기가 없는 경우: 누름 반응·길게누르기 없이 클릭만 받는다
+        guard vm.allowsPressFeedback?(vm.center.displayed) ?? true else { return }
         let duration = settings.longPressDuration
         vm.beginPress(duration: duration)
         let work = DispatchWorkItem { [weak self] in

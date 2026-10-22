@@ -104,6 +104,13 @@ final class ActivityCenter: ObservableObject {
         pending.removeAll { $0.kind == kind }
     }
 
+    /// 컴팩트로 떠 있는 알림을 상세 카드로 바꾼다 (표시 시간은 처음부터 다시).
+    func promoteToDetail() {
+        guard var t = transient, t.presentation != .detail else { return }
+        t.presentation = .detail
+        show(t, restartDetail: true)
+    }
+
     func dismissTransient() {
         MemoryTrim.soon()
         expireWork?.cancel()

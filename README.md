@@ -76,7 +76,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Hover** | Optional: grow slightly, or open on hover (Settings → Interaction) |
 
 ### Home (4 pages)
-1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it and turns off when the notch closes.
+1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages.
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
 3. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts.
 4. **AirDrop · Tray**
@@ -118,7 +118,7 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
 - **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Activities → Other: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button.
 
-Every alert can be **compact or detailed**, and durations are configurable. If you long-press an alert to expand it, the notch closes by itself when the alert ends.
+Every alert can be **compact or detailed**, and durations are configurable. **Long-press a compact alert** to see its detailed card; detailed alerts only respond to a click.
 
 ### Live activity priority
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → General → Live Activity Priority** is shown. Drag to reorder.
@@ -242,7 +242,7 @@ scripts/build.sh --install --run  # install to /Applications
 | **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 상호작용) |
 
 ### 홈 (4페이지)
-1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 노치를 닫으면 꺼집니다.
+1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다.
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
 3. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택).
 4. **에어드랍 · 트레이**
@@ -284,7 +284,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
 - **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 활동 → 기타에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다.
 
-모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. 알림을 길게 눌러 확장해도 알림이 끝나면 노치가 자동으로 줄어듭니다.
+모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. **컴팩트 알림을 길게 누르면** 상세 카드로 바뀌고, 상세 알림은 클릭에만 반응합니다.
 
 ### 라이브 활동 우선순위
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 일반 → 상시 표시 우선순위**에서 위에 있는 것이 표시됩니다. 끌어서 순서를 바꿉니다.

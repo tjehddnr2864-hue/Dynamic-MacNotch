@@ -118,7 +118,7 @@ struct ExpandedView: View {
 
     private var pages: HomePages {
         HomePages(
-            camera: AnyView(CameraPage()),
+            camera: AnyView(CameraPage(vm: vm)),
             calendar: AnyView(CalendarPage(calendar: features.calendar)),
             tray: AnyView(TrayPage(store: features.tray, vm: vm))
         )
@@ -164,41 +164,7 @@ struct ExpandedView: View {
                 DownloadPage(activity: a)
             }
         default:
-            if let a = vm.center.displayed, a.kind == kind {
-                ActivityCard(activity: a)
-            }
+            EmptyView()   // 알림은 확장 화면 대신 상세 카드로 표시한다
         }
-    }
-}
-
-/// 알림을 길게 눌러 연 확장 카드 (네트워크·블루투스·집중 모드 등): 아이콘 | 이름·설명 | 값.
-/// 세로로 쌓으면 팝업 높이를 넘어 아래쪽 값('켬/끔' 등)이 잘리므로 가로로 놓는다.
-struct ActivityCard: View {
-    var activity: NotchActivity
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(activity.tint.opacity(0.2))
-                Image(systemName: activity.symbol)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(activity.tint)
-            }
-            .frame(width: 40, height: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                if let title = activity.title {
-                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                }
-                if let subtitle = activity.subtitle {
-                    Text(subtitle).font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6)).lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            ActivityValueView(value: activity.detailValue ?? activity.value, tint: activity.tint, large: true,
-                              textColor: activity.valueTint)
-                .fixedSize()
-        }
-        .padding(.horizontal, 6)
-        .frame(maxHeight: .infinity)
     }
 }
