@@ -15,7 +15,6 @@ struct NotchFeatures {
 struct NotchRootView: View {
     @ObservedObject var vm: NotchViewModel
     let timer: TimerController
-    let battery: BatteryMonitor
     let features: NotchFeatures
     var openSettings: () -> Void
 
@@ -102,7 +101,7 @@ struct NotchRootView: View {
                 .transition(appear)
             }
         case .expanded:
-            ExpandedView(vm: vm, timer: timer, battery: battery, features: features, openSettings: openSettings)
+            ExpandedView(vm: vm, timer: timer, features: features, openSettings: openSettings)
                 .transition(.notchContent)
         }
     }
@@ -112,7 +111,6 @@ struct NotchRootView: View {
 struct ExpandedView: View {
     @ObservedObject var vm: NotchViewModel
     let timer: TimerController
-    let battery: BatteryMonitor
     let features: NotchFeatures
     var openSettings: () -> Void
 
@@ -151,8 +149,6 @@ struct ExpandedView: View {
         switch kind {
         case .timer:
             TimerPage(timer: timer)
-        case .battery:
-            BatteryPanel(monitor: battery)
         case .media:
             MediaPage(media: features.media, volumeShown: vm.mediaVolumeShown) { vm.toggleMediaVolume() }
         case .recording:
