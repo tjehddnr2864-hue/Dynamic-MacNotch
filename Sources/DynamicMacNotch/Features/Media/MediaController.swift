@@ -30,6 +30,9 @@ struct NowPlaying: Equatable {
     var rate: Double
     var playing: Bool
     var bundleID: String?
+    /// 다음·이전 곡 명령을 받을 수 있는지 (시스템이 알려 준 값. nil이면 알 수 없음)
+    var canNext: Bool? = nil
+    var canPrev: Bool? = nil
 
     /// 지금 시점의 재생 위치 (마지막 보고 이후 흐른 시간 반영).
     func position(at now: Date = Date()) -> Double {
@@ -179,7 +182,9 @@ final class MediaController: ObservableObject {
             timestamp: ts,
             rate: o["rate"] as? Double ?? 0,
             playing: (o["playing"] as? Bool) ?? ((o["playing"] as? Int) == 1),
-            bundleID: o["bundle"] as? String
+            bundleID: o["bundle"] as? String,
+            canNext: o["canNext"] as? Bool,
+            canPrev: o["canPrev"] as? Bool
         )
         receive(np, artwork: artwork)
     }
@@ -386,7 +391,7 @@ final class MediaController: ObservableObject {
             title: np.title, subtitle: np.artist,
             wing: 46, artwork: artwork
         ))
-        if trackChanged, settings.mediaShowTrackChange, np.playing {
+        if trackChanged, settings.mediaShowTrackChange, np.playing, Date().timeIntervalSince(launchedAt) > 4 {
             trackPopupWork?.cancel()
             trackPopupWork = nil
             if Date().timeIntervalSince(artworkDate) < 0.4 {
@@ -437,6 +442,15 @@ final class MediaController: ObservableObject {
         if testActive { testControl { $0.playing.toggle() }; return }
         command("toggle", script: "playpause", mediaKey: 16)
     }
+    /// 다음(+1)·이전(-1) 곡으로 넘길 수 있는지. Music·Spotify는 AppleScript로 항상 가능,
+    /// 그 밖의 앱은 시스템(MediaRemote)이 '가능'이라고 알려 줄 때만 (영상 한 편만 재생 중이면 보통 불가).
+    func canSkip(_ direction: Int) -> Bool {
+        guard let np = nowPlaying else { return false }
+        if testActive { return true }
+        if let b = np.bundleID, Self.trusted.contains(b) { return true }
+        return (direction > 0 ? np.canNext : np.canPrev) == true
+    }
+
     func next() {
         if testActive { testSkip(1); return }
         skipDirection = 1
@@ -546,6 +560,8 @@ final class MediaController: ObservableObject {
     // 30초 동안 없으면 스스로 끝나고, 끝나면 타이머·가짜 앨범아트를 모두 놓고 테스트 전 상태로 되돌린다.
 
     static let testBundle = "com.dynamicmacnotch.test"
+    /// 앱을 띄운 시각 (막 시작했을 때 이미 재생 중인 곡은 '곡 변경' 팝업으로 보여 주지 않음)
+    private let launchedAt = Date()
     private(set) var testActive = false
     private var testSaved: (np: NowPlaying?, artwork: NSImage?, accent: Color, key: String?)?
     private var testIndex = 0

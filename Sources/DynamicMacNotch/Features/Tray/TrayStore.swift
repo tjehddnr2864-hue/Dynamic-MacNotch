@@ -370,6 +370,8 @@ struct TrayItemView: View {
     /// 다시 그릴 때마다 아이콘을 새로 만들지 않도록 경로별로 재사용한다.
     private static var iconCache: [String: NSImage] = [:]
 
+    static func clearIconCache() { iconCache.removeAll() }
+
     static func icon(for url: URL) -> NSImage {
         if let cached = iconCache[url.path] { return cached }
         if iconCache.count > 100 { iconCache.removeAll() }

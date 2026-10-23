@@ -360,6 +360,12 @@ final class NotchController: NotchGestureDelegate {
             scrollAccum.height += event.scrollingDeltaY
         case .ended, .cancelled:
             defer { scrollAccum = .zero }
+            // 음악이 작은 노치에 떠 있을 때 두 손가락 좌우: 다음/이전 곡
+            if abs(scrollAccum.width) > abs(scrollAccum.height) * 1.5, vm.center.displayed?.kind == .media {
+                let contentDX = natural ? scrollAccum.width : -scrollAccum.width
+                if abs(contentDX) > 50 { vm.onMediaSwipe?(contentDX < 0) }
+                return
+            }
             guard abs(scrollAccum.height) > abs(scrollAccum.width) * 1.5 else { return }
             let fingerUp = natural ? -scrollAccum.height : scrollAccum.height
             let center = vm.center

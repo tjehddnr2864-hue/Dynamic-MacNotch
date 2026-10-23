@@ -11,6 +11,10 @@ typedef Boolean (*SendCommandFn)(int, CFDictionaryRef);
 typedef void (*SetElapsedFn)(double);
 typedef void (*GetClientFn)(dispatch_queue_t, void (^)(id));
 typedef CFStringRef (*ClientBundleFn)(id);
+typedef void *(*GetLocalOriginFn)(void);
+typedef void (*GetSupportedFn)(void *, dispatch_queue_t, void (^)(CFArrayRef));
+typedef int (*CommandInfoGetCommandFn)(id);
+typedef Boolean (*CommandInfoGetEnabledFn)(id);
 
 static GetInfoFn getInfo;
 static GetPlayingFn getPlaying;
@@ -18,6 +22,10 @@ static SendCommandFn sendCommand;
 static SetElapsedFn setElapsed;
 static GetClientFn getClient;
 static ClientBundleFn clientBundle;
+static GetLocalOriginFn getLocalOrigin;
+static GetSupportedFn getSupported;
+static CommandInfoGetCommandFn commandOf;
+static CommandInfoGetEnabledFn enabledOf;
 static NSUInteger lastArtworkHash;
 
 static id S(NSDictionary *d, NSString *key) {
@@ -50,11 +58,30 @@ static void emit(void) {
                     lastArtworkHash = 0;
                 }
                 if (info == nil) out[@"empty"] = @YES;
-                NSData *json = [NSJSONSerialization dataWithJSONObject:out options:0 error:nil];
-                if (json) {
-                    fwrite(json.bytes, 1, json.length, stdout);
-                    fputc('\n', stdout);
-                    fflush(stdout);
+                void (^write)(void) = ^{
+                    NSData *json = [NSJSONSerialization dataWithJSONObject:out options:0 error:nil];
+                    if (json) {
+                        fwrite(json.bytes, 1, json.length, stdout);
+                        fputc('\n', stdout);
+                        fflush(stdout);
+                    }
+                };
+                // 지금 재생 중인 앱이 다음 곡(4)·이전 곡(5) 명령을 받을 수 있는지 (모르면 키를 넣지 않음)
+                void *origin = getLocalOrigin ? getLocalOrigin() : NULL;
+                if (getSupported && commandOf && enabledOf && origin && info != nil) {
+                    getSupported(origin, dispatch_get_main_queue(), ^(CFArrayRef commands) {
+                        BOOL next = NO, prev = NO;
+                        for (id c in (__bridge NSArray *)commands) {
+                            int cmd = commandOf(c);
+                            if (cmd == 4) next = enabledOf(c);
+                            if (cmd == 5) prev = enabledOf(c);
+                        }
+                        out[@"canNext"] = @(next);
+                        out[@"canPrev"] = @(prev);
+                        write();
+                    });
+                } else {
+                    write();
                 }
             };
             if (getClient && clientBundle) {
@@ -96,6 +123,10 @@ void adapter_run(void *interp, void *cv) {
     setElapsed = dlsym(mr, "MRMediaRemoteSetElapsedTime");
     getClient = dlsym(mr, "MRMediaRemoteGetNowPlayingClient");
     clientBundle = dlsym(mr, "MRNowPlayingClientGetBundleIdentifier");
+    getLocalOrigin = dlsym(mr, "MRMediaRemoteGetLocalOrigin");
+    getSupported = dlsym(mr, "MRMediaRemoteGetSupportedCommandsForOrigin");
+    commandOf = dlsym(mr, "MRMediaRemoteCommandInfoGetCommand");
+    enabledOf = dlsym(mr, "MRMediaRemoteCommandInfoGetEnabled");
     RegisterFn reg = dlsym(mr, "MRMediaRemoteRegisterForNowPlayingNotifications");
     if (!getInfo || !getPlaying || !sendCommand || !reg) { fprintf(stdout, "{\"error\":\"symbols\"}\n"); fflush(stdout); exit(1); }
 

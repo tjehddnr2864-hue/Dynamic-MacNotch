@@ -303,6 +303,8 @@ final class DownloadMonitor {
         return candidates.first { running.contains($0) } ?? fallback
     }
 
+    static func clearIconCache() { iconCache.removeAll() }
+
     /// 브라우저 아이콘은 한 번 만든 이미지를 재사용한다.
     /// 진행률이 바뀔 때마다 새 이미지를 만들면 아이콘이 매번 다시 그려져 깜빡인다.
     private static var iconCache: [String: NSImage] = [:]

@@ -90,6 +90,7 @@ final class AppSettings: ObservableObject {
     @Published var transientDuration: Double { didSet { save(transientDuration, "transientDuration") } }
     @Published var showStatusItem: Bool { didSet { save(showStatusItem, "showStatusItem") } }
     @Published var autoUpdate: Bool { didSet { save(autoUpdate, "autoUpdate") } }
+    @Published var memoryGuard: Bool { didSet { save(memoryGuard, "memoryGuard") } }
     @Published var onboardingDone: Bool { didSet { save(onboardingDone, "onboardingDone") } }
 
     // 상호작용
@@ -215,6 +216,7 @@ final class AppSettings: ObservableObject {
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
         autoUpdate = value("autoUpdate", true)
+        memoryGuard = value("memoryGuard", true)
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)
@@ -313,6 +315,7 @@ final class AppSettings: ObservableObject {
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
         autoUpdate = value("autoUpdate", true)
+        memoryGuard = value("memoryGuard", true)
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)

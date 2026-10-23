@@ -38,7 +38,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
-        vm.onMediaSwipe = { [weak self] forward in forward ? self?.media.next() : self?.media.previous() }
+        // 음악 팝업·작은 노치에서 두 손가락 좌우: 다음/이전 곡 (넘길 수 없는 미디어면 아무 일도 하지 않음)
+        vm.onMediaSwipe = { [weak self] forward in
+            guard let self, self.media.canSkip(forward ? 1 : -1) else { return }
+            forward ? self.media.next() : self.media.previous()
+            Haptics.perform()
+        }
         vm.longPressShouldExpand = { [weak self] activity in self?.longPress(activity) ?? true }
         vm.allowsPressFeedback = { [weak self] activity in self?.hasLongPressAction(activity) ?? true }
         vm.onDetailSwipeUp = { [weak self] in
@@ -99,6 +104,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tint: success ? .blue : .orange, value: .none, title: title, subtitle: subtitle))
         }
         Updater.shared.announceIfUpdated()
+        // 메모리 지킴이: 70MB를 넘으면 캐시를 비우고, 그래도 넘으면 쉬는 동안 조용히 다시 시작
+        MemoryGuard.shared.isIdle = { [weak self] in self?.isIdleForRelaunch() ?? false }
+        MemoryGuard.shared.releaseCaches = {
+            TrayItemView.clearIconCache()
+            DownloadMonitor.clearIconCache()
+            URLCache.shared.removeAllCachedResponses()
+        }
+        MemoryGuard.shared.relaunch = { [weak self] in self?.restart() }
+        MemoryGuard.shared.start()
         center.objectWillChange.merge(with: recording.objectWillChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.collapseIfActivityGone() }
@@ -162,6 +176,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "sizes":   // 개발용: 홈 기본·카메라 크기
                 let line = "home=\(self.vm.expandedBaseSize) camera=\(self.vm.cameraSize) notch=\(self.vm.notchSize) panel=\(NotchGeometry.panelSize) dots=\(NotchViewModel.dotsAreaHeight)\n"
                 try? line.write(to: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-sizes.txt"), atomically: true, encoding: .utf8)
+            case let c where c.hasPrefix("shotfile:"): self.screenshot.debugPresentFile(URL(fileURLWithPath: String(c.dropFirst(9))))
+            case "shotdelete": self.screenshot.delete()
+            case "memtest":   // 개발용: 기준을 1MB로 낮춰 지킴이 동작(캐시 비우기 → 쉬는 동안 재시작)을 시험
+                MemoryGuard.limitMB = 1
+                MemoryGuard.shared.debugCheckNow()
+            case "skipnext": self.vm.onMediaSwipe?(true)
+            case "skipprev": self.vm.onMediaSwipe?(false)
             case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
             case "recstate":   // 개발용: 녹화 감지 결과를 로그로
                 let line = "\(Date()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
@@ -262,6 +283,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     // MARK: - 짧은 클릭
+
+    /// 자동 재시작해도 사용자가 알아채지 못할 때: 노치가 닫혀 있고 알림·조작·진행 중인 작업이 없음.
+    /// (음악 재생은 다른 앱에서 계속되므로 막지 않는다)
+    private func isIdleForRelaunch() -> Bool {
+        let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
+        return !vm.isExpanded && !vm.isHovering && !vm.isFileDragging
+            && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
+            && recording.startedAt == nil && call.state == .idle && !timer.isActive
+            && lockScreen?.isLocked != true && helperProcess?.isRunning != true && !FilePicker.isRunning
+            && !media.testActive && !call.previewActive && screenshot.shot == nil
+    }
 
     /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
     private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download]

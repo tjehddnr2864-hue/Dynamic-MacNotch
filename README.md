@@ -72,6 +72,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Two-finger swipe left/right** while open | Switches Home pages (or click the dots under the notch) |
 | **Two-finger swipe up** while open | Closes |
 | **Two-finger swipe up / down** on a compact live activity | Hides / shows live activities |
+| **Two-finger swipe left / right** while music shows | Next / previous track (does nothing if the app or video has no next/previous) |
 | **Right-click** the notch | Menu: Open Home, Settings, Permissions, Preview alerts, Restart, Quit |
 | **Hover** | Optional: grow slightly, or open on hover (Settings → Interaction) |
 
@@ -143,6 +144,11 @@ Korean and English. Settings → General → Language (System default / 한국�
   - **Live lyrics** (off by default): the song title, artist and album are sent to [LRCLIB](https://lrclib.net).
   - **Spotify artwork**: the cover image URL that Spotify provides (HTTPS only).
 - Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist` and `~/Library/Application Support/Dynamic MacNotch/`. Delete both to reset.
+
+## Memory
+
+- Screenshot thumbnails and PNG/JPEG conversion run in a short-lived helper process, so a full-screen image never inflates the app's memory.
+- **Automatic memory cleanup** (Settings → General, on by default): every 5 minutes and after heavy work the app checks its memory. Above 70 MB it clears its caches, and if that isn't enough it restarts itself quietly while idle (nothing open, playing in the notch or in progress). Music keeps playing in its own app; the notch is back within a second.
 
 ## Notes & limitations
 
@@ -238,6 +244,7 @@ scripts/build.sh --install --run  # install to /Applications
 | 열린 상태에서 **두 손가락 좌우 쓸기** | 홈 페이지 넘기기 (노치 아래 점을 눌러도 됨) |
 | 열린 상태에서 **두 손가락 위로 쓸기** | 닫기 |
 | 컴팩트 라이브 활동 위에서 **두 손가락 위 / 아래** | 라이브 활동 숨기기 / 다시 보이기 |
+| 음악이 떠 있을 때 **두 손가락 좌 / 우** | 다음 / 이전 곡 (앱·영상에 다음·이전이 없으면 아무 동작 안 함) |
 | 노치 **우클릭** | 메뉴: 홈 열기, 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
 | **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 상호작용) |
 
@@ -309,6 +316,11 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
   - **실시간 가사**(기본 꺼짐): 곡 제목·아티스트·앨범을 [LRCLIB](https://lrclib.net)로 보냅니다.
   - **Spotify 앨범아트**: Spotify가 알려 주는 표지 이미지 주소(HTTPS만).
 - 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`. 둘 다 지우면 초기화됩니다.
+
+## 메모리
+
+- 스크린샷 썸네일과 PNG·JPEG 변환은 잠깐 떴다 끝나는 도우미 프로세스가 처리해, 전체 화면 이미지 때문에 앱 메모리가 늘지 않습니다.
+- **메모리 자동 최적화**(설정 → 일반, 기본 켬): 5분마다, 그리고 큰 작업 뒤에 앱의 메모리를 확인합니다. 70MB를 넘으면 캐시를 비우고, 그래도 넘으면 쉬는 동안(노치가 닫혀 있고 진행 중인 작업이 없을 때) 조용히 다시 시작합니다. 음악은 원래 앱에서 계속 재생되고, 노치는 1초 안에 돌아옵니다.
 
 ## 참고 및 제한
 

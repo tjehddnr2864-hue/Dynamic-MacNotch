@@ -8,7 +8,6 @@ import UniformTypeIdentifiers
 /// 노치가 상세 카드로 커지며 썸네일과 [복사] [저장] [삭제]를 보여 준다. 썸네일은 끌어서 첨부할 수 있다.
 final class ScreenshotMonitor: ObservableObject {
     struct Shot {
-        var image: NSImage?     // 받은 원본 이미지 (카드 표시에는 쓰지 않음, 곧바로 버림)
         var thumb: CGImage?     // 카드에 그리는 작은 썸네일 (NSImage를 거치지 않아 AppKit 이미지 캐시에 남지 않음)
         var data: Data          // 원본 PNG/TIFF 데이터
         var date: Date
@@ -89,8 +88,8 @@ final class ScreenshotMonitor: ObservableObject {
         lastChangeCount = pb.changeCount
         guard settings.screenshotEnabled, settings.screenshotSource != .file,
               pb.changeCount != ownChangeCount, Self.looksLikeScreenshot(pb) else { return }
-        guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff), let image = NSImage(data: data) else { return }
-        present(Shot(image: image, data: data, date: Date(), fileURL: nil, pasteboardCount: pb.changeCount))
+        guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff) else { return }
+        present(Shot(data: data, date: Date(), fileURL: nil, pasteboardCount: pb.changeCount))
     }
 
     // MARK: - 파일 감지
@@ -106,10 +105,10 @@ final class ScreenshotMonitor: ObservableObject {
                 guard let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
                 let url = URL(fileURLWithPath: path)
                 guard let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
-                      let data = try? Data(contentsOf: url), let image = NSImage(data: data) else { continue }
+                      let data = try? Data(contentsOf: url) else { continue }
                 let date = (item.value(forAttribute: NSMetadataItemFSCreationDateKey) as? Date) ?? Date()
                 guard date > self.startedAt else { continue }
-                self.present(Shot(image: image, data: data, date: date, fileURL: url, pasteboardCount: nil))
+                self.present(Shot(data: data, date: date, fileURL: url, pasteboardCount: nil))
             }
         }
         q.start()
@@ -124,21 +123,32 @@ final class ScreenshotMonitor: ObservableObject {
         return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
     }
 
+    #if DEV
+    /// 개발용: 이미지 파일을 스크린샷처럼 띄운다 (클립보드를 건드리지 않음)
+    func debugPresentFile(_ url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        present(Shot(data: data, date: Date(), fileURL: nil, pasteboardCount: nil))
+    }
+    #endif
+
     /// 개발용: 현재 클립보드 이미지를 스크린샷처럼 띄운다.
     func debugPresentClipboard() {
         let pb = NSPasteboard.general
-        guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff), let image = NSImage(data: data) else { return }
-        present(Shot(image: image, data: data, date: Date(), fileURL: nil, pasteboardCount: pb.changeCount))
+        guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff) else { return }
+        present(Shot(data: data, date: Date(), fileURL: nil, pasteboardCount: pb.changeCount))
     }
 
     // MARK: - 카드
 
     private func present(_ s: Shot) {
-        // 카드에는 작은 썸네일만 쓴다. 원본(전체 화면이면 디코딩 시 수십 MB)은 저장·복사용 데이터로만 보관.
-        var shot = s
-        shot.thumb = Self.thumbnail(from: s.data)
-        shot.image = nil
-        self.shot = shot
+        // 카드에는 작은 썸네일만 쓴다. 원본은 디코딩하지 않고(전체 화면이면 수십 MB) 저장·복사용 데이터로만 보관하며,
+        // 썸네일은 도우미 프로세스가 만들어 작은 PNG로 돌려준다 (본 앱 메모리가 늘지 않음).
+        self.shot = s
+        let date = s.date
+        ImageTool.process(.thumb, s.data) { [weak self] png in
+            guard let self, self.shot?.date == date, let png else { return }
+            self.shot?.thumb = autoreleasepool { ImageScaler.decode(png) }
+        }
         status = nil
         observeCardEnd()
         center.post(NotchActivity(
@@ -160,15 +170,8 @@ final class ScreenshotMonitor: ObservableObject {
                 guard let self, t?.kind != .screenshot else { return }
                 self.shot = nil
                 self.cardWatch = nil
+                MemoryGuard.shared.checkSoon()
             }
-    }
-
-    /// 작은 썸네일 (vImage로 축소 · CoreGraphics draw 누수 회피, ImageScaler 참고)
-    static func thumbnail(from data: Data, maxPixels: Int = 480) -> CGImage? {
-        autoreleasepool {
-            guard let full = ImageScaler.decode(data) else { return nil }
-            return ImageScaler.scaled(full, maxPixels: maxPixels)
-        }
     }
 
     private func dismiss(after delay: TimeInterval = 0.8) {
@@ -176,6 +179,7 @@ final class ScreenshotMonitor: ObservableObject {
             guard let self, self.center.transient?.kind == .screenshot else { return }
             self.center.dismissTransient()
             self.shot = nil
+            MemoryGuard.shared.checkSoon()   // 스크린샷 작업이 끝나면 메모리 점검
         }
     }
 
@@ -206,7 +210,7 @@ final class ScreenshotMonitor: ObservableObject {
                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
                                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent),
               let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { return }
-        present(Shot(image: nil, thumb: nil, data: png, date: Date(), fileURL: nil, pasteboardCount: nil, isPreview: true))
+        present(Shot(thumb: nil, data: png, date: Date(), fileURL: nil, pasteboardCount: nil, isPreview: true))
     }
 
     /// 미리보기 카드가 떠 있으면 바로 닫는다.
@@ -220,14 +224,17 @@ final class ScreenshotMonitor: ObservableObject {
     func copy() {
         if previewOnly(T("복사됨", "Copied")) { return }
         guard let s = shot else { return }
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        if let url = s.fileURL { pb.writeObjects([url as NSURL]) }
-        pb.setData(pngData(s), forType: .png)
-        ownChangeCount = pb.changeCount
-        lastChangeCount = pb.changeCount
-        status = T("복사됨", "Copied")
-        dismiss()
+        withPNG(s) { [weak self] png in
+            guard let self else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            if let url = s.fileURL { pb.writeObjects([url as NSURL]) }
+            pb.setData(png, forType: .png)
+            self.ownChangeCount = pb.changeCount
+            self.lastChangeCount = pb.changeCount
+            self.status = T("복사됨", "Copied")
+            self.dismiss()
+        }
     }
 
     func save() {
@@ -236,15 +243,19 @@ final class ScreenshotMonitor: ObservableObject {
         let folder = settings.screenshotFolder.isEmpty
             ? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
             : URL(fileURLWithPath: (settings.screenshotFolder as NSString).expandingTildeInPath)
-        let url = Self.uniqueURL(in: folder, base: Self.fileName(for: s.date), ext: settings.screenshotJPEG ? "jpg" : "png")
-        do {
-            try encoded(s).write(to: url)
-            lastSaved = url
-            status = T("저장됨", "Saved")
-            dismiss()
-        } catch {
-            status = T("저장 실패", "Save Failed")
+        let jpeg = settings.screenshotJPEG
+        let url = Self.uniqueURL(in: folder, base: Self.fileName(for: s.date), ext: jpeg ? "jpg" : "png")
+        let write: (Data?) -> Void = { [weak self] data in
+            guard let self else { return }
+            if let data, (try? data.write(to: url)) != nil {
+                self.lastSaved = url
+                self.status = T("저장됨", "Saved")
+                self.dismiss()
+            } else {
+                self.status = T("저장 실패", "Save Failed")
+            }
         }
+        if jpeg { ImageTool.process(.jpeg, s.data, completion: write) } else { withPNG(s, write) }
     }
 
     func delete() {
@@ -264,7 +275,7 @@ final class ScreenshotMonitor: ObservableObject {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let url = folder.appendingPathComponent(Self.fileName(for: s.date) + ".png")
-        try? pngData(s).write(to: url)
+        try? (Self.isPNG(s.data) ? s.data : (ImageTool.processSync(.png, s.data) ?? s.data)).write(to: url)
         return NSItemProvider(contentsOf: url) ?? NSItemProvider()
     }
 
@@ -288,14 +299,12 @@ final class ScreenshotMonitor: ObservableObject {
         return url
     }
 
-    private func pngData(_ s: Shot) -> Data {
-        if s.data.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return s.data }   // 이미 PNG
-        return NSBitmapImageRep(data: s.data)?.representation(using: .png, properties: [:]) ?? s.data
-    }
+    private static func isPNG(_ data: Data) -> Bool { data.starts(with: [0x89, 0x50, 0x4E, 0x47]) }
 
-    private func encoded(_ s: Shot) -> Data {
-        guard settings.screenshotJPEG else { return pngData(s) }
-        return NSBitmapImageRep(data: s.data)?.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) ?? s.data
+    /// PNG 데이터 (이미 PNG면 그대로, TIFF 등은 도우미 프로세스가 변환)
+    private func withPNG(_ s: Shot, _ completion: @escaping (Data) -> Void) {
+        if Self.isPNG(s.data) { completion(s.data); return }
+        ImageTool.process(.png, s.data) { completion($0 ?? s.data) }
     }
 }
 

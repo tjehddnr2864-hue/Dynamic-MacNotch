@@ -104,6 +104,9 @@ final class ActivityCenter: ObservableObject {
         pending.removeAll { $0.kind == kind }
     }
 
+    /// 대기 중인 알림을 모두 버린다 (미리보기 모두 중지 등)
+    func clearPending() { pending.removeAll() }
+
     /// 컴팩트로 떠 있는 알림을 상세 카드로 바꾼다 (표시 시간은 처음부터 다시).
     func promoteToDetail() {
         guard var t = transient, t.presentation != .detail else { return }
