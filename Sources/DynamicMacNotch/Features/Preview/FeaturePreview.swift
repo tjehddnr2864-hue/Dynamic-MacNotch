@@ -168,8 +168,10 @@ final class FeaturePreview {
             lockPreviewing = false
             lock.unlock()
         }
+        // 대기열을 먼저 비워야 지금 알림을 닫았을 때 뒤에 쌓인 미리보기가 이어서 뜨지 않는다
+        center.clearPending()
         if let t = center.transient, t.kind != .lock { center.dismissTransient() }
-        MemoryTrim.soon()
+        MemoryGuard.shared.checkSoon()
     }
 
     // MARK: - 각 미리보기

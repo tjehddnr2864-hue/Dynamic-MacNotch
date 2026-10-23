@@ -50,6 +50,7 @@ struct SettingsView: View {
             }
             Toggle(T("메뉴바 아이콘 표시", "Show Menu Bar Icon"), isOn: $settings.showStatusItem)
             Toggle(T("자동 업데이트 (하루 한 번 확인)", "Automatic updates (checks daily)"), isOn: $settings.autoUpdate)
+            Toggle(T("메모리 자동 최적화 (70MB를 넘으면 쉬는 동안 조용히 다시 시작)", "Automatic memory cleanup (quietly restarts while idle above 70 MB)"), isOn: $settings.memoryGuard)
             Button(T("권한 관리 열기…", "Open Permissions…"), action: openPermissions)
 
             Section {

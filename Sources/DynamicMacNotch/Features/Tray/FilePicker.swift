@@ -11,6 +11,7 @@ enum FilePicker {
     }
 
     private static var running: Process?
+    static var isRunning: Bool { running?.isRunning == true }
 
     /// 본 앱: 도우미를 띄우고, 고른 파일을 메인 스레드로 돌려준다 (취소하면 호출하지 않음).
     static func choose(_ purpose: Purpose, completion: @escaping ([URL]) -> Void) {
