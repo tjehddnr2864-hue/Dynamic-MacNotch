@@ -98,8 +98,8 @@ final class FocusMonitor {
         }
     }
 
-    /// 개발용: 지금 모드(없으면 방해금지 모드)로 켜짐/꺼짐 알림을 띄운다.
-    func debugPreview(on: Bool) {
+    /// 미리보기: 지금 모드(없으면 방해금지 모드)로 켜짐/꺼짐 알림을 띄운다.
+    func preview(on: Bool) {
         let mode = Self.readActiveMode() ?? Mode(id: "com.apple.donotdisturb.mode.default", name: T("방해금지 모드", "Do Not Disturb"),
                                                  symbol: "moon.fill", tint: .indigo)
         post(mode, on: on)

@@ -156,6 +156,7 @@ final class PermissionsManager: NSObject, ObservableObject, CLLocationManagerDel
         refresh()
         refreshTimer?.invalidate()
         let t = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
+        t.tolerance = 0.3
         RunLoop.main.add(t, forMode: .common)
         refreshTimer = t
     }

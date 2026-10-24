@@ -195,8 +195,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-media.txt")
                 if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
                 else { try? line.write(to: url, atomically: true, encoding: .utf8) }
-            case "focuson": self.focus.debugPreview(on: true)    // 개발용: 집중 모드 알림 미리보기
-            case "focusoff": self.focus.debugPreview(on: false)
+            case "focuson": self.focus.preview(on: true)    // 개발용: 집중 모드 알림 미리보기
+            case "focusoff": self.focus.preview(on: false)
             case "pick": FilePicker.choose(.tray) { self.tray.add($0) }   // 개발용: 트레이 파일 선택 창
             case "volrow": self.vm.toggleMediaVolume()   // 개발용: 음악 팝업 음량 줄 토글
             case "favtoggle": self.media.toggleFavorite()   // 개발용: 즐겨찾기 토글

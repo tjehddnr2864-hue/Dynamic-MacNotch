@@ -165,6 +165,7 @@ final class TimerController: ObservableObject {
     private func startTicker() {
         ticker?.invalidate()
         let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
+        t.tolerance = 0.05
         RunLoop.main.add(t, forMode: .common)
         ticker = t
     }

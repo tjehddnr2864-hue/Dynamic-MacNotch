@@ -57,6 +57,7 @@ final class BluetoothMonitor: NSObject {
             timer.invalidate()
             self?.register()
         }
+        t.tolerance = 1
         RunLoop.main.add(t, forMode: .common)
         waitTimer = t
     }

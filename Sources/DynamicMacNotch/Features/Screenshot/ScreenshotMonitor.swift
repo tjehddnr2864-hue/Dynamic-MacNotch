@@ -131,12 +131,14 @@ final class ScreenshotMonitor: ObservableObject {
     }
     #endif
 
+    #if DEV
     /// 개발용: 현재 클립보드 이미지를 스크린샷처럼 띄운다.
     func debugPresentClipboard() {
         let pb = NSPasteboard.general
         guard let data = pb.data(forType: .png) ?? pb.data(forType: .tiff) else { return }
         present(Shot(data: data, date: Date(), fileURL: nil, pasteboardCount: pb.changeCount))
     }
+    #endif
 
     // MARK: - 카드
 
