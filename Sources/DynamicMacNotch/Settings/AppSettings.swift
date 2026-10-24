@@ -165,6 +165,18 @@ final class AppSettings: ObservableObject {
     @Published var downloadStyle: ProgressStyle { didSet { save(downloadStyle.rawValue, "downloadStyle") } }
     /// 추가 감시 폴더 (쉼표 구분 경로)
     @Published var downloadFolders: String { didSet { save(downloadFolders, "downloadFolders") } }
+    /// 다운로드 폴더 (감시하고, 완료 후 Finder로 여는 곳). 기본은 다운로드 폴더
+    @Published var downloadFolder: String { didSet { save(downloadFolder, "downloadFolder") } }
+    /// 화면 녹화 저장 폴더 (완료 후 Finder로 여는 곳). 기본은 데스크탑
+    @Published var recordingFolder: String { didSet { save(recordingFolder, "recordingFolder") } }
+
+    static var defaultDownloadFolder: String { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0].path }
+    static var defaultRecordingFolder: String { FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0].path }
+
+    static func folderURL(_ path: String, fallback: String) -> URL {
+        let p = (path.isEmpty ? fallback : (path as NSString).expandingTildeInPath)
+        return URL(fileURLWithPath: p, isDirectory: true)
+    }
 
     // 트레이·에어드랍 (5.2)
     @Published var trayKeepCopies: Bool { didSet { save(trayKeepCopies, "trayKeepCopies") } }
@@ -283,6 +295,8 @@ final class AppSettings: ObservableObject {
         downloadEnabled = value("downloadEnabled", true)
         downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring
         downloadFolders = value("downloadFolders", "")
+        downloadFolder = value("downloadFolder", AppSettings.defaultDownloadFolder)
+        recordingFolder = value("recordingFolder", AppSettings.defaultRecordingFolder)
 
         trayKeepCopies = value("trayKeepCopies", false)
         trayCleanupDays = value("trayCleanupDays", 0.0)
@@ -382,6 +396,8 @@ final class AppSettings: ObservableObject {
         downloadEnabled = value("downloadEnabled", true)
         downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring
         downloadFolders = value("downloadFolders", "")
+        downloadFolder = value("downloadFolder", AppSettings.defaultDownloadFolder)
+        recordingFolder = value("recordingFolder", AppSettings.defaultRecordingFolder)
 
         trayKeepCopies = value("trayKeepCopies", false)
         trayCleanupDays = value("trayCleanupDays", 0.0)

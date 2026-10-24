@@ -185,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "skipprev": self.vm.onMediaSwipe?(false)
             case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
             case "recstate":   // 개발용: 녹화 감지 결과를 로그로
-                let line = "\(Date()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
+                let line = "\(Date()) \(RecordingMonitor.debugState()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
                 let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-rec.txt")
                 if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
                 else { try? line.write(to: url, atomically: true, encoding: .utf8) }

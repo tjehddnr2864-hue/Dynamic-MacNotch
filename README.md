@@ -114,10 +114,10 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable).
-- **Downloads** — progress for Safari, Chrome and Firefox downloads in Downloads (plus extra folders you add); a **Show in Finder** button when done.
+- **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Activities, plus extra folders); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
-- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Activities → Other: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button.
+- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Activities → Other: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in Settings → Activities → Other to match where macOS saves your recordings.
 
 Every alert can be **compact or detailed**, and durations are configurable. **Long-press a compact alert** to see its detailed card; detailed alerts only respond to a click.
 
@@ -286,10 +286,10 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능).
-- **다운로드** — 다운로드 폴더(추가 폴더 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
+- **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 활동에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
-- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 활동 → 기타에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다.
+- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 활동 → 기타에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 설정 → 활동 → 기타에서 바꿀 수 있습니다.
 
 모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. **컴팩트 알림을 길게 누르면** 상세 카드로 바뀌고, 상세 알림은 클릭에만 반응합니다.
 

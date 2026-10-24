@@ -16,7 +16,7 @@ final class ActivityCenter: ObservableObject {
     /// 마우스가 노치 위에 있는 동안 표시 타이머를 멈춘다.
     var paused = false {
         didSet {
-            guard paused != oldValue, transient != nil else { return }
+            guard paused != oldValue, let t = transient, !t.ignoresHoverPause else { return }
             if paused {
                 expireWork?.cancel()
             } else {
@@ -165,7 +165,7 @@ final class ActivityCenter: ObservableObject {
                 DispatchQueue.main.asyncAfter(deadline: .now() + detailTime, execute: work)
             }
         }
-        if !paused {
+        if !paused || activity.ignoresHoverPause {
             scheduleExpire(after: duration)
         } else {
             expireDate = Date().addingTimeInterval(duration)
