@@ -92,4 +92,6 @@ struct NotchActivity: Identifiable, Equatable {
     var fileURL: URL? = nil
     /// 시작 시각 (통화: 왼쪽에 통화 시간을 센다)
     var startDate: Date? = nil
+    /// 커서가 노치 위에 있어도 표시 시간이 흐른다 (메뉴바 근처에서 끝나는 녹화 완료 알림 등)
+    var ignoresHoverPause = false
 }

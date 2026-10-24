@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// 브라우저 다운로드 실시간 표시 (가이드라인 5.8).
@@ -62,12 +63,23 @@ final class DownloadMonitor {
     private var defaultsObserver: NSObjectProtocol?
 
     private var folders: [URL] {
-        var list = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)
+        var list = [AppSettings.folderURL(settings.downloadFolder, fallback: AppSettings.defaultDownloadFolder)]
         list += AppSettings.list(settings.downloadFolders).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         return list
     }
 
+    private var watchedPaths: [String] = []
+    private var folderObserver: AnyCancellable?
+
     private func beginWatching() {
+        // 설정에서 다운로드 폴더·추가 폴더를 바꾸면 감시를 다시 건다
+        if folderObserver == nil {
+            folderObserver = settings.$downloadFolder.combineLatest(settings.$downloadFolders)
+                .dropFirst()
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _, _ in self?.rewatchIfNeeded() }
+        }
+        watchedPaths = folders.map(\.path)
         for folder in folders {
             let fd = open(folder.path, O_EVTONLY)
             guard fd >= 0 else { continue }
@@ -78,6 +90,13 @@ final class DownloadMonitor {
             sources.append(src)
         }
         scan(initial: true)
+    }
+
+    private func rewatchIfNeeded() {
+        guard folders.map(\.path) != watchedPaths else { return }
+        sources.forEach { $0.cancel() }
+        sources.removeAll()
+        beginWatching()
     }
 
     // MARK: - 스캔

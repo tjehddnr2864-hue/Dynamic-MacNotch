@@ -260,6 +260,8 @@ struct SettingsView: View {
                     ForEach(ProgressStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                FolderSetting(title: T("다운로드 폴더", "Downloads Folder"), path: $settings.downloadFolder,
+                              defaultPath: AppSettings.defaultDownloadFolder)
                 TextField(T("추가 감시 폴더(쉼표 구분 경로)", "Extra folders to watch (comma-separated paths)"), text: $settings.downloadFolders)
             }
             Section {
@@ -303,6 +305,9 @@ struct SettingsView: View {
                     ForEach(RecordingStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .disabled(!settings.recordingEnabled)
+                FolderSetting(title: T("화면 녹화 저장 폴더", "Screen Recording Folder"), path: $settings.recordingFolder,
+                              defaultPath: AppSettings.defaultRecordingFolder)
+                    .disabled(!settings.recordingEnabled)
                 Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)
                 Toggle(T("카메라 좌우 반전(거울)", "Mirror camera"), isOn: $settings.cameraMirror)
                 Picker(T("일정 알림", "Event Alerts"), selection: $settings.calendarAlertMinutes) {
@@ -443,5 +448,39 @@ struct SettingsView: View {
             Text(T("애드혹 서명(공증되지 않음)", "Ad-hoc signed (not notarized)")).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 폴더 경로 설정: 현재 경로, '선택…'(폴더 고르기), '기본값'.
+/// 화면 녹화·다운로드가 끝난 뒤 노치의 Finder 바로가기가 이 폴더를 연다.
+struct FolderSetting: View {
+    var title: String
+    @Binding var path: String
+    var defaultPath: String
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 6) {
+                Text((path.isEmpty ? defaultPath : path).replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                    .lineLimit(1).truncationMode(.middle)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 220, alignment: .trailing)
+                Button(T("선택…", "Choose…")) { choose() }
+                if path != defaultPath {
+                    Button(T("기본값", "Default")) { path = defaultPath }
+                }
+            }
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: path.isEmpty ? defaultPath : path)
+        panel.prompt = T("선택", "Choose")
+        if panel.runModal() == .OK, let url = panel.url { path = url.path }
     }
 }

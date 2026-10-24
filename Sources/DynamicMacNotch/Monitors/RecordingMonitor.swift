@@ -28,22 +28,48 @@ final class RecordingMonitor: ObservableObject {
               let sym = dlsym(h, "SLSIsScreenWatcherPresent") else { return nil }
         return unsafeBitCast(sym, to: WatcherFn.self)
     }()
-    private static let recorderProcesses: Set<String> = ["screencaptureui", "screencapture", "QuickTime Player"]
 
     init(center: ActivityCenter) {
         self.center = center
     }
 
-    func start() {
-        let t = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in self?.poll() }
-        t.tolerance = 0.5
+    func start() { schedule(interval: 1.5) }
+
+    /// 평소 1.5초, 스크린샷 도구가 떠 있는 동안은 0.4초마다 확인 (녹화 시작·끝을 1초 안에 반영)
+    private var interval: TimeInterval = 0
+    private func schedule(interval: TimeInterval) {
+        guard interval != self.interval else { return }
+        self.interval = interval
+        timer?.invalidate()
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.poll() }
+        t.tolerance = interval * 0.25
         RunLoop.main.add(t, forMode: .common)
         timer = t
     }
 
+    /// 연속으로 녹화로 보인 횟수 (두 번 연속이어야 시작으로 본다 — 잠깐의 오감지 방지)
+    private var positiveStreak = 0
+    #if DEV
+    private var lastLoggedState = ""
+    #endif
+
     private func poll() {
-        let recording = settings.recordingEnabled && Self.systemIsRecording()
-        if recording, startedAt == nil {
+        let procs = Self.recorderProcesses()
+        schedule(interval: procs.ui || procs.cliVideo || startedAt != nil ? 0.4 : 1.5)
+        let recording = settings.recordingEnabled && Self.systemIsRecording(alreadyRecording: startedAt != nil, procs: procs)
+        positiveStreak = recording ? positiveStreak + 1 : 0
+        #if DEV
+        // 개발용: 감지 상태가 바뀔 때마다 기록 (실제 ⌘⇧4·⌘⇧5 흐름 확인)
+        let state = Self.debugState() + " recording=\(recording)"
+        if state != lastLoggedState {
+            lastLoggedState = state
+            let line = "\(Date()) \(state)\n"
+            let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-rec.txt")
+            if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+            else { try? line.write(to: url, atomically: true, encoding: .utf8) }
+        }
+        #endif
+        if recording, startedAt == nil, positiveStreak >= 2 {
             started()
         } else if !recording, startedAt != nil {
             stopped()
@@ -71,14 +97,15 @@ final class RecordingMonitor: ObservableObject {
     private func stopped() {
         let began = startedAt ?? Date()
         startedAt = nil
-        finished = Finished(date: Date(), url: nil, folder: Self.saveFolder())
+        finished = Finished(date: Date(), url: nil,
+                            folder: AppSettings.folderURL(settings.recordingFolder, fallback: AppSettings.defaultRecordingFolder))
         locateSavedFile(since: began)
         center.removePersistent(.recording)
         center.dismissTransient(kind: .recording)
-        let text = stopRequested ? T("저장됨", "Saved") : T("녹화 종료", "Ended")
         stopRequested = false
-        center.post(NotchActivity(kind: .recording, duration: 2.5, symbol: "checkmark.circle.fill", tint: .green,
-                                  value: .text(text), title: T("화면 녹화", "Screen Recording"), wing: NetworkMonitor.wing(for: text)))
+        // 녹화 완료: 다운로드 완료와 같은 체크 아이콘. 메뉴바 정지 버튼을 누르느라 커서가 노치 위에 있어도 곧 사라진다
+        center.post(NotchActivity(kind: .recording, duration: 1.8, symbol: "video.fill", tint: .green, value: .check,
+                                  title: T("녹화 완료", "Recording Saved"), wing: 46, ignoresHoverPause: true))
     }
 
     // MARK: - 저장된 파일 찾기
@@ -104,7 +131,10 @@ final class RecordingMonitor: ObservableObject {
         func attempt() {
             tries += 1
             guard let current = finished else { return }
-            if let url = Self.newestRecording(in: current.folder, since: began.addingTimeInterval(-2)) {
+            // 지정한 폴더에서 먼저 찾고, 없으면 macOS 스크린샷 저장 위치에서 찾는다
+            let found = Self.newestRecording(in: current.folder, since: began.addingTimeInterval(-2))
+                ?? Self.newestRecording(in: Self.saveFolder(), since: began.addingTimeInterval(-2))
+            if let url = found {
                 finished?.url = url
                 center.update(.recording) { $0.fileURL = url }
                 scheduleClear()
@@ -144,37 +174,104 @@ final class RecordingMonitor: ObservableObject {
         if let url = f.url { NSWorkspace.shared.activateFileViewerSelecting([url]) } else { NSWorkspace.shared.open(f.folder) }
     }
 
-    /// 시스템 녹화 중인지
-    static func systemIsRecording() -> Bool {
-        if let watcher = screenWatcherPresent {
-            return watcher() && recorderRunning()
+    /// 시스템 녹화 중인지.
+    /// ⌘⇧5 녹화 동안 macOS 스크린샷 도구는 화면 전체 크기의 창(메뉴바 층)을 띄워 두고, 녹화 방식을 고르는
+    /// 아래쪽 도구 막대는 녹화를 시작하면 사라진다. 그래서 '전체 화면 창 + 도구 막대 없음'이면 녹화 시작으로 보고,
+    /// 녹화 중에는 ⌘⇧5로 도구 막대를 다시 띄워도 전체 화면 창이 남아 있는 동안 녹화가 이어진 것으로 본다.
+    /// (화면을 늘 캡처하는 다른 앱이 있는 Mac도 있어 '캡처 중 + 도구 실행'만으로는 스크린샷 뒤에도 녹화로 오인한다)
+    /// 명령줄 녹화(screencapture -v)는 창이 없으므로 그 프로세스의 실행 인자로 확인한다.
+    static func systemIsRecording(alreadyRecording: Bool = false,
+                                  procs: (ui: Bool, cliVideo: Bool) = recorderProcesses()) -> Bool {
+        if procs.ui {
+            let ui = captureUI()
+            if ui.fullScreenLayer && (!ui.toolbar || alreadyRecording) { return true }
+            if ui.stopButton { return true }   // 예전 macOS: 메뉴바 정지 버튼
         }
-        return recorderRunning() && recordingIndicatorWindowVisible()   // SkyLight 함수를 못 쓰면 메뉴바 정지 버튼 창으로 추정
-    }
-
-    private static func recorderRunning() -> Bool {
-        let count = proc_listallpids(nil, 0)
-        guard count > 0 else { return false }
-        var pids = [pid_t](repeating: 0, count: Int(count) + 32)
-        let n = pids.withUnsafeMutableBytes { proc_listallpids($0.baseAddress, Int32($0.count)) }
-        var name = [CChar](repeating: 0, count: 256)
-        for pid in pids.prefix(Int(max(0, n))) where pid > 0 {
-            if proc_name(pid, &name, UInt32(name.count)) > 0, recorderProcesses.contains(String(cString: name)) { return true }
-        }
+        if procs.cliVideo, screenWatcherPresent?() ?? true { return true }
         return false
     }
 
-    private static func recordingIndicatorWindowVisible() -> Bool {
-        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return false }
+    /// 스크린샷 도구 창 상태: 화면 전체 크기 창, 아래쪽 도구 막대, (예전 macOS의) 메뉴바 정지 버튼
+    private static func captureUI() -> (fullScreenLayer: Bool, toolbar: Bool, stopButton: Bool) {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+            return (false, false, false)
+        }
         let statusLevel = Int(CGWindowLevelForKey(.statusWindow))
-        return list.contains { w in
+        let screens = NSScreen.screens.map(\.frame.size)
+        var full = false, toolbar = false, stop = false
+        for w in list {
             let owner = w[kCGWindowOwnerName as String] as? String ?? ""
+            guard ["screencaptureui", "Screenshot", "스크린샷", "QuickTime Player"].contains(owner),
+                  let b = w[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
             let layer = w[kCGWindowLayer as String] as? Int ?? 0
-            guard ["screencaptureui", "QuickTime Player"].contains(owner), layer >= statusLevel,
-                  let b = w[kCGWindowBounds as String] as? [String: CGFloat] else { return false }
-            return (b["Y"] ?? 99) <= 1 && (b["Height"] ?? 99) <= 40 && (b["Width"] ?? 99) <= 60
+            let width = b["Width"] ?? 0, height = b["Height"] ?? 0, y = b["Y"] ?? 0
+            if screens.contains(where: { abs($0.width - width) < 2 && abs($0.height - height) < 2 }) { full = true }
+            else if height >= 50 && height <= 140 && width >= 300 && layer > statusLevel { toolbar = true }
+            else if layer >= statusLevel && y <= 2 && height <= 44 && width <= 220 { stop = true }
+        }
+        return (full, toolbar, stop)
+    }
+
+    /// 녹화 도구 프로세스: (screencaptureui·QuickTime 실행 중, 동영상 옵션으로 실행된 screencapture)
+    /// 내 사용자 프로세스 목록을 sysctl 한 번으로 받아 이름만 본다 (프로세스마다 묻지 않아 가볍다).
+    static func recorderProcesses() -> (ui: Bool, cliVideo: Bool) {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_UID, Int32(getuid())]
+        var size = 0
+        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return (false, false) }
+        let stride = MemoryLayout<kinfo_proc>.stride
+        var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / stride + 8)
+        size = procs.count * stride
+        guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return (false, false) }
+        var ui = false, cli = false
+        for p in procs.prefix(size / stride) {
+            let name = withUnsafeBytes(of: p.kp_proc.p_comm) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+            switch name {
+            case "screencaptureui", "QuickTime Player": ui = true
+            case "screencapture":
+                let args = processArguments(p.kp_proc.p_pid)
+                if args.contains(where: { $0 == "-v" || $0 == "-V" || ($0.hasPrefix("-") && !$0.hasPrefix("--") && $0.contains("v")) }) { cli = true }
+            default: break
+            }
+        }
+        return (ui, cli)
+    }
+
+    /// 다른 프로세스의 실행 인자 (같은 사용자 프로세스만 읽을 수 있음)
+    private static func processArguments(_ pid: pid_t) -> [String] {
+        var mib = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return [] }
+        var buf = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0 else { return [] }
+        let argc = Int(buf.withUnsafeBytes { $0.load(as: Int32.self) })
+        // [argc][실행 파일 경로]\0...[인자1]\0[인자2]\0...
+        var parts = buf[4..<size].split(separator: 0, omittingEmptySubsequences: true).map { String(decoding: $0, as: UTF8.self) }
+        guard !parts.isEmpty else { return [] }
+        parts.removeFirst()   // 실행 파일 경로
+        return Array(parts.prefix(argc))
+    }
+
+    #if DEV
+    static func debugState() -> String {
+        let p = recorderProcesses()
+        let ui = captureUI()
+        return "watcher=\(screenWatcherPresent?() ?? false) ui=\(p.ui) cliVideo=\(p.cliVideo) full=\(ui.fullScreenLayer) toolbar=\(ui.toolbar) stop=\(ui.stopButton) windows=\(captureWindows())"
+    }
+
+    static func captureWindows() -> [String] {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
+        return list.compactMap { w in
+            let owner = w[kCGWindowOwnerName as String] as? String ?? ""
+            let b = w[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
+            let layer = w[kCGWindowLayer as String] as? Int ?? 0
+            let capture = ["screencaptureui", "QuickTime Player", "Screenshot", "스크린샷"].contains(owner)
+            // 그 밖에는 메뉴바 줄(y≈0)의 작은 창만 (정지 버튼이 다른 프로세스에 그려지는지 확인용)
+            guard capture || ((b["Y"] ?? 99) <= 2 && (b["Height"] ?? 99) <= 44 && layer >= 25) else { return nil }
+            let name = w[kCGWindowName as String] as? String ?? ""
+            return "\(owner)[\(name)]:\(Int(b["X"] ?? 0)),\(Int(b["Y"] ?? 0)) \(Int(b["Width"] ?? 0))x\(Int(b["Height"] ?? 0)) L\(layer)"
         }
     }
+    #endif
 
     /// 녹화 정지·저장: 시스템 녹화 정지 단축키 ⌃⌘Esc (손쉬운 사용 권한 필요). macOS가 파일을 저장한다.
     func stop() {
