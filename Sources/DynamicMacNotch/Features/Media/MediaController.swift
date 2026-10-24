@@ -391,7 +391,8 @@ final class MediaController: ObservableObject {
             title: np.title, subtitle: np.artist,
             wing: 46, artwork: artwork
         ))
-        if trackChanged, settings.mediaShowTrackChange, np.playing, Date().timeIntervalSince(launchedAt) > 4 {
+        let popupSource = !settings.mediaTrackChangeMusicOnly || Self.trusted.contains(np.bundleID ?? "") || np.bundleID == Self.testBundle
+        if trackChanged, settings.mediaShowTrackChange, popupSource, np.playing, Date().timeIntervalSince(launchedAt) > 4 {
             trackPopupWork?.cancel()
             trackPopupWork = nil
             if Date().timeIntervalSince(artworkDate) < 0.4 {

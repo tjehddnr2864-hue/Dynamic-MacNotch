@@ -50,7 +50,11 @@ struct SettingsView: View {
             }
             Toggle(T("메뉴바 아이콘 표시", "Show Menu Bar Icon"), isOn: $settings.showStatusItem)
             Toggle(T("자동 업데이트 (하루 한 번 확인)", "Automatic updates (checks daily)"), isOn: $settings.autoUpdate)
-            Toggle(T("메모리 자동 최적화 (70MB를 넘으면 쉬는 동안 조용히 다시 시작)", "Automatic memory cleanup (quietly restarts while idle above 70 MB)"), isOn: $settings.memoryGuard)
+            Toggle(T("메모리 자동 최적화 (기준을 넘으면 쉬는 동안 조용히 다시 시작)", "Automatic memory cleanup (quietly restarts while idle above the limit)"), isOn: $settings.memoryGuard)
+            Picker(T("최적화 기준", "Cleanup Limit"), selection: $settings.memoryLimitMB) {
+                ForEach([70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0], id: \.self) { Text("\(Int($0)) MB").tag($0) }
+            }
+            .disabled(!settings.memoryGuard)
             Button(T("권한 관리 열기…", "Open Permissions…"), action: openPermissions)
 
             Section {
@@ -253,6 +257,9 @@ struct SettingsView: View {
                     ForEach([10.0, 30.0, 60.0], id: \.self) { Text(T("\(Int($0))초", "\(Int($0))s")).tag($0) }
                 }
                 Toggle(T("곡이 바뀌면 잠깐 크게 표시", "Briefly show the new song"), isOn: $settings.mediaShowTrackChange)
+                Toggle(T("Apple Music·Spotify에서만", "Only for Apple Music and Spotify"), isOn: $settings.mediaTrackChangeMusicOnly)
+                    .padding(.leading, 16)
+                    .disabled(!settings.mediaShowTrackChange)
             }
             Section(T("다운로드", "Download")) {
                 Toggle(T("다운로드 진행 표시", "Show download progress"), isOn: $settings.downloadEnabled)
@@ -260,7 +267,7 @@ struct SettingsView: View {
                     ForEach(ProgressStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                FolderSetting(title: T("다운로드 폴더", "Downloads Folder"), path: $settings.downloadFolder,
+                FolderSetting(title: T("바로가기 경로", "Shortcut Folder"), path: $settings.downloadFolder,
                               defaultPath: AppSettings.defaultDownloadFolder)
                 TextField(T("추가 감시 폴더(쉼표 구분 경로)", "Extra folders to watch (comma-separated paths)"), text: $settings.downloadFolders)
             }
@@ -305,7 +312,7 @@ struct SettingsView: View {
                     ForEach(RecordingStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .disabled(!settings.recordingEnabled)
-                FolderSetting(title: T("화면 녹화 저장 폴더", "Screen Recording Folder"), path: $settings.recordingFolder,
+                FolderSetting(title: T("바로가기 경로", "Shortcut Folder"), path: $settings.recordingFolder,
                               defaultPath: AppSettings.defaultRecordingFolder)
                     .disabled(!settings.recordingEnabled)
                 Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)

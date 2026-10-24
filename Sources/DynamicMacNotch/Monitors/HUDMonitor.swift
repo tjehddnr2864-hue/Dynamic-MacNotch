@@ -189,17 +189,18 @@ final class HUDMonitor: ObservableObject {
 
     // 키 입력이 아닌 변화는 '제어 센터·시스템 설정에서 사용자가 직접 바꾼 경우'에만 표시한다.
     // 주변광에 따른 자동 밝기·키보드 백라이트(유휴 시 어두워짐 포함) 변화는 표시하지 않는다.
+    // 제어 센터가 열려 있어도 자동 밝기는 계속 움직이므로, 방금 클릭·드래그·스크롤이 있었을 때만 사용자 조작으로 본다.
     private func externalKeyboardChange(_ kb: Float) {
         defer { lastKeyboard = kb }
         guard Date().timeIntervalSince(lastOwnChange) > 0.6, let last = lastKeyboard, abs(kb - last) >= 0.01,
-              settings.hudKeyboard, settings.hudKeyboardExternal, manualAdjustment() else { return }
+              settings.hudKeyboard, settings.hudKeyboardExternal, Self.userJustInteracted(), manualAdjustment() else { return }
         showKeyboard(kb)
     }
 
     private func externalDisplayChange(_ d: Float) {
         defer { lastDisplay = d }
         guard Date().timeIntervalSince(lastOwnChange) > 0.6, let last = lastDisplay, abs(d - last) >= 0.01,
-              settings.hudDisplay, settings.hudDisplayExternal, manualAdjustment() else { return }
+              settings.hudDisplay, settings.hudDisplayExternal, Self.userJustInteracted(), manualAdjustment() else { return }
         post(symbol: d < 0.5 ? "sun.min.fill" : "sun.max.fill", value: Double(d), tint: .yellow)
     }
 
@@ -211,6 +212,12 @@ final class HUDMonitor: ObservableObject {
         let v = Self.userIsAdjustingManually()
         manualCache = (Date(), v)
         return v
+    }
+
+    /// 1초 안에 마우스·트랙패드·키보드 입력이 있었는지 (자동 밝기는 입력 없이 바뀐다)
+    static func userJustInteracted() -> Bool {
+        let types: [CGEventType] = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .scrollWheel, .keyDown]
+        return types.contains { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) < 1 }
     }
 
     /// 사용자가 밝기를 직접 조절하는 중인지: 제어 센터 패널이 열려 있거나 시스템 설정이 앞에 있을 때.
@@ -335,9 +342,9 @@ enum Brightness {
 
     private static let keyboardID: UInt64 = {
         guard let client = keyboardClient else { return 1 }
-        let sel = NSSelectorFromString("copyKeyboardBackLightIDs")
+        let sel = NSSelectorFromString("copyKeyboardBacklightIDs")
         guard client.responds(to: sel),
-              let ids = client.perform(sel)?.takeUnretainedValue() as? [NSNumber],
+              let ids = client.perform(sel)?.takeRetainedValue() as? [NSNumber],   // copy… → 받은 쪽이 해제
               let first = ids.first else { return 1 }
         return first.uint64Value
     }()

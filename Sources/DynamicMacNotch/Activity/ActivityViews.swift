@@ -161,8 +161,8 @@ struct ActivityLeading: View {
             // 통화·화면 녹화(계속 표시): 왼쪽에 경과 시간
             CallDurationText(since: since, font: NotchActivity.compactSmallNumberFont)
                 .fixedSize()
-        } else if activity.kind == .recording, activity.value != .check {
-            RecordingDot()   // 화면 녹화(잠깐 알림): 좌측 박동하는 빨간 점
+        } else if activity.kind == .recording {
+            RecordingDot()   // 화면 녹화 시작·완료 알림: 좌측 빨간 점 (완료는 우측 초록 체크)
         } else if let battery = activity.battery {
             BatteryGlyph(info: battery, tint: activity.tint, width: size * 1.15)
         } else if let art = activity.artwork {

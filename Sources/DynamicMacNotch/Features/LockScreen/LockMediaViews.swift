@@ -21,7 +21,6 @@ struct VisualEffectBlur: NSViewRepresentable {
 /// 잠금화면 미디어 위젯 공용 상태. 카드와 전체화면이 같은 뷰 트리 안에서 matchedGeometry로 이어진다.
 final class LockPlayerState: ObservableObject {
     @Published var isFull = false
-    @Published var volume: Float = AudioOutput.volume(AudioOutput.defaultDevice()) ?? 0.5
     /// 카드가 놓일 위치 (전체화면 창 좌표, 위쪽 기준)
     @Published var cardRect: CGRect = .zero
 }
@@ -34,6 +33,18 @@ struct LockPlayerView: View {
     @ObservedObject var settings = AppSettings.shared
     var close: () -> Void
     @Namespace private var ns
+    /// 카드에서 출력 기기 목록을 펼쳤는지
+    private let outputsState = State(initialValue: false)
+    /// 진행 바를 끄는 중인 위치 (초)
+    private let scrubState = State(initialValue: Double?.none)
+    private var showOutputs: Bool {
+        get { outputsState.wrappedValue }
+        nonmutating set { outputsState.wrappedValue = newValue }
+    }
+    private var scrub: Double? {
+        get { scrubState.wrappedValue }
+        nonmutating set { scrubState.wrappedValue = newValue }
+    }
 
     private var hideInfo: Bool { settings.lockHideTrackInfo }
 
@@ -82,10 +93,16 @@ struct LockPlayerView: View {
                 Spacer(minLength: 0)
                 outputButton
             }
-            progress
-            transport(size: 1)
-            volumeRow
+            if showOutputs {
+                LockOutputList { showOutputs = false }
+                    .transition(.opacity)
+            } else {
+                progress
+                transport(size: 1)
+                volumeRow
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showOutputs)
         .padding(18)
         .foregroundStyle(.white)
         .background(VisualEffectBlur().clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)))
@@ -224,37 +241,29 @@ struct LockPlayerView: View {
     }
 
     private var progress: some View {
-        TimelineView(.animation(minimumInterval: 0.5, paused: media.nowPlaying?.playing != true)) { ctx in
+        TimelineView(.animation(minimumInterval: 0.5, paused: media.nowPlaying?.playing != true || scrub != nil)) { ctx in
             progressBody(now: ctx.date)
         }
         .matchedGeometryEffect(id: "progress", in: ns)
     }
 
+    /// 음악 팝업과 같은 바: 마우스를 올리면 두꺼워지고, 누르는 동안 더 두꺼워지며 양옆 시간이 바깥으로 밀려난다.
     private func progressBody(now: Date) -> some View {
         let np = media.nowPlaying
-        let pos = np?.position(at: now) ?? 0
         let dur = np?.duration ?? 0
-        return VStack(spacing: 4) {
-            GeometryReader { g in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.25))
-                    Capsule().fill(Color.white).frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture(coordinateSpace: .local) { p in
-                    if dur > 0 { media.seek(to: Double(p.x / g.size.width) * dur) }
-                }
-            }
-            .frame(height: 6)
-            HStack {
-                Text(MediaPage.time(pos))
-                Spacer()
-                Text("-" + MediaPage.time(max(0, dur - pos)))
-            }
-            .font(.system(size: 11, weight: .medium).monospacedDigit())
-            .foregroundStyle(.white.opacity(0.55))
-        }
-        
+        let pos = scrub ?? np?.position(at: now) ?? 0
+        return ScrubBar(fraction: dur > 0 ? min(1, pos / dur) : 0, enabled: dur > 0, thickness: 6, onScrub: { f in
+            scrub = f * dur
+        }, onEnd: {
+            if let s = scrub { media.seek(to: s) }
+            scrub = nil
+        }, leading: {
+            Text(MediaPage.time(pos))
+        }, trailing: {
+            Text("-" + MediaPage.time(max(0, dur - pos)))
+        })
+        .font(.system(size: 11, weight: .medium).monospacedDigit())
+        .foregroundStyle(.white.opacity(0.55))
     }
 
     private func transport(size k: CGFloat) -> some View {
@@ -268,29 +277,23 @@ struct LockPlayerView: View {
     }
 
     private var volumeRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "speaker.fill").font(.system(size: 10))
-            Slider(value: Binding(
-                get: { Double(state.volume) },
-                set: { v in
-                    state.volume = Float(v)
-                    AudioOutput.setVolume(AudioOutput.defaultDevice(), Float(v))
-                }
-            ))
-            .controlSize(.mini)
-            .tint(.white)
-            Image(systemName: "speaker.wave.3.fill").font(.system(size: 10))
-        }
-        .foregroundStyle(.white.opacity(0.6))
-        .matchedGeometryEffect(id: "volume", in: ns)
+        VolumeRow(thickness: 4)
+            .padding(.horizontal, -4)
+            .matchedGeometryEffect(id: "volume", in: ns)
     }
 
     private var outputButton: some View {
-        // 잠금 화면 위에는 메뉴 창을 띄울 수 없으므로 현재 출력 기기 아이콘만 보여 준다.
-        OutputIcon()
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.8))
-            .frame(width: 28, height: 28)
+        // 잠금 화면 위에는 메뉴 창을 띄울 수 없으므로, 누르면 카드 안에 출력 기기 목록을 펼친다.
+        Button { showOutputs.toggle() } label: {
+            OutputIcon()
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(showOutputs ? 1 : 0.8))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.white.opacity(showOutputs ? 0.18 : 0)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(T("출력 기기 선택", "Choose Output"))
     }
 
     private func toggleFull() {
@@ -389,5 +392,59 @@ final class BackdropLayerView: NSView {
         imageLayer.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         imageLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
         CATransaction.commit()
+    }
+}
+
+/// 잠금화면 카드 안의 출력 기기 목록 (메뉴 대신). 고르면 바로 전환하고 목록을 닫는다.
+struct LockOutputList: View {
+    @ObservedObject private var route = OutputRoute.shared
+    var done: () -> Void
+
+    var body: some View {
+        let current = AudioOutput.defaultDevice()
+        let devices = AudioOutput.outputDevices()
+        let bluetooth = OutputRoute.connectableBluetooth()
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 2) {
+                ForEach(devices, id: \.self) { device in
+                    row(symbol: AudioOutput.deviceSymbol(device), name: AudioOutput.displayName(device),
+                        selected: device == current) {
+                        OutputRoute.shared.select(device)
+                        done()
+                    }
+                }
+                ForEach(bluetooth, id: \.self) { device in
+                    row(symbol: "dot.radiowaves.left.and.right", name: device.name ?? "", selected: false, dimmed: true) {
+                        OutputRoute.shared.connectAndSelect(device)
+                        done()
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func row(symbol: String, name: String, selected: Bool, dimmed: Bool = false,
+                     action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 20)
+                Text(name)
+                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if selected {
+                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
+                }
+            }
+            .foregroundStyle(.white.opacity(dimmed ? 0.55 : 0.9))
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(selected ? 0.14 : 0.06)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
