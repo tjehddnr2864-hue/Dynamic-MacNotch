@@ -135,6 +135,7 @@ struct MediaPage: View {
 /// 4줄: 음량 바 (스피커 아이콘을 누르면 음소거, 바를 끌거나 눌러 조절, 스크롤로도 조절)
 struct VolumeRow: View {
     @ObservedObject private var route = OutputRoute.shared
+    var thickness: CGFloat = 5
     private let dragState = State(initialValue: Float?.none)
 
     private var dragging: Float? {
@@ -145,7 +146,7 @@ struct VolumeRow: View {
     var body: some View {
         let enabled = route.volume != nil
         let level = route.muted ? 0 : (dragging ?? route.volume ?? 0)
-        ScrubBar(fraction: Double(level), enabled: enabled, spacing: 10, onScrub: { f in
+        ScrubBar(fraction: Double(level), enabled: enabled, spacing: 10, thickness: thickness, onScrub: { f in
             dragging = Float(f)
             route.setVolume(Float(f))
         }, onEnd: {
@@ -177,6 +178,8 @@ struct ScrubBar<Leading: View, Trailing: View>: View {
     var fraction: Double
     var enabled = true
     var spacing: CGFloat = 8
+    /// 평소 바 두께 (마우스를 올리면 +2, 누르면 +4)
+    var thickness: CGFloat = 5
     var onScrub: (Double) -> Void
     var onEnd: () -> Void
     @ViewBuilder var leading: () -> Leading
@@ -197,7 +200,7 @@ struct ScrubBar<Leading: View, Trailing: View>: View {
     static var pressGrow: CGFloat { 6 }
 
     var body: some View {
-        let barHeight: CGFloat = pressing ? 9 : (hovering && enabled ? 7 : 5)
+        let barHeight: CGFloat = thickness + (pressing ? 4 : (hovering && enabled ? 2 : 0))
         HStack(spacing: spacing) {
             leading()
             GeometryReader { geo in
@@ -221,7 +224,7 @@ struct ScrubBar<Leading: View, Trailing: View>: View {
                         onEnd()
                     })
             }
-            .frame(height: 14)
+            .frame(height: max(14, thickness + 9))
             trailing()
         }
         // 누르는 동안 줄 전체가 좌우로 늘어나 바가 길어지고 양옆 요소가 바깥으로 밀려난다

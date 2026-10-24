@@ -179,7 +179,6 @@ final class LockScreenManager: ObservableObject {
         let top = frame.height - loginArea - cardSize.height
         playerState.cardRect = CGRect(x: (frame.width - cardSize.width) / 2, y: top,
                                       width: cardSize.width, height: cardSize.height)
-        playerState.volume = AudioOutput.volume(AudioOutput.defaultDevice()) ?? playerState.volume
 
         playerHideToken += 1
         if playerWindow == nil {

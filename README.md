@@ -89,7 +89,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 ### Music
 - Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Activities).
 - **Compact**: album art on the left, an animated waveform tinted by the artwork on the right.
-- **Song change**: a short card with the new song (optional).
+- **Song change**: a short card with the new song (optional; by default only for Apple Music and Spotify).
 - **Player** (long-press while music shows):
   - Scrolling title, artist, waveform; click the artwork to open the source app.
   - Progress bar: drag to seek. Hovering makes it slightly thicker; while you hold it, it grows and the times slide outward.
@@ -126,7 +126,7 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 
 ### Lock screen
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
-- While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Song info can be hidden. The widget is hidden while the screen saver runs.
+- While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Drag the progress and volume bars to seek or change volume, and click the output icon to switch speakers or headphones. Song info can be hidden. The widget is hidden while the screen saver runs.
 
 ### Test & preview
 **Settings → Test** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls.
@@ -148,7 +148,7 @@ Korean and English. Settings → General → Language (System default / 한국�
 ## Memory
 
 - Screenshot thumbnails and PNG/JPEG conversion run in a short-lived helper process, so a full-screen image never inflates the app's memory.
-- **Automatic memory cleanup** (Settings → General, on by default): every 5 minutes and after heavy work the app checks its memory. Above 70 MB it clears its caches, and if that isn't enough it restarts itself quietly while idle (nothing open, playing in the notch or in progress). Music keeps playing in its own app; the notch is back within a second.
+- **Automatic memory cleanup** (Settings → General, on by default): every 5 minutes and after heavy work the app checks its memory. Above the limit you choose (70–150 MB, default 70) it clears its caches, and if that isn't enough it restarts itself quietly while idle (nothing open, playing in the notch or in progress). Music keeps playing in its own app; the notch is back within a second.
 
 ## Notes & limitations
 
@@ -261,7 +261,7 @@ scripts/build.sh --install --run  # install to /Applications
 ### 음악
 - **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 활동).
 - **컴팩트**: 왼쪽 앨범아트, 오른쪽에 앨범아트 색의 파형.
-- **곡 변경**: 새 곡을 잠깐 크게 보여 줍니다 (선택).
+- **곡 변경**: 새 곡을 잠깐 크게 보여 줍니다 (선택, 기본은 Apple Music·Spotify에서만).
 - **플레이어** (음악 표시 중 길게 누르기):
   - 흐르는 제목, 아티스트, 파형. 앨범아트를 누르면 재생 중인 앱이 열립니다.
   - 재생 바: 끌어서 이동. 커서를 올리면 살짝 굵어지고, 누른 채 조절하면 커지며 양옆 시간이 밀려납니다.
@@ -298,7 +298,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 
 ### 잠금화면
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.
-- 음악 재생 중에는 프로필 사진·암호 입력란 위에 **미디어 위젯**이 뜹니다. 앨범아트를 누르면 전체화면 플레이어(앨범아트, 조작 버튼, **가사**: Apple Music, LRCLIB 실시간 가사는 선택)로 커집니다. 곡 정보 숨기기 가능. 화면 보호기가 도는 동안에는 숨겨집니다.
+- 음악 재생 중에는 프로필 사진·암호 입력란 위에 **미디어 위젯**이 뜹니다. 앨범아트를 누르면 전체화면 플레이어(앨범아트, 조작 버튼, **가사**: Apple Music, LRCLIB 실시간 가사는 선택)로 커집니다. 진행 바·음량 바를 끌어 이동·조절하고, 출력 아이콘을 눌러 스피커·이어폰을 바꿀 수 있습니다. 곡 정보 숨기기 가능. 화면 보호기가 도는 동안에는 숨겨집니다.
 
 ### 테스트·미리보기
 **설정 → 테스트**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다.
@@ -320,7 +320,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 ## 메모리
 
 - 스크린샷 썸네일과 PNG·JPEG 변환은 잠깐 떴다 끝나는 도우미 프로세스가 처리해, 전체 화면 이미지 때문에 앱 메모리가 늘지 않습니다.
-- **메모리 자동 최적화**(설정 → 일반, 기본 켬): 5분마다, 그리고 큰 작업 뒤에 앱의 메모리를 확인합니다. 70MB를 넘으면 캐시를 비우고, 그래도 넘으면 쉬는 동안(노치가 닫혀 있고 진행 중인 작업이 없을 때) 조용히 다시 시작합니다. 음악은 원래 앱에서 계속 재생되고, 노치는 1초 안에 돌아옵니다.
+- **메모리 자동 최적화**(설정 → 일반, 기본 켬): 5분마다, 그리고 큰 작업 뒤에 앱의 메모리를 확인합니다. 정한 기준(70~150MB, 기본 70)을 넘으면 캐시를 비우고, 그래도 넘으면 쉬는 동안(노치가 닫혀 있고 진행 중인 작업이 없을 때) 조용히 다시 시작합니다. 음악은 원래 앱에서 계속 재생되고, 노치는 1초 안에 돌아옵니다.
 
 ## 참고 및 제한
 

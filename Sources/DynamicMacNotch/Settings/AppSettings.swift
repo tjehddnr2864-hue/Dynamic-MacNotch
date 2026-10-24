@@ -91,6 +91,8 @@ final class AppSettings: ObservableObject {
     @Published var showStatusItem: Bool { didSet { save(showStatusItem, "showStatusItem") } }
     @Published var autoUpdate: Bool { didSet { save(autoUpdate, "autoUpdate") } }
     @Published var memoryGuard: Bool { didSet { save(memoryGuard, "memoryGuard") } }
+    /// 메모리 자동 최적화 기준 (MB, 70~150)
+    @Published var memoryLimitMB: Double { didSet { save(memoryLimitMB, "memoryLimitMB") } }
     @Published var onboardingDone: Bool { didSet { save(onboardingDone, "onboardingDone") } }
 
     // 상호작용
@@ -159,6 +161,8 @@ final class AppSettings: ObservableObject {
     /// 일시정지 후 숨김까지 초 (0 = 숨기지 않음)
     @Published var mediaHideAfterPause: Double { didSet { save(mediaHideAfterPause, "mediaHideAfterPause") } }
     @Published var mediaShowTrackChange: Bool { didSet { save(mediaShowTrackChange, "mediaShowTrackChange") } }
+    /// 곡 변경 팝업을 Apple Music·Spotify에서만
+    @Published var mediaTrackChangeMusicOnly: Bool { didSet { save(mediaTrackChangeMusicOnly, "mediaTrackChangeMusicOnly") } }
 
     // 다운로드 (5.8)
     @Published var downloadEnabled: Bool { didSet { save(downloadEnabled, "downloadEnabled") } }
@@ -229,6 +233,7 @@ final class AppSettings: ObservableObject {
         showStatusItem = value("showStatusItem", true)
         autoUpdate = value("autoUpdate", true)
         memoryGuard = value("memoryGuard", true)
+        memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)
@@ -291,6 +296,7 @@ final class AppSettings: ObservableObject {
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
         mediaShowTrackChange = value("mediaShowTrackChange", true)
+        mediaTrackChangeMusicOnly = value("mediaTrackChangeMusicOnly", true)
 
         downloadEnabled = value("downloadEnabled", true)
         downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring
@@ -330,6 +336,7 @@ final class AppSettings: ObservableObject {
         showStatusItem = value("showStatusItem", true)
         autoUpdate = value("autoUpdate", true)
         memoryGuard = value("memoryGuard", true)
+        memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
         onboardingDone = value("onboardingDone", false)
 
         longPressDuration = value("longPressDuration", 0.35)
@@ -392,6 +399,7 @@ final class AppSettings: ObservableObject {
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
         mediaShowTrackChange = value("mediaShowTrackChange", true)
+        mediaTrackChangeMusicOnly = value("mediaTrackChangeMusicOnly", true)
 
         downloadEnabled = value("downloadEnabled", true)
         downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring

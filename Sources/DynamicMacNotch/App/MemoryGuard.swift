@@ -6,17 +6,17 @@ import Darwin
 /// 사용량에 그대로 남는다. 앱 안에서 기능을 '리셋'해도 이 메모리는 줄지 않으므로, 확실하게 돌려주는 방법은 프로세스를 새로 시작하는 것뿐이다.
 ///
 /// 그래서: 5분마다(그리고 스크린샷·미리보기처럼 큰 작업 직후) 사용량을 재고,
-/// 기준(70MB)을 넘으면 ① 캐시를 비운 뒤 다시 재고 ② 그래도 넘으면 앱이 쉬고 있을 때
+/// 기준(설정, 기본 70MB)을 넘으면 ① 캐시를 비운 뒤 다시 재고 ② 그래도 넘으면 앱이 쉬고 있을 때
 /// (확장·알림·녹화·통화·타이머·전송·설정 창 등이 없을 때) 조용히 다시 시작한다.
 /// 음악은 다른 앱에서 계속 재생되므로 끊기지 않고, 노치는 1초 안에 같은 상태로 돌아온다.
 final class MemoryGuard {
     static let shared = MemoryGuard()
 
-    static let defaultLimitMB: Double = 70
     #if DEV
-    static var limitMB: Double = defaultLimitMB   // 개발용: 시험 때 낮춰 본다
+    static var testLimitMB: Double?   // 개발용: 시험 때 낮춰 본다
+    static var limitMB: Double { testLimitMB ?? AppSettings.shared.memoryLimitMB }
     #else
-    static let limitMB: Double = defaultLimitMB
+    static var limitMB: Double { AppSettings.shared.memoryLimitMB }
     #endif
 
     /// 지금 다시 시작해도 되는지 (AppDelegate가 연결)
