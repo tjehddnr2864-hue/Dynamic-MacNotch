@@ -222,6 +222,7 @@ final class DownloadMonitor {
             pollTimer = nil
         } else if pollTimer == nil {
             let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.poll() }
+            t.tolerance = 0.1
             RunLoop.main.add(t, forMode: .common)
             pollTimer = t
         }

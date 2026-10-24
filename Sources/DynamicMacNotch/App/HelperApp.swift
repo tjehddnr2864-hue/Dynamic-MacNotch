@@ -31,6 +31,7 @@ final class HUDStatus: ObservableObject {
             let v = AXIsProcessTrusted()
             if self?.active != v { self?.active = v }
         }
+        t.tolerance = 0.3
         RunLoop.main.add(t, forMode: .common)
         timer = t
     }

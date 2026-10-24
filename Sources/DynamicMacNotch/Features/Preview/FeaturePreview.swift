@@ -104,8 +104,8 @@ final class FeaturePreview {
             let text = T("연결됨", "Connected")
             center.post(NotchActivity(kind: .bluetooth, symbol: "gamecontroller.fill", tint: .green, value: .text(text),
                                       wing: NetworkMonitor.wing(for: text), valueTint: .white))
-        case .focusOn: focus.debugPreview(on: true)
-        case .focusOff: focus.debugPreview(on: false)
+        case .focusOn: focus.preview(on: true)
+        case .focusOff: focus.preview(on: false)
         case .hudVolume:
             // 연속으로 조절할 때처럼 값만 바뀌는지 보여 준다
             for (i, v) in [0.40, 0.46, 0.53, 0.60].enumerated() {

@@ -36,6 +36,7 @@ final class HUDMonitor: ObservableObject {
                 self.installTap()
                 if self.tap != nil { timer.invalidate() }
             }
+            t.tolerance = 1
             RunLoop.main.add(t, forMode: .common)
             retryTimer = t
         }
