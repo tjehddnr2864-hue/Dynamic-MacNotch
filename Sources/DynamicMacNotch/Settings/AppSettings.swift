@@ -107,7 +107,6 @@ final class AppSettings: ObservableObject {
     @Published var batteryFullAlert: Bool { didSet { save(batteryFullAlert, "batteryFullAlert") } }
     @Published var batteryLowAlert: Bool { didSet { save(batteryLowAlert, "batteryLowAlert") } }
     @Published var batteryLowThreshold: Double { didSet { save(batteryLowThreshold, "batteryLowThreshold") } }
-    @Published var batteryLowStyle: AlertStyle { didSet { save(batteryLowStyle.rawValue, "batteryLowStyle") } }
 
     // 네트워크 (가이드라인 5.3)
     @Published var netWifiPower: Bool { didSet { save(netWifiPower, "netWifiPower") } }
@@ -246,7 +245,6 @@ final class AppSettings: ObservableObject {
         batteryFullAlert = value("batteryFullAlert", true)
         batteryLowAlert = value("batteryLowAlert", true)
         batteryLowThreshold = value("batteryLowThreshold", 20.0)
-        batteryLowStyle = AlertStyle(rawValue: value("batteryLowStyle", "")) ?? .detail
 
         netWifiPower = value("netWifiPower", true)
         netWifiConnection = value("netWifiConnection", true)
@@ -349,7 +347,6 @@ final class AppSettings: ObservableObject {
         batteryFullAlert = value("batteryFullAlert", true)
         batteryLowAlert = value("batteryLowAlert", true)
         batteryLowThreshold = value("batteryLowThreshold", 20.0)
-        batteryLowStyle = AlertStyle(rawValue: value("batteryLowStyle", "")) ?? .detail
 
         netWifiPower = value("netWifiPower", true)
         netWifiConnection = value("netWifiConnection", true)

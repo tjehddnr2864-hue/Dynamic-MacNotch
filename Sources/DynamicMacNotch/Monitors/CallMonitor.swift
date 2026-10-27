@@ -57,7 +57,7 @@ final class CallMonitor: ObservableObject {
         previewActive = true
         pollTimer?.invalidate()
         pollTimer = nil
-        let name = T("김민지", "Alex Kim")
+        let name = "010-0000-0000"   // 저장되지 않은 번호로 걸려 온 경우
         setState(incoming ? .incoming(name: name) : .active(name: name, since: Date(), muted: false))
         schedulePreviewEnd()
     }

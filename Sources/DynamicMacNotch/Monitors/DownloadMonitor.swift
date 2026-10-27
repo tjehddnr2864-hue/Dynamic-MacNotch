@@ -390,7 +390,13 @@ struct DownloadPage: View {
             HStack(spacing: 10) {
                 if let url = activity.fileURL {
                     // 다운로드 완료: 받은 위치를 Finder로 연다
-                    Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
+                    Button {
+                        if FileManager.default.fileExists(atPath: url.path) {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        } else {
+                            NSWorkspace.shared.open(url.deletingLastPathComponent())   // 옮겨졌거나 지워진 파일 → 폴더
+                        }
+                    } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "folder.fill")
                                 .font(.system(size: 14, weight: .semibold))

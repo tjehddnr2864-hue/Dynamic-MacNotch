@@ -188,8 +188,8 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 TextField(T("알림 끌 기기 이름(쉼표 구분)", "Devices to ignore (comma-separated)"), text: $settings.btBlocklist)
                 HStack {
-                    Button(T("컴팩트 미리보기", "Preview Compact")) { preview("bt-compact") }
-                    Button(T("상세 미리보기", "Preview Detailed")) { preview("bt-detail") }
+                    Button(T("컴팩트 미리보기", "Preview Compact")) { preview("bt-airpods@compact") }
+                    Button(T("상세 미리보기", "Preview Detailed")) { preview("bt-airpods@detail") }
                 }
             }
             Section {
@@ -409,26 +409,33 @@ struct SettingsView: View {
                        "A test song plays in the notch. Long-press to open the player and try play, next, previous and the progress bar. It stops automatically after 30 seconds without interaction."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            previewSection(T("전화", "Phone Calls"), [("call-incoming", T("수신 전화", "Incoming Call")), ("call-active", T("통화 중", "On a Call"))],
-                           note: T("가짜 통화입니다. 받기·거절·음소거·끊기 버튼을 눌러 보세요. 30초 동안 조작이 없으면 끝납니다.",
-                                   "A fake call. Try Accept, Decline, Mute and End. It ends after 30 seconds without interaction."))
-            previewSection(T("네트워크", "Network"), [("wifi-on", T("Wi-Fi 켜짐", "Wi-Fi On")), ("wifi-off", T("Wi-Fi 꺼짐", "Wi-Fi Off")),
-                                                     ("wifi-connected", T("Wi-Fi 연결", "Wi-Fi Connected")), ("wifi-disconnected", T("Wi-Fi 해제", "Wi-Fi Disconnected")),
-                                                     ("vpn-on", T("VPN 연결", "VPN Connected")), ("vpn-off", T("VPN 해제", "VPN Disconnected")),
-                                                     ("hotspot", T("핫스팟", "Hotspot")), ("offline", T("네트워크 끊김", "Network Lost"))])
-            previewSection(T("블루투스·집중 모드", "Bluetooth & Focus"), [("bt-compact", T("AirPods (컴팩트)", "AirPods (Compact)")), ("bt-detail", T("AirPods (상세)", "AirPods (Detailed)")),
-                                                                    ("bt-low", T("배터리 낮은 마우스", "Low-Battery Mouse")), ("bt-nobattery", T("배터리 정보 없음", "No Battery Info")),
-                                                                    ("focus-on", T("집중 모드 켜짐", "Focus On")), ("focus-off", T("집중 모드 꺼짐", "Focus Off"))])
-            previewSection("HUD", [("hud-volume", T("음량", "Volume")), ("hud-brightness", T("화면 밝기", "Display Brightness")),
-                                   ("hud-keyboard", T("키보드 밝기", "Keyboard Brightness"))])
-            previewSection(T("배터리", "Battery"), [("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
-            previewSection(T("활동", "Activities"), [("download", T("다운로드", "Download")), ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")),
-                                                     ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
-                                                     ("recording", T("화면 녹화", "Screen Recording")), ("timer-done", T("타이머 종료", "Timer Done")),
-                                                     ("calendar", T("일정 알림", "Event Alert"))])
-            previewSection(T("잠금화면", "Lock Screen"), [("lock", T("자물쇠·위젯 (5초)", "Padlock & Widget (5s)"))],
-                           note: T("실제로 잠그지 않고 5초 동안 잠금 상태를 보여 준 뒤 풀림 애니메이션을 보여 줍니다.",
-                                   "Shows the locked state for 5 seconds without actually locking, then the unlock animation."))
+            // 컴팩트·상세를 고를 수 있는 알림: 묶음마다 형태를 골라 미리 본다 (실제 설정은 바뀌지 않음)
+            StylePreviewSection(title: T("네트워크", "Network"), initial: settings.netStyle, preview: preview,
+                                items: [("wifi-on", T("Wi-Fi 켜짐", "Wi-Fi On")), ("wifi-off", T("Wi-Fi 꺼짐", "Wi-Fi Off")),
+                                        ("wifi-connected", T("Wi-Fi 연결", "Wi-Fi Connected")), ("wifi-disconnected", T("Wi-Fi 해제", "Wi-Fi Disconnected")),
+                                        ("vpn-on", T("VPN 연결", "VPN Connected")), ("vpn-off", T("VPN 해제", "VPN Disconnected")),
+                                        ("hotspot", T("핫스팟", "Hotspot"))])
+            StylePreviewSection(title: T("블루투스", "Bluetooth"), initial: settings.btStyle, preview: preview,
+                                items: [("bt-airpods", "AirPods"), ("bt-low", T("배터리 낮은 마우스", "Low-Battery Mouse")),
+                                        ("bt-nobattery", T("배터리 정보 없음", "No Battery Info"))])
+            StylePreviewSection(title: T("집중 모드", "Focus"), initial: settings.focusStyle, preview: preview,
+                                items: [("focus-on", T("집중 모드 켜짐", "Focus On")), ("focus-off", T("집중 모드 꺼짐", "Focus Off"))])
+            StylePreviewSection(title: T("배터리", "Battery"), initial: settings.batteryStyle, preview: preview,
+                                items: [("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
+            // 형태가 정해진 알림
+            previewSection(T("컴팩트로만 표시", "Compact Only"),
+                           [("hud-volume", T("음량 HUD", "Volume HUD")), ("hud-brightness", T("화면 밝기 HUD", "Display Brightness HUD")),
+                            ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
+                            ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
+                            ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)"))],
+                           note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
+                                   "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
+            previewSection(T("상세로만 표시", "Detailed Only"),
+                           [("call-incoming", T("수신 전화", "Incoming Call")), ("offline", T("네트워크 끊김", "Network Lost")),
+                            ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
+                            ("timer-done", T("타이머 종료", "Timer Done")), ("calendar", T("일정 알림", "Event Alert"))],
+                           note: T("수신 전화: 가짜 전화로 받기·거절을 눌러 볼 수 있고 30초 동안 조작이 없으면 끝납니다.",
+                                   "Incoming Call: a fake call where you can try Accept and Decline; it ends after 30 seconds without interaction."))
         }
         .formStyle(.grouped)
     }
@@ -489,5 +496,41 @@ struct FolderSetting: View {
         panel.directoryURL = URL(fileURLWithPath: path.isEmpty ? defaultPath : path)
         panel.prompt = T("선택", "Choose")
         if panel.runModal() == .OK, let url = panel.url { path = url.path }
+    }
+}
+
+/// 컴팩트·상세를 고를 수 있는 알림 묶음의 미리보기. 고른 형태는 이 미리보기에만 쓰이고 실제 설정은 그대로다.
+private struct StylePreviewSection: View {
+    var title: String
+    var preview: (String) -> Void
+    var items: [(id: String, label: String)]
+    private let styleState: State<AlertStyle>
+
+    init(title: String, initial: AlertStyle, preview: @escaping (String) -> Void, items: [(id: String, label: String)]) {
+        self.title = title
+        self.preview = preview
+        self.items = items
+        styleState = State(initialValue: initial)
+    }
+
+    var body: some View {
+        Section {
+            Picker(T("표시 형태", "Style"), selection: styleState.projectedValue) {
+                ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .leading), count: 3), alignment: .leading, spacing: 8) {
+                ForEach(items, id: \.id) { item in
+                    Button(item.label) { preview(item.id + "@" + styleState.wrappedValue.rawValue) }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        } header: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(T("컴팩트·상세 선택", "Compact or Detailed")).font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 }
