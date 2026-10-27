@@ -5,6 +5,8 @@ struct PermissionsView: View {
     @ObservedObject var manager = PermissionsManager.shared
     @ObservedObject var settings = AppSettings.shared
     var onboarding: Bool
+    /// 설정 창 안에 넣을 때: 고정 크기·닫기 버튼 없이
+    var embedded = false
     var close: () -> Void
 
     private let stepState = State(initialValue: 0)
@@ -23,7 +25,7 @@ struct PermissionsView: View {
                 permissionList
             }
         }
-        .frame(width: 560, height: 640)
+        .frame(width: embedded ? nil : 560, height: embedded ? nil : 640)
         .onAppear { manager.startAutoRefresh() }
         .onDisappear { manager.stopAutoRefresh() }
     }
@@ -72,7 +74,9 @@ struct PermissionsView: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(T("권한 관리", "Permissions")).font(.title2.bold())
+                    if !embedded {   // 설정 창 안에서는 페이지 제목이 따로 있다
+                        Text(T("권한 관리", "Permissions")).font(.title2.bold())
+                    }
                     Spacer()
                     Text(T("\(manager.grantedCount)/\(PermissionKind.allCases.count) 허용됨", "\(manager.grantedCount)/\(PermissionKind.allCases.count) allowed"))
                         .foregroundStyle(.secondary)
@@ -104,6 +108,7 @@ struct PermissionsView: View {
                 .padding(20)
             }
 
+            if !embedded {
             Divider()
 
             HStack {
@@ -118,6 +123,7 @@ struct PermissionsView: View {
                 .keyboardShortcut(.defaultAction)
             }
             .padding(16)
+            }
         }
     }
 
