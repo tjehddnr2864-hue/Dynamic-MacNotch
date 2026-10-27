@@ -1,62 +1,285 @@
 import SwiftUI
 
-/// 설정 창 (가이드라인 7장 중 1차 빌드 범위). 값은 바뀌는 즉시 노치에 반영된다.
+/// 설정 창 페이지. '상호작용'은 기능별 페이지를 펼치는 묶음이다.
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case general, priority, interaction
+    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock
+    case test, permissions, about
+
+    var id: String { rawValue }
+
+    /// '상호작용' 아래에 펼쳐지는 기능별 페이지
+    static let features: [SettingsPage] = [.network, .bluetooth, .focus, .call, .media, .download, .airdrop,
+                                           .screenshot, .recording, .battery, .hud, .lock]
+    static let top: [SettingsPage] = [.general, .priority, .interaction, .test, .permissions, .about]
+
+    var title: String {
+        switch self {
+        case .general: return T("일반", "General")
+        case .priority: return T("우선순위", "Priority")
+        case .interaction: return T("상호작용", "Interactions")
+        case .network: return T("네트워크", "Network")
+        case .bluetooth: return T("블루투스", "Bluetooth")
+        case .focus: return T("방해금지 모드", "Focus")
+        case .call: return T("전화", "Phone Calls")
+        case .media: return T("미디어", "Media")
+        case .download: return T("다운로드", "Downloads")
+        case .airdrop: return T("에어드랍 및 파일 트레이", "AirDrop & File Tray")
+        case .screenshot: return T("스크린샷", "Screenshots")
+        case .recording: return T("화면 녹화", "Screen Recording")
+        case .battery: return T("배터리 및 충전", "Battery & Charging")
+        case .hud: return "HUD"
+        case .lock: return T("잠금화면", "Lock Screen")
+        case .test: return T("테스트", "Test")
+        case .permissions: return T("권한 관리", "Permissions")
+        case .about: return T("정보", "About")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape"
+        case .priority: return "list.number"
+        case .interaction: return "bell.badge"
+        case .network: return "wifi"
+        case .bluetooth: return "airpodspro"
+        case .focus: return "moon"
+        case .call: return "phone"
+        case .media: return "music.note"
+        case .download: return "arrow.down.circle"
+        case .airdrop: return "tray.and.arrow.down"
+        case .screenshot: return "camera.viewfinder"
+        case .recording: return "record.circle"
+        case .battery: return "battery.75percent"
+        case .hud: return "speaker.wave.2"
+        case .lock: return "lock"
+        case .test: return "play.rectangle"
+        case .permissions: return "hand.raised"
+        case .about: return "info.circle"
+        }
+    }
+}
+
+/// 설정 창. 왼쪽 사이드바(Liquid Glass) + 오른쪽 페이지. 값은 바뀌는 즉시 노치에 반영된다.
+/// 기능별 페이지는 같은 순서로 구성한다: 표시 → 표시 방식 → 세부 설정 → 미리보기.
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var hud: HUDStatus
-    var openPermissions: () -> Void
     var preview: (String) -> Void
 
-    var body: some View {
-        TabView {
-            general.tabItem { Label(T("일반", "General"), systemImage: "gearshape") }
-            interaction.tabItem { Label(T("상호작용", "Interaction"), systemImage: "hand.tap") }
-            network.tabItem { Label(T("네트워크", "Network"), systemImage: "wifi") }
-            bluetoothAndFocus.tabItem { Label(T("블루투스·집중", "Bluetooth & Focus"), systemImage: "airpodspro") }
-            activities.tabItem { Label(T("활동", "Activities"), systemImage: "music.note") }
-            battery.tabItem { Label(T("배터리", "Battery"), systemImage: "battery.75percent") }
-            hudTab.tabItem { Label("HUD", systemImage: "speaker.wave.2") }
-            lockTab.tabItem { Label(T("잠금화면", "Lock Screen"), systemImage: "lock") }
-            testTab.tabItem { Label(T("테스트", "Test"), systemImage: "play.rectangle") }
-            about.tabItem { Label(T("정보", "About"), systemImage: "info.circle") }
-        }
-        .frame(width: 700, height: 560)
+    #if DEV
+    // 개발용: DMN_SETTINGS_PAGE=<페이지>로 특정 페이지를 열어 화면을 확인한다
+    private static let startPage = ProcessInfo.processInfo.environment["DMN_SETTINGS_PAGE"].flatMap(SettingsPage.init) ?? .general
+    #else
+    private static let startPage = SettingsPage.general
+    #endif
+    private let pageState = State(initialValue: SettingsView.startPage)
+    private let expandedState = State(initialValue: SettingsPage.features.contains(SettingsView.startPage) || SettingsView.startPage == .interaction)
+    private var page: SettingsPage {
+        get { pageState.wrappedValue }
+        nonmutating set { pageState.wrappedValue = newValue }
     }
+    private var interactionsExpanded: Bool {
+        get { expandedState.wrappedValue }
+        nonmutating set { expandedState.wrappedValue = newValue }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 214)
+                .padding(10)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(page.title)
+                    .font(.title2.bold())
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 2)
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .id(page)
+        }
+        .frame(width: 860, height: 620)
+        .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency).ignoresSafeArea())
+        .ignoresSafeArea(.container, edges: .top)
+    }
+
+    // MARK: - 사이드바
+
+    private var sidebar: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(SettingsPage.top) { item in
+                    if item == .interaction {
+                        sidebarRow(item, trailing: AnyView(
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(interactionsExpanded ? 90 : 0))
+                        )) {
+                            withAnimation(.snappy(duration: 0.25)) {
+                                interactionsExpanded.toggle()
+                                page = .interaction
+                            }
+                        }
+                        if interactionsExpanded {
+                            ForEach(SettingsPage.features) { child in
+                                sidebarRow(child, indent: 16) { page = child }
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                    } else {
+                        sidebarRow(item) { page = item }
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 34)   // 창 버튼(빨강·노랑·초록) 자리
+            .padding(.bottom, 8)
+        }
+        .modifier(LiquidGlassPanel(cornerRadius: 18))
+    }
+
+    private func sidebarRow(_ item: SettingsPage, indent: CGFloat = 0, trailing: AnyView? = nil,
+                            action: @escaping () -> Void) -> some View {
+        let selected = page == item
+        return Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: item.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 20)
+                    .foregroundStyle(selected ? Color.white : Color.accentColor)
+                Text(item.title)
+                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if let trailing { trailing }
+            }
+            .foregroundStyle(selected ? Color.white : Color.primary)
+            .padding(.leading, 8 + indent)
+            .padding(.trailing, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch page {
+        case .general: general
+        case .priority: priority
+        case .interaction: interactionOverview
+        case .network: network
+        case .bluetooth: bluetooth
+        case .focus: focus
+        case .call: call
+        case .media: media
+        case .download: download
+        case .airdrop: airdrop
+        case .screenshot: screenshot
+        case .recording: recording
+        case .battery: battery
+        case .hud: hudPage
+        case .lock: lockPage
+        case .test: testTab
+        case .permissions: PermissionsView(onboarding: false, embedded: true) {}
+        case .about: about
+        }
+    }
+
+    // MARK: - 일반
 
     /// 이 설정 창이 열릴 때의 언어 (바뀌었는지 비교용)
     private static let launchLanguage = AppSettings.shared.language
 
     private var general: some View {
         Form {
-            Picker(T("언어", "Language"), selection: $settings.language) {
-                ForEach(AppLanguage.allCases) { Text($0.label).tag($0) }
-            }
-            if settings.language != Self.launchLanguage {
-                HStack {
-                    Text(T("다시 시작하면 적용됩니다.", "Applies after restarting the app."))
-                        .font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button(T("지금 다시 시작", "Restart Now")) {
-                        Helper.sendToMain("restart")
-                        NSApp.terminate(nil)   // 설정 창(도우미)도 닫는다
+            Section {
+                Picker(T("언어", "Language"), selection: $settings.language) {
+                    ForEach(AppLanguage.allCases) { Text($0.label).tag($0) }
+                }
+                if settings.language != Self.launchLanguage {
+                    HStack {
+                        Text(T("다시 시작하면 적용됩니다.", "Applies after restarting the app."))
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button(T("지금 다시 시작", "Restart Now")) {
+                            Helper.sendToMain("restart")
+                            NSApp.terminate(nil)   // 설정 창(도우미)도 닫는다
+                        }
                     }
                 }
+                Picker(T("표시 화면", "Display"), selection: $settings.displayTarget) {
+                    ForEach(DisplayTarget.allCases) { Text($0.label).tag($0) }
+                }
+                Picker(T("일회성 알림 표시 시간", "Alert Duration"), selection: $settings.transientDuration) {
+                    ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
+                }
+                Toggle(T("메뉴바 아이콘 표시", "Show Menu Bar Icon"), isOn: $settings.showStatusItem)
+                Toggle(T("자동 업데이트 (하루 한 번 확인)", "Automatic updates (checks daily)"), isOn: $settings.autoUpdate)
+                Toggle(T("메모리 자동 최적화 (기준을 넘으면 쉬는 동안 조용히 다시 시작)", "Automatic memory cleanup (quietly restarts while idle above the limit)"), isOn: $settings.memoryGuard)
+                Picker(T("최적화 기준", "Cleanup Limit"), selection: $settings.memoryLimitMB) {
+                    ForEach([70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0], id: \.self) { Text("\(Int($0)) MB").tag($0) }
+                }
+                .disabled(!settings.memoryGuard)
             }
-            Picker(T("표시 화면", "Display"), selection: $settings.displayTarget) {
-                ForEach(DisplayTarget.allCases) { Text($0.label).tag($0) }
+            Section {
+                LabeledContent(T("길게누르기 시간", "Long-Press Duration")) {
+                    HStack {
+                        Slider(value: $settings.longPressDuration, in: 0.2...0.8, step: 0.05)
+                        Text(L10n.seconds(settings.longPressDuration, digits: 2)).monospacedDigit().frame(width: 52)
+                    }
+                }
+                Toggle(T("깊게누르기(포스터치)로 바로 열기", "Open with Force Click"), isOn: $settings.forceTouchEnabled)
+                Picker(T("햅틱 강도", "Haptic Strength"), selection: $settings.hapticStrength) {
+                    ForEach(HapticStrength.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Toggle(T("호버 시 살짝 커지는 미리보기", "Grow slightly on hover"), isOn: $settings.hoverPreview)
+                Toggle(T("호버만으로 열기", "Open on hover"), isOn: $settings.hoverToOpen)
+            } header: {
+                Text(T("노치 조작", "Notch Controls"))
+            } footer: {
+                Text(T("마우스는 압력 이벤트가 없어 길게누르기만 동작합니다.", "Mice don't report pressure, so only long-press works with a mouse."))
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Picker(T("일회성 알림 표시 시간", "Alert Duration"), selection: $settings.transientDuration) {
-                ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
+            Section(T("노치 홈", "Notch Home")) {
+                Toggle(T("카메라 좌우 반전(거울)", "Mirror camera"), isOn: $settings.cameraMirror)
+                Picker(T("일정 알림", "Event Alerts"), selection: $settings.calendarAlertMinutes) {
+                    Text(T("끄기", "Off")).tag(0.0)
+                    ForEach([5.0, 10.0, 15.0], id: \.self) { Text(T("\(Int($0))분 전", "\(Int($0)) min before")).tag($0) }
+                }
             }
-            Toggle(T("메뉴바 아이콘 표시", "Show Menu Bar Icon"), isOn: $settings.showStatusItem)
-            Toggle(T("자동 업데이트 (하루 한 번 확인)", "Automatic updates (checks daily)"), isOn: $settings.autoUpdate)
-            Toggle(T("메모리 자동 최적화 (기준을 넘으면 쉬는 동안 조용히 다시 시작)", "Automatic memory cleanup (quietly restarts while idle above the limit)"), isOn: $settings.memoryGuard)
-            Picker(T("최적화 기준", "Cleanup Limit"), selection: $settings.memoryLimitMB) {
-                ForEach([70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0], id: \.self) { Text("\(Int($0)) MB").tag($0) }
+            Section {
+                percentSlider(T("배경 흐림", "Background Blur"), value: $settings.settingsBlur, range: 0...1)
+                percentSlider(T("투명도", "Transparency"), value: $settings.settingsTransparency, range: 0...0.9)
+            } header: {
+                Text(T("설정 창 (Liquid Glass)", "Settings Window (Liquid Glass)"))
+            } footer: {
+                Text(T("흐림을 낮추면 뒤 화면이 또렷하게, 투명도를 높이면 더 많이 비쳐 보입니다.", "Lower blur shows the screen behind more sharply; higher transparency lets more of it through."))
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            .disabled(!settings.memoryGuard)
-            Button(T("권한 관리 열기…", "Open Permissions…"), action: openPermissions)
+        }
+        .settingsForm()
+    }
 
+    private func percentSlider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        LabeledContent(title) {
+            HStack {
+                Slider(value: value, in: range, step: 0.05)
+                Text("\(Int((value.wrappedValue * 100).rounded()))%").monospacedDigit().frame(width: 44)
+            }
+        }
+    }
+
+    // MARK: - 우선순위
+
+    private var priority: some View {
+        Form {
             Section {
                 ForEach(Array(settings.persistentOrder.enumerated()), id: \.element) { index, key in
                     HStack {
@@ -77,7 +300,7 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
     private func move(_ index: Int, by delta: Int) {
@@ -116,166 +339,224 @@ struct SettingsView: View {
         }
     }
 
-    private var interaction: some View {
-        Form {
-            Section {
-                LabeledContent(T("길게누르기 시간", "Long-Press Duration")) {
-                    HStack {
-                        Slider(value: $settings.longPressDuration, in: 0.2...0.8, step: 0.05)
-                        Text(L10n.seconds(settings.longPressDuration, digits: 2)).monospacedDigit().frame(width: 52)
+    // MARK: - 상호작용 (기능별 페이지 모음)
+
+    private var interactionOverview: some View {
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                ForEach(SettingsPage.features) { item in
+                    Button {
+                        withAnimation(.snappy(duration: 0.25)) {
+                            interactionsExpanded = true
+                            page = item
+                        }
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: item.symbol)
+                                .font(.system(size: 22, weight: .medium))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(height: 28)
+                            Text(item.title)
+                                .font(.system(size: 12, weight: .medium))
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 84)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06)))
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
+                    .buttonStyle(.plain)
                 }
-                Toggle(T("깊게누르기(포스터치)로 바로 열기", "Open with Force Click"), isOn: $settings.forceTouchEnabled)
-                Picker(T("햅틱 강도", "Haptic Strength"), selection: $settings.hapticStrength) {
-                    ForEach(HapticStrength.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-            } footer: {
-                Text(T("마우스는 압력 이벤트가 없어 길게누르기만 동작합니다.", "Mice don't report pressure, so only long-press works with a mouse.")).font(.caption).foregroundStyle(.secondary)
             }
-            Section {
-                Toggle(T("호버 시 살짝 커지는 미리보기", "Grow slightly on hover"), isOn: $settings.hoverPreview)
-                Toggle(T("호버만으로 열기", "Open on hover"), isOn: $settings.hoverToOpen)
-            }
+            .padding(20)
+            Text(T("각 기능을 눌러 표시 여부, 표시 방식, 세부 설정을 바꾸고 바로 미리 볼 수 있습니다.",
+                   "Choose a feature to change whether and how it appears, adjust its details and preview it."))
+                .font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
         }
-        .formStyle(.grouped)
     }
 
-    private var durationPicker: some View {
-        Picker(T("표시 시간", "Duration"), selection: $settings.netDuration) {
+    // 기능별 페이지 공통 부품 (순서: 표시 → 표시 방식 → 세부 설정 → 미리보기)
+
+    private var showHeader: Text { Text(T("표시", "Show")) }
+    private var styleHeader: Text { Text(T("표시 방식", "Appearance")) }
+    private var detailHeader: Text { Text(T("세부 설정", "Details")) }
+
+    private func alertStylePicker(_ selection: Binding<AlertStyle>) -> some View {
+        Picker(T("표시 형태", "Style"), selection: selection) {
+            ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private func durationPicker(_ selection: Binding<Double>) -> some View {
+        Picker(T("표시 시간", "Duration"), selection: selection) {
             Text(T("일반 설정 따름", "Use General Setting")).tag(0.0)
             ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
         }
     }
 
+    private func progressPicker(_ selection: Binding<ProgressStyle>) -> some View {
+        Picker(T("진행률", "Progress"), selection: selection) {
+            ForEach(ProgressStyle.allCases) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    /// 미리보기 버튼 줄 (각 페이지 맨 아래). 현재 설정 그대로 보여 준다.
+    private func previewSection(_ items: [(id: String, label: String)]) -> some View {
+        Section(T("미리보기", "Preview")) {
+            HStack(spacing: 8) {
+                ForEach(items, id: \.id) { item in
+                    Button(item.label) { preview(item.id) }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func footnote(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
+    }
+
+    // MARK: 네트워크
+
     private var network: some View {
         Form {
-            Section(T("표시할 이벤트", "Events to Show")) {
+            Section {
                 Toggle(T("Wi-Fi 켜짐 / 꺼짐", "Wi-Fi On / Off"), isOn: $settings.netWifiPower)
                 Toggle(T("Wi-Fi 연결됨 / 연결 해제됨", "Wi-Fi Connected / Disconnected"), isOn: $settings.netWifiConnection)
                 Toggle(T("VPN 연결됨 / 연결 해제됨", "VPN Connected / Disconnected"), isOn: $settings.netVPN)
                 Toggle(T("핫스팟 연결됨 / 연결 해제됨", "Hotspot Connected / Disconnected"), isOn: $settings.netHotspot)
-                Picker(T("표시 방식", "Style"), selection: $settings.netStyle) {
-                    ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                durationPicker
-            }
+            } header: { showHeader }
+            Section {
+                alertStylePicker($settings.netStyle)
+                durationPicker($settings.netDuration)
+            } header: { styleHeader }
             Section {
                 Toggle(T("핫스팟 연결 중 상시 표시", "Keep showing while on a hotspot"), isOn: $settings.hotspotPinned)
                 TextField(T("핫스팟으로 볼 Wi-Fi 이름(쉼표 구분)", "Wi-Fi names to treat as hotspots (comma-separated)"), text: $settings.hotspotSSIDs)
-            } header: {
-                Text(T("핫스팟", "Hotspot"))
-            } footer: {
-                Text(T("핫스팟은 '데이터 절약 네트워크' 여부로 추정합니다. 잘 안 잡히면 iPhone의 Wi-Fi 이름을 적어 주세요. Wi-Fi 이름 표시에는 위치 서비스 권한이 필요합니다.", "Hotspots are detected from the 'Low Data Mode' network flag. If yours isn't detected, enter your iPhone's Wi-Fi name. Showing Wi-Fi names requires Location Services permission."))
-                    .font(.caption).foregroundStyle(.secondary)
+            } header: { detailHeader } footer: {
+                footnote(T("핫스팟은 '데이터 절약 네트워크' 여부로 추정합니다. 잘 안 잡히면 iPhone의 Wi-Fi 이름을 적어 주세요. Wi-Fi 이름 표시에는 위치 서비스 권한이 필요합니다.", "Hotspots are detected from the 'Low Data Mode' network flag. If yours isn't detected, enter your iPhone's Wi-Fi name. Showing Wi-Fi names requires Location Services permission."))
             }
+            previewSection([("wifi-connected", T("Wi-Fi 연결", "Wi-Fi Connected")), ("vpn-on", T("VPN 연결", "VPN Connected")),
+                            ("hotspot", T("핫스팟", "Hotspot")), ("offline", T("네트워크 끊김", "Network Lost"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
-    private var bluetoothAndFocus: some View {
+    // MARK: 블루투스
+
+    private var bluetooth: some View {
         Form {
-            Section(T("블루투스 액세서리", "Bluetooth Accessories")) {
-                Toggle(T("연결 시 표시", "Show on connect"), isOn: $settings.btEnabled)
-                Picker(T("표시 모드", "Style"), selection: $settings.btStyle) {
-                    ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
+            Section {
+                Toggle(T("액세서리 연결 시 표시", "Show when an accessory connects"), isOn: $settings.btEnabled)
+            } header: { showHeader }
+            Section {
+                alertStylePicker($settings.btStyle)
                 Picker(T("배터리 표시", "Battery Display"), selection: $settings.btBattery) {
                     ForEach(BatteryDisplay.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+            } header: { styleHeader }
+            Section {
                 TextField(T("알림 끌 기기 이름(쉼표 구분)", "Devices to ignore (comma-separated)"), text: $settings.btBlocklist)
-                HStack {
-                    Button(T("컴팩트 미리보기", "Preview Compact")) { preview("bt-airpods@compact") }
-                    Button(T("상세 미리보기", "Preview Detailed")) { preview("bt-airpods@detail") }
-                }
-            }
+            } header: { detailHeader }
+            previewSection([("bt-airpods", "AirPods"), ("bt-low", T("배터리 낮은 마우스", "Low-Battery Mouse")),
+                            ("bt-nobattery", T("배터리 정보 없음", "No Battery Info"))])
+        }
+        .settingsForm()
+    }
+
+    // MARK: 방해금지 모드
+
+    private var focus: some View {
+        Form {
             Section {
                 Toggle(T("켜짐 / 꺼짐 표시", "Show On / Off"), isOn: $settings.focusEnabled)
-                Picker(T("표시 방식", "Style"), selection: $settings.focusStyle) {
-                    ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker(T("표시 시간", "Duration"), selection: $settings.focusDuration) {
-                    Text(T("일반 설정 따름", "Use General Setting")).tag(0.0)
-                    ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
-                }
+            } header: { showHeader }
+            Section {
+                alertStylePicker($settings.focusStyle)
+                durationPicker($settings.focusDuration)
+            } header: { styleHeader }
+            Section {
                 Toggle(T("집중 모드 켜진 동안 상시 표시", "Keep showing while Focus is on"), isOn: $settings.focusPinned)
                 TextField(T("표시하지 않을 모드 이름(쉼표 구분)", "Modes to ignore (comma-separated)"), text: $settings.focusExcluded)
-            } header: {
-                Text(T("집중 모드", "Focus"))
-            } footer: {
-                Text(T("모드 이름·아이콘은 전체 디스크 접근 권한이 있을 때만 표시됩니다. 없으면 '집중 모드 켬/끔'으로 표시합니다.", "Mode names and icons require Full Disk Access. Without it, alerts just say 'Focus On/Off'."))
-                    .font(.caption).foregroundStyle(.secondary)
+            } header: { detailHeader } footer: {
+                footnote(T("모드 이름·아이콘은 전체 디스크 접근 권한이 있을 때만 표시됩니다. 없으면 '집중 모드 켬/끔'으로 표시합니다.", "Mode names and icons require Full Disk Access. Without it, alerts just say 'Focus On/Off'."))
             }
+            previewSection([("focus-on", T("켜짐", "On")), ("focus-off", T("꺼짐", "Off"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
-    private var hudTab: some View {
+    // MARK: 전화
+
+    private var call: some View {
         Form {
             Section {
-                LabeledContent(T("상태", "Status")) {
-                    Text(hud.active ? T("동작 중", "Active") : T("손쉬운 사용 권한 필요", "Accessibility permission needed"))
-                        .foregroundStyle(hud.active ? .green : .orange)
-                }
-                if !hud.active {
-                    Button(T("권한 관리 열기…", "Open Permissions…"), action: openPermissions)
-                }
+                Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)
+            } header: { showHeader } footer: {
+                footnote(T("수신 전화는 상세 카드(받기·거절), 통화 중에는 노치 양옆에 경과 시간을 표시합니다. 손쉬운 사용 권한이 필요합니다.", "Incoming calls show a detailed card (Accept, Decline); during a call the notch shows the elapsed time. Requires Accessibility permission."))
             }
-            Section(T("대체할 HUD", "HUDs to Replace")) {
-                Toggle(T("음량", "Volume"), isOn: $settings.hudVolume)
-                Toggle(T("화면 밝기", "Display Brightness"), isOn: $settings.hudDisplay)
-                Toggle(T("키보드 밝기", "Keyboard Brightness"), isOn: $settings.hudKeyboard)
-            }
-            Section(T("표시", "Display")) {
-                Picker(T("수치 표시", "Value Style"), selection: $settings.hudStyle) {
-                    ForEach(HUDStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker(T("표시 시간", "Duration"), selection: $settings.hudDuration) {
-                    ForEach([1.0, 1.5, 2.5, 4.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
-                }
-                Toggle(T("음량 HUD에 출력 기기 아이콘 표시", "Show output device icon in volume HUD"), isOn: $settings.hudOutputIcon)
-                Toggle(T("제어 센터에서 직접 바꾼 화면 밝기도 표시", "Also show display brightness changed in Control Center"), isOn: $settings.hudDisplayExternal)
-                Toggle(T("제어 센터에서 직접 바꾼 키보드 밝기도 표시", "Also show keyboard brightness changed in Control Center"), isOn: $settings.hudKeyboardExternal)
-            }
+            previewSection([("call-incoming", T("수신 전화", "Incoming Call")), ("call-active", T("통화 중", "On a Call"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
-    private var activities: some View {
+    // MARK: 미디어
+
+    private var media: some View {
         Form {
-            Section(T("미디어", "Media")) {
-                Picker(T("재생 소스", "Source"), selection: $settings.mediaSource) {
-                    ForEach(MediaSource.allCases) { Text($0.label).tag($0) }
-                }
-                Picker(T("일시정지 후 숨김", "Hide After Pause"), selection: $settings.mediaHideAfterPause) {
-                    Text(T("숨기지 않음", "Never")).tag(0.0)
-                    ForEach([10.0, 30.0, 60.0], id: \.self) { Text(T("\(Int($0))초", "\(Int($0))s")).tag($0) }
-                }
+            Section {
                 Toggle(T("곡이 바뀌면 잠깐 크게 표시", "Briefly show the new song"), isOn: $settings.mediaShowTrackChange)
                 Toggle(T("Apple Music·Spotify에서만", "Only for Apple Music and Spotify"), isOn: $settings.mediaTrackChangeMusicOnly)
                     .padding(.leading, 16)
                     .disabled(!settings.mediaShowTrackChange)
-            }
-            Section(T("다운로드", "Download")) {
-                Toggle(T("다운로드 진행 표시", "Show download progress"), isOn: $settings.downloadEnabled)
-                Picker(T("진행률", "Progress"), selection: $settings.downloadStyle) {
-                    ForEach(ProgressStyle.allCases) { Text($0.label).tag($0) }
+            } header: { showHeader }
+            Section {
+                Picker(T("일시정지 후 숨김", "Hide After Pause"), selection: $settings.mediaHideAfterPause) {
+                    Text(T("숨기지 않음", "Never")).tag(0.0)
+                    ForEach([10.0, 30.0, 60.0], id: \.self) { Text(T("\(Int($0))초", "\(Int($0))s")).tag($0) }
                 }
-                .pickerStyle(.segmented)
+            } header: { styleHeader }
+            Section {
+                Picker(T("재생 소스", "Source"), selection: $settings.mediaSource) {
+                    ForEach(MediaSource.allCases) { Text($0.label).tag($0) }
+                }
+            } header: { detailHeader }
+            previewSection([("media-start", T("재생 테스트 시작", "Start Playback Test")), ("media-stop", T("테스트 중지", "Stop Test"))])
+        }
+        .settingsForm()
+    }
+
+    // MARK: 다운로드
+
+    private var download: some View {
+        Form {
+            Section {
+                Toggle(T("다운로드 진행 표시", "Show download progress"), isOn: $settings.downloadEnabled)
+            } header: { showHeader }
+            Section {
+                progressPicker($settings.downloadStyle)
+            } header: { styleHeader }
+            Section {
                 FolderSetting(title: T("바로가기 경로", "Shortcut Folder"), path: $settings.downloadFolder,
                               defaultPath: AppSettings.defaultDownloadFolder)
                 TextField(T("추가 감시 폴더(쉼표 구분 경로)", "Extra folders to watch (comma-separated paths)"), text: $settings.downloadFolders)
-            }
+            } header: { detailHeader }
+            previewSection([("download", T("다운로드", "Download"))])
+        }
+        .settingsForm()
+    }
+
+    // MARK: 에어드랍 및 파일 트레이
+
+    private var airdrop: some View {
+        Form {
             Section {
-                Picker(T("에어드랍 진행률", "AirDrop Progress"), selection: $settings.airdropStyle) {
-                    ForEach(ProgressStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                progressPicker($settings.airdropStyle)
+            } header: { styleHeader }
+            Section {
                 Toggle(T("트레이에 복사본 보관(원본이 옮겨져도 유지)", "Keep copies in the tray (survive moves)"), isOn: $settings.trayKeepCopies)
                 Picker(T("트레이 자동 정리", "Auto-Clean Tray"), selection: $settings.trayCleanupDays) {
                     Text(T("끄기", "Off")).tag(0.0)
@@ -288,76 +569,65 @@ struct SettingsView: View {
                         Text("\(Int(settings.dragZoneHeight))pt").monospacedDigit().frame(width: 44)
                     }
                 }
-            } header: {
-                Text(T("파일 트레이 · 에어드랍", "File Tray · AirDrop"))
-            } footer: {
-                Text(T("파일을 들고 화면 위쪽 감지 높이 안으로 오면, 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않게 합니다.", "When you drag a file into this zone at the top of the screen, the notch opens before you reach the edge, so Mission Control doesn't trigger."))
-                    .font(.caption).foregroundStyle(.secondary)
+            } header: { detailHeader } footer: {
+                footnote(T("파일을 들고 화면 위쪽 감지 높이 안으로 오면, 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않게 합니다.", "When you drag a file into this zone at the top of the screen, the notch opens before you reach the edge, so Mission Control doesn't trigger."))
             }
-            Section(T("스크린샷", "Screenshot")) {
+            previewSection([("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive"))])
+        }
+        .settingsForm()
+    }
+
+    // MARK: 스크린샷
+
+    private var screenshot: some View {
+        Form {
+            Section {
                 Toggle(T("스크린샷 미리보기", "Screenshot preview"), isOn: $settings.screenshotEnabled)
+            } header: { showHeader }
+            Section {
+                Picker(T("자동 닫힘", "Auto-Close"), selection: $settings.screenshotAutoClose) {
+                    ForEach([5.0, 10.0, 30.0], id: \.self) { Text(T("\(Int($0))초", "\(Int($0))s")).tag($0) }
+                }
+            } header: { styleHeader }
+            Section {
                 Picker(T("감지 대상", "Detect"), selection: $settings.screenshotSource) {
                     ForEach(ScreenshotSource.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                TextField(T("저장 폴더(비우면 데스크탑)", "Save folder (empty = Desktop)"), text: $settings.screenshotFolder)
-                Toggle(T("JPEG로 저장", "Save as JPEG"), isOn: $settings.screenshotJPEG)
-                Picker(T("자동 닫힘", "Auto-Close"), selection: $settings.screenshotAutoClose) {
-                    ForEach([5.0, 10.0, 30.0], id: \.self) { Text(T("\(Int($0))초", "\(Int($0))s")).tag($0) }
-                }
-            }
-            Section(T("기타", "Other")) {
-                Toggle(T("화면 녹화 표시", "Show screen recording"), isOn: $settings.recordingEnabled)
-                Picker(T("화면 녹화 표시 방식", "Screen Recording Display"), selection: $settings.recordingStyle) {
-                    ForEach(RecordingStyle.allCases) { Text($0.label).tag($0) }
-                }
-                .disabled(!settings.recordingEnabled)
-                FolderSetting(title: T("바로가기 경로", "Shortcut Folder"), path: $settings.recordingFolder,
+                FolderSetting(title: T("저장 폴더", "Save Folder"), path: $settings.screenshotFolder,
                               defaultPath: AppSettings.defaultRecordingFolder)
-                    .disabled(!settings.recordingEnabled)
-                Toggle(T("전화 수신·통화 표시 (iPhone 연속성·FaceTime 오디오)", "Show incoming and active calls (iPhone Continuity, FaceTime audio)"), isOn: $settings.callEnabled)
-                Toggle(T("카메라 좌우 반전(거울)", "Mirror camera"), isOn: $settings.cameraMirror)
-                Picker(T("일정 알림", "Event Alerts"), selection: $settings.calendarAlertMinutes) {
-                    Text(T("끄기", "Off")).tag(0.0)
-                    ForEach([5.0, 10.0, 15.0], id: \.self) { Text(T("\(Int($0))분 전", "\(Int($0)) min before")).tag($0) }
-                }
-            }
+                Toggle(T("JPEG로 저장", "Save as JPEG"), isOn: $settings.screenshotJPEG)
+            } header: { detailHeader }
+            .disabled(!settings.screenshotEnabled)
+            previewSection([("screenshot", T("스크린샷", "Screenshot"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
-    private var lockTab: some View {
+    // MARK: 화면 녹화
+
+    private var recording: some View {
         Form {
-            Section(T("노치", "Notch")) {
-                Toggle(T("잠기면 자물쇠 표시, 풀리면 열림 애니메이션", "Show a lock when locked and an unlock animation"), isOn: $settings.lockNotchEnabled)
-            }
             Section {
-                Toggle(T("음악 재생 중 잠금화면 미디어 위젯", "Lock screen media widget while playing"), isOn: $settings.lockMediaWidget)
-                Toggle(T("잠금화면에서 곡 정보 숨기기", "Hide song info on the lock screen"), isOn: $settings.lockHideTrackInfo)
-            } header: {
-                Text(T("미디어 위젯", "Media Widget"))
-            } footer: {
-                Text(T("위젯은 프로필 사진·암호 입력란 바로 위에 표시됩니다. 앨범아트를 누르면 전체화면 플레이어로 커집니다. 잠금화면에 창을 띄우는 기능은 비공개 API를 쓰므로 macOS 업데이트에 따라 동작하지 않을 수 있습니다.", "The widget appears just above your profile picture and password field. Click the album art for a full-screen player. Showing windows on the lock screen uses private APIs and may stop working after a macOS update."))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+                Toggle(T("화면 녹화 표시", "Show screen recording"), isOn: $settings.recordingEnabled)
+            } header: { showHeader }
             Section {
-                Toggle(T("전체화면에서 가사 표시", "Show lyrics in full screen"), isOn: $settings.lyricsEnabled)
-                Toggle(T("실시간(시간 동기) 가사 가져오기", "Fetch live (time-synced) lyrics"), isOn: $settings.lyricsOnline)
-                Picker(T("가사 글자 크기", "Lyrics Size"), selection: $settings.lyricsSize) {
-                    Text(T("작게", "Small")).tag(0)
-                    Text(T("보통", "Medium")).tag(1)
-                    Text(T("크게", "Large")).tag(2)
+                Picker(T("표시 형태", "Style"), selection: $settings.recordingStyle) {
+                    ForEach(RecordingStyle.allCases) { Text($0.label).tag($0) }
                 }
-                .pickerStyle(.segmented)
-            } header: {
-                Text(T("가사 (Apple Music)", "Lyrics (Apple Music)"))
-            } footer: {
-                Text(T("실시간 가사는 곡 제목·아티스트·앨범을 외부 가사 서비스 LRCLIB(lrclib.net)로 보내 받아옵니다. 끄면 Music 앱에 저장된 가사만 표시합니다.", "Live lyrics send the song title, artist and album to LRCLIB (lrclib.net). When off, only lyrics stored in the Music app are shown."))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            } header: { styleHeader }
+            .disabled(!settings.recordingEnabled)
+            Section {
+                FolderSetting(title: T("바로가기 경로", "Shortcut Folder"), path: $settings.recordingFolder,
+                              defaultPath: AppSettings.defaultRecordingFolder)
+            } header: { detailHeader }
+            .disabled(!settings.recordingEnabled)
+            previewSection([("recording", T("화면 녹화", "Screen Recording"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
+
+    // MARK: 배터리 및 충전
 
     private var battery: some View {
         Form {
@@ -365,26 +635,94 @@ struct SettingsView: View {
                 Toggle(T("충전기 연결 알림", "Charger connected alert"), isOn: $settings.batteryChargerAlert)
                 Toggle(T("완충 알림", "Fully charged alert"), isOn: $settings.batteryFullAlert)
                 Toggle(T("배터리 부족 경고", "Low battery warning"), isOn: $settings.batteryLowAlert)
-                LabeledContent(T("경고 기준", "Warning Level")) {
+            } header: { showHeader }
+            Section {
+                alertStylePicker($settings.batteryStyle)
+            } header: { styleHeader }
+            Section {
+                LabeledContent(T("부족 경고 기준", "Low Battery Level")) {
                     HStack {
                         Slider(value: $settings.batteryLowThreshold, in: 5...50, step: 5)
                         Text("\(Int(settings.batteryLowThreshold))%").monospacedDigit().frame(width: 40)
                     }
                 }
-                Picker(T("알림 표시 방식", "Alert Style"), selection: $settings.batteryStyle) {
-                    ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
+                .disabled(!settings.batteryLowAlert)
+            } header: { detailHeader }
+            previewSection([("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
+        }
+        .settingsForm()
+    }
+
+    // MARK: HUD
+
+    private var hudPage: some View {
+        Form {
+            Section {
+                LabeledContent(T("상태", "Status")) {
+                    HStack {
+                        Text(hud.active ? T("동작 중", "Active") : T("손쉬운 사용 권한 필요", "Accessibility permission needed"))
+                            .foregroundStyle(hud.active ? .green : .orange)
+                        if !hud.active {
+                            Button(T("권한 관리…", "Permissions…")) { page = .permissions }
+                        }
+                    }
+                }
+                Toggle(T("음량", "Volume"), isOn: $settings.hudVolume)
+                Toggle(T("화면 밝기", "Display Brightness"), isOn: $settings.hudDisplay)
+                Toggle(T("키보드 밝기", "Keyboard Brightness"), isOn: $settings.hudKeyboard)
+            } header: { showHeader }
+            Section {
+                Picker(T("수치 표시", "Value Style"), selection: $settings.hudStyle) {
+                    ForEach(HUDStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
-            }
-            Section(T("미리보기", "Preview")) {
-                HStack {
-                    Button(T("충전기 연결", "Charger Connected")) { preview("charger") }
-                    Button(T("배터리 부족", "Low Battery")) { preview("low") }
-                    Button(T("완충", "Full")) { preview("full") }
+                Picker(T("표시 시간", "Duration"), selection: $settings.hudDuration) {
+                    ForEach([1.0, 1.5, 2.5, 4.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
                 }
+            } header: { styleHeader }
+            Section {
+                Toggle(T("음량 HUD에 출력 기기 아이콘 표시", "Show output device icon in volume HUD"), isOn: $settings.hudOutputIcon)
+                Toggle(T("제어 센터에서 직접 바꾼 화면 밝기도 표시", "Also show display brightness changed in Control Center"), isOn: $settings.hudDisplayExternal)
+                Toggle(T("제어 센터에서 직접 바꾼 키보드 밝기도 표시", "Also show keyboard brightness changed in Control Center"), isOn: $settings.hudKeyboardExternal)
+            } header: { detailHeader } footer: {
+                footnote(T("자동 밝기로 바뀐 값은 표시하지 않습니다.", "Changes made by automatic brightness are not shown."))
             }
+            previewSection([("hud-volume", T("음량", "Volume")), ("hud-brightness", T("화면 밝기", "Display Brightness")),
+                            ("hud-keyboard", T("키보드 밝기", "Keyboard Brightness"))])
         }
-        .formStyle(.grouped)
+        .settingsForm()
+    }
+
+    // MARK: 잠금화면
+
+    private var lockPage: some View {
+        Form {
+            Section {
+                Toggle(T("잠기면 자물쇠 표시, 풀리면 열림 애니메이션", "Show a lock when locked and an unlock animation"), isOn: $settings.lockNotchEnabled)
+                Toggle(T("음악 재생 중 잠금화면 미디어 위젯", "Lock screen media widget while playing"), isOn: $settings.lockMediaWidget)
+            } header: { showHeader }
+            Section {
+                Toggle(T("잠금화면에서 곡 정보 숨기기", "Hide song info on the lock screen"), isOn: $settings.lockHideTrackInfo)
+            } header: { styleHeader } footer: {
+                footnote(T("위젯은 프로필 사진·암호 입력란 바로 위에 표시됩니다. 앨범아트를 누르면 전체화면 플레이어로 커집니다. 잠금화면에 창을 띄우는 기능은 비공개 API를 쓰므로 macOS 업데이트에 따라 동작하지 않을 수 있습니다.", "The widget appears just above your profile picture and password field. Click the album art for a full-screen player. Showing windows on the lock screen uses private APIs and may stop working after a macOS update."))
+            }
+            .disabled(!settings.lockMediaWidget)
+            Section {
+                Toggle(T("전체화면에서 가사 표시 (Apple Music)", "Show lyrics in full screen (Apple Music)"), isOn: $settings.lyricsEnabled)
+                Toggle(T("실시간(시간 동기) 가사 가져오기", "Fetch live (time-synced) lyrics"), isOn: $settings.lyricsOnline)
+                Picker(T("가사 글자 크기", "Lyrics Size"), selection: $settings.lyricsSize) {
+                    Text(T("작게", "Small")).tag(0)
+                    Text(T("보통", "Medium")).tag(1)
+                    Text(T("크게", "Large")).tag(2)
+                }
+                .pickerStyle(.segmented)
+            } header: { detailHeader } footer: {
+                footnote(T("실시간 가사는 곡 제목·아티스트·앨범을 외부 가사 서비스 LRCLIB(lrclib.net)로 보내 받아옵니다. 끄면 Music 앱에 저장된 가사만 표시합니다.", "Live lyrics send the song title, artist and album to LRCLIB (lrclib.net). When off, only lyrics stored in the Music app are shown."))
+            }
+            .disabled(!settings.lockMediaWidget)
+            previewSection([("lock", T("자물쇠·위젯 (5초)", "Padlock & Widget (5s)"))])
+        }
+        .settingsForm()
     }
 
     // MARK: - 테스트 (기능별 미리보기)
@@ -423,24 +761,24 @@ struct SettingsView: View {
             StylePreviewSection(title: T("배터리", "Battery"), initial: settings.batteryStyle, preview: preview,
                                 items: [("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
             // 형태가 정해진 알림
-            previewSection(T("컴팩트로만 표시", "Compact Only"),
+            testSection(T("컴팩트로만 표시", "Compact Only"),
                            [("hud-volume", T("음량 HUD", "Volume HUD")), ("hud-brightness", T("화면 밝기 HUD", "Display Brightness HUD")),
                             ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
                             ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
-            previewSection(T("상세로만 표시", "Detailed Only"),
+            testSection(T("상세로만 표시", "Detailed Only"),
                            [("call-incoming", T("수신 전화", "Incoming Call")), ("offline", T("네트워크 끊김", "Network Lost")),
                             ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
                             ("timer-done", T("타이머 종료", "Timer Done")), ("calendar", T("일정 알림", "Event Alert"))],
                            note: T("수신 전화: 가짜 전화로 받기·거절을 눌러 볼 수 있고 30초 동안 조작이 없으면 끝납니다.",
                                    "Incoming Call: a fake call where you can try Accept and Decline; it ends after 30 seconds without interaction."))
         }
-        .formStyle(.grouped)
+        .settingsForm()
     }
 
-    private func previewSection(_ title: String, _ items: [(id: String, label: String)], note: String? = nil) -> some View {
+    private func testSection(_ title: String, _ items: [(id: String, label: String)], note: String? = nil) -> some View {
         Section(title) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .leading), count: 3), alignment: .leading, spacing: 8) {
                 ForEach(items, id: \.id) { item in
@@ -452,8 +790,11 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - 정보
+
     private var about: some View {
         VStack(spacing: 8) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 96, height: 96)
             Text("Dynamic MacNotch").font(.title.bold())
             Text(T("버전 ", "Version ") + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")).foregroundStyle(.secondary)
             Text(T("Apple Silicon(M1 이상) · macOS 14 Sonoma 이상", "Apple Silicon (M1 or later) · macOS 14 Sonoma or later")).font(.caption).foregroundStyle(.secondary)
@@ -462,6 +803,58 @@ struct SettingsView: View {
             Text(T("애드혹 서명(공증되지 않음)", "Ad-hoc signed (not notarized)")).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, 40)
+    }
+}
+
+// MARK: - 유리 배경
+
+/// 설정 창 전체 배경: 뒤 화면을 흐리게 비추는 층 + 창 색 층.
+/// 흐림(blur)은 흐린 층의 불투명도, 투명도(transparency)는 창 색 층을 얼마나 비울지로 조절한다.
+private struct GlassBackdrop: View {
+    var blur: Double
+    var transparency: Double
+
+    var body: some View {
+        ZStack {
+            BehindWindowBlur().opacity(blur)
+            Color(nsColor: .windowBackgroundColor).opacity(1 - transparency)
+        }
+    }
+}
+
+private struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .underWindowBackground
+        v.blendingMode = .behindWindow
+        v.state = .active
+        return v
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+/// 사이드바 패널: macOS 26 이상은 Liquid Glass, 그 전에는 얇은 머티리얼.
+private struct LiquidGlassPanel: ViewModifier {
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .overlay(shape.strokeBorder(Color.white.opacity(0.15)))
+        }
+    }
+}
+
+private extension View {
+    /// 유리 배경이 비치도록 폼 자체 배경을 지운다.
+    func settingsForm() -> some View {
+        formStyle(.grouped).scrollContentBackground(.hidden)
     }
 }
 
@@ -480,7 +873,7 @@ struct FolderSetting: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 220, alignment: .trailing)
                 Button(T("선택…", "Choose…")) { choose() }
-                if path != defaultPath {
+                if !path.isEmpty, path != defaultPath {
                     Button(T("기본값", "Default")) { path = defaultPath }
                 }
             }

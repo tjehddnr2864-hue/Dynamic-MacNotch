@@ -74,7 +74,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Two-finger swipe up / down** on a compact live activity | Hides / shows live activities |
 | **Two-finger swipe left / right** while music shows | Next / previous track (does nothing if the app or video has no next/previous) |
 | **Right-click** the notch | Menu: Open Home, Settings, Permissions, Preview alerts, Restart, Quit |
-| **Hover** | Optional: grow slightly, or open on hover (Settings → Interaction) |
+| **Hover** | Optional: grow slightly, or open on hover (Settings → General) |
 
 ### Home (4 pages)
 1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages.
@@ -87,7 +87,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
    - Options: keep copies in the tray, auto-clean after 1 or 7 days.
 
 ### Music
-- Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Activities).
+- Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Interactions → Media).
 - **Compact**: album art on the left, an animated waveform tinted by the artwork on the right.
 - **Song change**: a short card with the new song (optional; by default only for Apple Music and Spotify).
 - **Player** (long-press while music shows):
@@ -104,7 +104,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 - **Incoming** — the notch expands with the caller (saved contact name, otherwise the number; long numbers scroll) and red **Decline** / green **Accept** buttons. **Swipe up with two fingers** to tuck the card away without declining — a small ringing indicator stays; click it to bring the card back.
 - **On a call** — call time on the left, a voice waveform on the right.
 - **Long-press** — the caller's avatar and name, **Mute** and **End** buttons. While muted the waveform stops, like paused music.
-- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Activities → Other.
+- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Interactions → Phone Calls.
 
 ### System HUD replacement
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
@@ -114,15 +114,15 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable).
-- **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Activities, plus extra folders); a **Show in Finder** button when done.
+- **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Interactions → Downloads, plus extra folders); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
-- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Activities → Other: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in Settings → Activities → Other to match where macOS saves your recordings.
+- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Interactions → Screen Recording: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in the same page to match where macOS saves your recordings.
 
 Every alert can be **compact or detailed**, and durations are configurable. **Long-press a compact alert** to see its detailed card; detailed alerts only respond to a click.
 
 ### Live activity priority
-When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → General → Live Activity Priority** is shown. Drag to reorder.
+When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → Priority** is shown. Reorder with the arrows.
 
 ### Lock screen
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
@@ -132,6 +132,9 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 **Settings → Test** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls. Alerts that can be compact or detailed have a Compact/Detailed switch; the rest are grouped as Compact Only or Detailed Only.
 - **Music playback test** plays a test song you can control from the player. Stop it with **Stop Test**; it also stops by itself after 30 seconds without interaction.
 - **Stop All Previews** ends everything at once. Each preview fully cleans up after itself (timers, fake items), so nothing keeps running.
+
+### Settings window
+A sidebar with **General**, **Priority**, **Interactions**, **Test**, **Permissions** and **About**. Click the arrow next to Interactions to expand one page per feature (Network, Bluetooth, Focus, Phone Calls, Media, Downloads, AirDrop & File Tray, Screenshots, Screen Recording, Battery & Charging, HUD, Lock Screen). Every feature page uses the same order: Show → Appearance → Details → Preview. The sidebar uses Liquid Glass on macOS 26 and later, and you can set the window's blur and transparency in Settings → General.
 
 ### Language
 Korean and English. Settings → General → Language (System default / 한국어 / English), then **Restart Now**.
@@ -246,7 +249,7 @@ scripts/build.sh --install --run  # install to /Applications
 | 컴팩트 라이브 활동 위에서 **두 손가락 위 / 아래** | 라이브 활동 숨기기 / 다시 보이기 |
 | 음악이 떠 있을 때 **두 손가락 좌 / 우** | 다음 / 이전 곡 (앱·영상에 다음·이전이 없으면 아무 동작 안 함) |
 | 노치 **우클릭** | 메뉴: 홈 열기, 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
-| **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 상호작용) |
+| **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 일반) |
 
 ### 홈 (4페이지)
 1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다.
@@ -259,7 +262,7 @@ scripts/build.sh --install --run  # install to /Applications
    - 옵션: 트레이에 복사본 보관, 1일·7일 뒤 자동 정리.
 
 ### 음악
-- **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 활동).
+- **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 상호작용 → 미디어).
 - **컴팩트**: 왼쪽 앨범아트, 오른쪽에 앨범아트 색의 파형.
 - **곡 변경**: 새 곡을 잠깐 크게 보여 줍니다 (선택, 기본은 Apple Music·Spotify에서만).
 - **플레이어** (음악 표시 중 길게 누르기):
@@ -276,7 +279,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **수신** — 노치가 확장되며 상대(저장된 연락처면 이름, 아니면 번호. 긴 번호는 흐름)와 빨간 **거절** / 초록 **받기** 버튼이 뜹니다. **두 손가락으로 위로 올리면** 거절하지 않고 카드만 접히고 작은 수신 표시가 남습니다. 누르면 다시 펼쳐집니다.
 - **통화 중** — 왼쪽에 통화 시간, 오른쪽에 음성 파형.
 - **길게 누르기** — 상대 아이콘과 이름, **음소거**·**끊기** 버튼. 음소거하면 파형이 일시정지한 음악처럼 멈춥니다.
-- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 활동 → 기타에서 끌 수 있습니다.
+- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 상호작용 → 전화에서 끌 수 있습니다.
 
 ### 시스템 HUD 대체
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
@@ -286,15 +289,15 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능).
-- **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 활동에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
+- **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 상호작용 → 다운로드에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
-- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 활동 → 기타에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 설정 → 활동 → 기타에서 바꿀 수 있습니다.
+- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 상호작용 → 화면 녹화에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 같은 페이지에서 바꿀 수 있습니다.
 
 모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. **컴팩트 알림을 길게 누르면** 상세 카드로 바뀌고, 상세 알림은 클릭에만 반응합니다.
 
 ### 라이브 활동 우선순위
-여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 일반 → 상시 표시 우선순위**에서 위에 있는 것이 표시됩니다. 끌어서 순서를 바꿉니다.
+여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 우선순위**에서 위에 있는 것이 표시됩니다. 화살표로 순서를 바꿉니다.
 
 ### 잠금화면
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.
@@ -304,6 +307,9 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 **설정 → 테스트**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다. 컴팩트·상세를 고를 수 있는 알림은 묶음마다 형태를 골라 볼 수 있고, 나머지는 "컴팩트로만 표시"·"상세로만 표시"로 나뉘어 있습니다.
 - **음악 재생 테스트**는 테스트 곡을 재생하며 플레이어 조작을 시험할 수 있습니다. **테스트 중지**로 끝내거나, 30초 동안 조작이 없으면 자동으로 중지됩니다.
 - **모든 미리보기 중지**로 한 번에 끝낼 수 있습니다. 미리보기는 끝나면 타이머·가짜 항목을 모두 정리해 계속 실행되는 것이 남지 않습니다.
+
+### 설정 창
+왼쪽 사이드바에 **일반**, **우선순위**, **상호작용**, **테스트**, **권한 관리**, **정보**가 있습니다. 상호작용 옆 화살표를 누르면 기능별 페이지(네트워크, 블루투스, 방해금지 모드, 전화, 미디어, 다운로드, 에어드랍 및 파일 트레이, 스크린샷, 화면 녹화, 배터리 및 충전, HUD, 잠금화면)가 펼쳐집니다. 모든 기능 페이지는 표시 → 표시 방식 → 세부 설정 → 미리보기 순서로 같습니다. 사이드바는 macOS 26 이상에서 Liquid Glass로 그려지고, 창의 흐림과 투명도는 설정 → 일반에서 조절합니다.
 
 ### 언어
 한국어와 영어. 설정 → 일반 → 언어(시스템 설정 따름 / 한국어 / English) 선택 후 **지금 다시 시작**.

@@ -83,12 +83,16 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         if settingsWindow == nil {
-            let view = SettingsView(
-                hud: hud,
-                openPermissions: { [weak self] in self?.showPermissions(onboarding: false) },
-                preview: { which in Helper.sendToMain("preview:" + which) }
-            )
-            settingsWindow = makeWindow(title: T("Dynamic MacNotch 설정", "Dynamic MacNotch Settings"), content: view)
+            let view = SettingsView(hud: hud, preview: { which in Helper.sendToMain("preview:" + which) })
+            let window = makeWindow(title: T("Dynamic MacNotch 설정", "Dynamic MacNotch Settings"), content: view)
+            // 유리 창: 제목 막대를 숨기고 내용이 창 전체를 채워, 뒤 화면이 비치게 한다.
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.isMovableByWindowBackground = true
+            settingsWindow = window
         }
         present(settingsWindow)
     }

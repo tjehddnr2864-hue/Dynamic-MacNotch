@@ -94,6 +94,9 @@ final class AppSettings: ObservableObject {
     /// 메모리 자동 최적화 기준 (MB, 70~150)
     @Published var memoryLimitMB: Double { didSet { save(memoryLimitMB, "memoryLimitMB") } }
     @Published var onboardingDone: Bool { didSet { save(onboardingDone, "onboardingDone") } }
+    /// 설정 창 유리 배경: 흐림 정도(0~1)와 투명도(0~0.9)
+    @Published var settingsBlur: Double { didSet { save(settingsBlur, "settingsBlur") } }
+    @Published var settingsTransparency: Double { didSet { save(settingsTransparency, "settingsTransparency") } }
 
     // 상호작용
     @Published var longPressDuration: Double { didSet { save(longPressDuration, "longPressDuration") } }
@@ -234,6 +237,8 @@ final class AppSettings: ObservableObject {
         memoryGuard = value("memoryGuard", true)
         memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
         onboardingDone = value("onboardingDone", false)
+        settingsBlur = min(1, max(0, value("settingsBlur", 1.0)))
+        settingsTransparency = min(0.9, max(0, value("settingsTransparency", 0.35)))
 
         longPressDuration = value("longPressDuration", 0.35)
         forceTouchEnabled = value("forceTouchEnabled", true)
@@ -336,6 +341,8 @@ final class AppSettings: ObservableObject {
         memoryGuard = value("memoryGuard", true)
         memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
         onboardingDone = value("onboardingDone", false)
+        settingsBlur = min(1, max(0, value("settingsBlur", 1.0)))
+        settingsTransparency = min(0.9, max(0, value("settingsTransparency", 0.35)))
 
         longPressDuration = value("longPressDuration", 0.35)
         forceTouchEnabled = value("forceTouchEnabled", true)
