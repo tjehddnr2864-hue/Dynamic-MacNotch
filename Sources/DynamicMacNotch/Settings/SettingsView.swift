@@ -84,6 +84,10 @@ struct SettingsView: View {
         nonmutating set { expandedState.wrappedValue = newValue }
     }
 
+    static let windowSize = CGSize(width: 860, height: 620)
+    /// 사이드바 유리(곡률 18, 안쪽 10pt)와 같은 중심이 되도록 18 + 10
+    static let windowCornerRadius: CGFloat = 28
+
     var body: some View {
         HStack(spacing: 0) {
             sidebar
@@ -100,9 +104,11 @@ struct SettingsView: View {
             }
             .id(page)
         }
-        .frame(width: 860, height: 620)
-        .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency).ignoresSafeArea())
-        .ignoresSafeArea(.container, edges: .top)
+        .frame(minWidth: Self.windowSize.width, maxWidth: .infinity, minHeight: Self.windowSize.height, maxHeight: .infinity)
+        .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency))
+        // 창 배경이 투명하므로 모서리 둥글림을 직접 잘라 준다 (사이드바 유리와 같은 중심의 곡률)
+        .clipShape(RoundedRectangle(cornerRadius: Self.windowCornerRadius, style: .continuous))
+        .ignoresSafeArea()
     }
 
     // MARK: - 사이드바
@@ -135,7 +141,7 @@ struct SettingsView: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.top, 34)   // 창 버튼(빨강·노랑·초록) 자리
+            .padding(.top, 42)   // 사이드바 위쪽에 놓인 창 버튼(빨강·노랑·초록) 자리
             .padding(.bottom, 8)
         }
         .modifier(LiquidGlassPanel(cornerRadius: 18))
@@ -146,8 +152,7 @@ struct SettingsView: View {
         let selected = page == item
         return Button(action: action) {
             HStack(spacing: 9) {
-                Image(systemName: item.symbol)
-                    .font(.system(size: 13, weight: .medium))
+                SettingsIcon(page: item, size: 13)
                     .frame(width: 20)
                     .foregroundStyle(selected ? Color.white : Color.accentColor)
                 Text(item.title)
@@ -352,8 +357,7 @@ struct SettingsView: View {
                         }
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: item.symbol)
-                                .font(.system(size: 22, weight: .medium))
+                            SettingsIcon(page: item, size: 22)
                                 .foregroundStyle(Color.accentColor)
                                 .frame(height: 28)
                             Text(item.title)
@@ -809,7 +813,7 @@ struct SettingsView: View {
 
 // MARK: - 유리 배경
 
-/// 설정 창 전체 배경: 뒤 화면을 흐리게 비추는 층 + 창 색 층.
+/// 설정 창 전체 배경: 뒤 화면을 흐리게 비추는 층 + 흰색 층.
 /// 흐림(blur)은 흐린 층의 불투명도, 투명도(transparency)는 창 색 층을 얼마나 비울지로 조절한다.
 private struct GlassBackdrop: View {
     var blur: Double
@@ -818,7 +822,7 @@ private struct GlassBackdrop: View {
     var body: some View {
         ZStack {
             BehindWindowBlur().opacity(blur)
-            Color(nsColor: .windowBackgroundColor).opacity(1 - transparency)
+            Color.white.opacity(1 - transparency)
         }
     }
 }
@@ -925,5 +929,36 @@ private struct StylePreviewSection: View {
                 Text(T("컴팩트·상세 선택", "Compact or Detailed")).font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// 사이드바·카드 아이콘. SF Symbols에는 블루투스 로고가 없어 직접 그린다.
+private struct SettingsIcon: View {
+    var page: SettingsPage
+    var size: CGFloat
+
+    var body: some View {
+        if page == .bluetooth {
+            BluetoothGlyph()
+                .stroke(style: StrokeStyle(lineWidth: max(1.4, size * 0.11), lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.62, height: size * 1.05)
+        } else {
+            Image(systemName: page.symbol).font(.system(size: size, weight: .medium))
+        }
+    }
+}
+
+/// 블루투스 룬 기호
+private struct BluetoothGlyph: Shape {
+    func path(in r: CGRect) -> Path {
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: r.minX + r.width * x, y: r.minY + r.height * y) }
+        var path = Path()
+        path.move(to: p(0, 0.28))
+        path.addLine(to: p(1, 0.72))
+        path.addLine(to: p(0.5, 1))
+        path.addLine(to: p(0.5, 0))
+        path.addLine(to: p(1, 0.28))
+        path.addLine(to: p(0, 0.72))
+        return path
     }
 }

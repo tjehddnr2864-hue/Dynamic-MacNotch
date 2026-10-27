@@ -92,6 +92,16 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             window.isOpaque = false
             window.backgroundColor = .clear
             window.isMovableByWindowBackground = true
+            window.appearance = NSAppearance(named: .aqua)   // 흰 배경에 맞춰 밝은 모양으로
+            // 빈 도구 막대를 두면 제목 막대가 높아져 창 버튼이 사이드바 위쪽 안으로 내려온다
+            let toolbar = NSToolbar(identifier: "settings")
+            window.toolbar = toolbar
+            window.toolbarStyle = .unified
+            window.titlebarSeparatorStyle = .none
+            // SwiftUI가 창 크기를 바꾸지 않게 하고, 정한 크기로 고정
+            (window.contentViewController as? NSHostingController<SettingsView>)?.sizingOptions = []
+            window.setContentSize(SettingsView.windowSize)
+            center(window)
             settingsWindow = window
         }
         present(settingsWindow)
@@ -115,18 +125,24 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             if self?.settingsWindow === window { self?.settingsWindow = nil }
             if self?.permissionsWindow === window { self?.permissionsWindow = nil }
         }
-        // 마우스가 있는 화면 가운데에 띄운다.
+        center(window)
+        return window
+    }
+
+    /// 마우스가 있는 화면 가운데에 띄운다.
+    private func center(_ window: NSWindow) {
         let mouse = NSEvent.mouseLocation
         if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main {
             let v = screen.visibleFrame, size = window.frame.size
             window.setFrameOrigin(NSPoint(x: v.midX - size.width / 2, y: v.midY - size.height / 2))
         }
-        return window
     }
 
     private func present(_ window: NSWindow?) {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
+        // 투명 창의 그림자는 그려진 모양(둥근 모서리)을 따라 다시 계산해야 한다
+        DispatchQueue.main.async { window?.invalidateShadow() }
     }
 }
