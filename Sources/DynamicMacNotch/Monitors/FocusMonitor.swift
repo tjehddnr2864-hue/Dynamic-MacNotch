@@ -99,18 +99,18 @@ final class FocusMonitor {
     }
 
     /// 미리보기: 지금 모드(없으면 방해금지 모드)로 켜짐/꺼짐 알림을 띄운다.
-    func preview(on: Bool) {
+    func preview(on: Bool, style: AlertStyle? = nil) {
         let mode = Self.readActiveMode() ?? Mode(id: "com.apple.donotdisturb.mode.default", name: T("방해금지 모드", "Do Not Disturb"),
                                                  symbol: "moon.fill", tint: .indigo)
-        post(mode, on: on)
+        post(mode, on: on, style: style)
     }
 
-    private func post(_ mode: Mode, on: Bool) {
+    private func post(_ mode: Mode, on: Bool, style: AlertStyle? = nil) {
         // 컴팩트: 아이콘 + 켬/끔, 상세: 모드 이름까지
         let short = on ? T("켬", "On") : T("끔", "Off")
         center.post(NotchActivity(
             kind: .focus,
-            presentation: settings.focusStyle == .detail ? .detail : .compact,
+            presentation: (style ?? settings.focusStyle) == .detail ? .detail : .compact,
             duration: AppSettings.duration(settings.focusDuration),
             symbol: mode.symbol,
             // 꺼짐: 같은 모드 아이콘만 반투명하게 해 비활성 느낌을 준다 (글자는 선명하게)

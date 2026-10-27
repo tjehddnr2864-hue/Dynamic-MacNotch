@@ -23,8 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var call = CallMonitor(center: center)
     private lazy var featurePreview = FeaturePreview(
         center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
-        lockScreen: { [weak self] in self?.lockScreen },
-        runBluetooth: { [weak self] which in self?.runPreview(which) })
+        lockScreen: { [weak self] in self?.lockScreen })
     private var previewObservers = Set<AnyCancellable>()
     private lazy var calendar = CalendarController(center: center)
 
@@ -141,8 +140,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, let command = note.object as? String else { return }
             switch command {
             case let c where c.hasPrefix("preview:"):
-                // 허용 목록(PreviewID)에 있는 미리보기만 실행
-                if let id = PreviewID(rawValue: String(c.dropFirst(8))) { self.featurePreview.run(id) }
+                // 허용 목록(PreviewID)에 있는 미리보기만 실행. "@compact"/"@detail"이 붙으면 그 형태로.
+                let parts = c.dropFirst(8).split(separator: "@", maxSplits: 1).map(String.init)
+                if let first = parts.first, let id = PreviewID(rawValue: first) {
+                    self.featurePreview.run(id, style: parts.count > 1 ? AlertStyle(rawValue: parts[1]) : nil)
+                }
             case "restart": self.restart()
             default:
                 #if DEV
@@ -432,30 +434,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func runDemo(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let d = PreviewID(rawValue: raw) else { return }
         featurePreview.run(d)
-    }
-
-    // MARK: - 창
-
-    /// 미리보기 (설정 창 도우미가 요청)
-    private func runPreview(_ which: String) {
-        let s = BatteryMonitor.read() ?? .init(percent: 64, isCharging: true, onAC: true, isCharged: false, minutesToFull: 48)
-        switch which {
-        case "bt-compact", "bt-detail":
-            let level = 0.82
-            let value: ActivityValue = switch settings.btBattery {
-            case .percent: .percent(level)
-            case .ring: .ring(level)
-            case .both: .ringPercent(level)
-            }
-            center.post(NotchActivity(
-                kind: .bluetooth, presentation: which == "bt-detail" ? .detail : .compact,
-                symbol: "airpodspro", tint: .green, value: value, title: "AirPods Pro",
-                subtitle: T("왼쪽 82% · 오른쪽 84% · 케이스 60%", "Left 82% · Right 84% · Case 60%"), detailValue: value,
-                wing: settings.btBattery == .both ? 70 : 56, valueTint: .green))
-        case "charger": battery.postCharger(s)
-        case "low": battery.postLow(.init(percent: Int(settings.batteryLowThreshold), isCharging: false, onAC: false, isCharged: false))
-        default: battery.postFull(.init(percent: 100, isCharging: false, onAC: true, isCharged: true))
-        }
     }
 
     // MARK: - 설정·권한 창 (별도 도우미 프로세스)

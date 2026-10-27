@@ -129,7 +129,7 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 - While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Drag the progress and volume bars to seek or change volume, and click the output icon to switch speakers or headphones. Song info can be hidden. The widget is hidden while the screen saver runs.
 
 ### Test & preview
-**Settings → Test** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls.
+**Settings → Test** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls. Alerts that can be compact or detailed have a Compact/Detailed switch; the rest are grouped as Compact Only or Detailed Only.
 - **Music playback test** plays a test song you can control from the player. Stop it with **Stop Test**; it also stops by itself after 30 seconds without interaction.
 - **Stop All Previews** ends everything at once. Each preview fully cleans up after itself (timers, fake items), so nothing keeps running.
 
@@ -301,7 +301,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - 음악 재생 중에는 프로필 사진·암호 입력란 위에 **미디어 위젯**이 뜹니다. 앨범아트를 누르면 전체화면 플레이어(앨범아트, 조작 버튼, **가사**: Apple Music, LRCLIB 실시간 가사는 선택)로 커집니다. 진행 바·음량 바를 끌어 이동·조절하고, 출력 아이콘을 눌러 스피커·이어폰을 바꿀 수 있습니다. 곡 정보 숨기기 가능. 화면 보호기가 도는 동안에는 숨겨집니다.
 
 ### 테스트·미리보기
-**설정 → 테스트**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다.
+**설정 → 테스트**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다. 컴팩트·상세를 고를 수 있는 알림은 묶음마다 형태를 골라 볼 수 있고, 나머지는 "컴팩트로만 표시"·"상세로만 표시"로 나뉘어 있습니다.
 - **음악 재생 테스트**는 테스트 곡을 재생하며 플레이어 조작을 시험할 수 있습니다. **테스트 중지**로 끝내거나, 30초 동안 조작이 없으면 자동으로 중지됩니다.
 - **모든 미리보기 중지**로 한 번에 끝낼 수 있습니다. 미리보기는 끝나면 타이머·가짜 항목을 모두 정리해 계속 실행되는 것이 남지 않습니다.
 

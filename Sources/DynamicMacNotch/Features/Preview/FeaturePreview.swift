@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// 설정 → 테스트에서 고를 수 있는 미리보기. 설정 창(도우미 프로세스)은 이 이름만 보낼 수 있다(허용 목록).
 enum PreviewID: String, CaseIterable {
@@ -7,7 +8,7 @@ enum PreviewID: String, CaseIterable {
     case wifiOn = "wifi-on", wifiOff = "wifi-off", wifiConnected = "wifi-connected", wifiDisconnected = "wifi-disconnected"
     case vpnOn = "vpn-on", vpnOff = "vpn-off", hotspot, offline
     // 블루투스
-    case btCompact = "bt-compact", btDetail = "bt-detail", btLow = "bt-low", btNoBattery = "bt-nobattery"
+    case airpods = "bt-airpods", btLow = "bt-low", btNoBattery = "bt-nobattery"
     // 집중 모드
     case focusOn = "focus-on", focusOff = "focus-off"
     // HUD
@@ -26,16 +27,39 @@ enum PreviewID: String, CaseIterable {
     case stopAll = "stop-all"
 }
 
+/// 미리보기 알림의 표시 형태. 실제 기능과 똑같이 분류한다.
+enum PreviewLayout {
+    /// 설정의 '컴팩트/상세'를 따르는 알림 (테스트에서 골라 볼 수 있음)
+    case selectable
+    /// 항상 컴팩트 (노치 양옆)
+    case compactOnly
+    /// 항상 상세 카드
+    case detailOnly
+}
+
 extension PreviewID {
+    var layout: PreviewLayout {
+        switch self {
+        case .wifiOn, .wifiOff, .wifiConnected, .wifiDisconnected, .vpnOn, .vpnOff, .hotspot,
+             .airpods, .btLow, .btNoBattery, .focusOn, .focusOff, .charger, .low, .full:
+            return .selectable
+        case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
+            return .detailOnly
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock,
+             .mediaStart, .mediaStop, .stopAll:
+            return .compactOnly
+        }
+    }
+
     /// 노치 우클릭 메뉴 '알림 미리보기'에 넣는 대표 항목 (전체는 설정 → 테스트)
-    static let menuItems: [PreviewID] = [.wifiConnected, .vpnOff, .btCompact, .focusOn, .hudVolume, .charger, .low,
+    static let menuItems: [PreviewID] = [.wifiConnected, .vpnOff, .airpods, .focusOn, .hudVolume, .charger, .low,
                                           .download, .recording, .callIncoming, .mediaStart]
 
     var menuTitle: String {
         switch self {
         case .wifiConnected: return T("Wi-Fi 연결", "Wi-Fi Connected")
         case .vpnOff: return T("VPN 해제", "VPN Disconnected")
-        case .btCompact: return T("AirPods 연결", "AirPods Connected")
+        case .airpods: return T("AirPods 연결", "AirPods Connected")
         case .focusOn: return T("집중 모드 켜짐", "Focus On")
         case .hudVolume: return T("음량 HUD", "Volume HUD")
         case .charger: return T("충전기 연결", "Charger Connected")
@@ -60,17 +84,17 @@ final class FeaturePreview {
     private let timer: TimerController
     private let screenshot: ScreenshotMonitor
     private let lockScreen: () -> LockScreenManager?
-    private let runBluetooth: (String) -> Void
 
     /// 예약해 둔 작업 (중지하면 모두 취소)
     private var work: [DispatchWorkItem] = []
     /// 미리보기가 띄운 상시 표시 종류 (중지하면 모두 내림)
     private var persistentKinds = Set<ActivityKind>()
     private var lockPreviewing = false
+    /// 테스트에서 고른 표시 형태 (nil이면 실제 설정을 따른다). 실행하는 동안만 쓴다.
+    private var style: AlertStyle?
 
     init(center: ActivityCenter, battery: BatteryMonitor, media: MediaController, call: CallMonitor, focus: FocusMonitor,
-         timer: TimerController, screenshot: ScreenshotMonitor, lockScreen: @escaping () -> LockScreenManager?,
-         runBluetooth: @escaping (String) -> Void) {
+         timer: TimerController, screenshot: ScreenshotMonitor, lockScreen: @escaping () -> LockScreenManager?) {
         self.center = center
         self.battery = battery
         self.media = media
@@ -79,10 +103,12 @@ final class FeaturePreview {
         self.timer = timer
         self.screenshot = screenshot
         self.lockScreen = lockScreen
-        self.runBluetooth = runBluetooth
     }
 
-    func run(_ id: PreviewID) {
+    /// `style`은 컴팩트·상세를 고를 수 있는 알림에만 적용된다.
+    func run(_ id: PreviewID, style: AlertStyle? = nil) {
+        self.style = id.layout == .selectable ? style : nil
+        defer { self.style = nil }
         switch id {
         case .wifiOn: network("wifi", .blue, T("켜짐", "On"), "Wi-Fi", T("Wi-Fi 켜짐", "Wi-Fi On"))
         case .wifiOff: network("wifi.slash", .gray, T("꺼짐", "Off"), "Wi-Fi", T("Wi-Fi 꺼짐", "Wi-Fi Off"))
@@ -96,16 +122,28 @@ final class FeaturePreview {
             center.post(NotchActivity(kind: .network, presentation: .detail, duration: 4, symbol: "antenna.radiowaves.left.and.right.slash",
                                       tint: .orange, value: .text(T("없음", "None")), title: T("연결된 네트워크 없음", "No Network Connection"),
                                       subtitle: T("Wi-Fi·셀룰러 연결이 끊겼습니다", "Wi-Fi and cellular are disconnected")))
-        case .btCompact: runBluetooth("bt-compact")
-        case .btDetail: runBluetooth("bt-detail")
+        case .airpods:
+            let s = AppSettings.shared
+            let value: ActivityValue = switch s.btBattery {
+            case .percent: .percent(0.82)
+            case .ring: .ring(0.82)
+            case .both: .ringPercent(0.82)
+            }
+            center.post(NotchActivity(kind: .bluetooth, presentation: presentation(s.btStyle), symbol: "airpodspro", tint: .green,
+                                      value: value, title: "AirPods Pro",
+                                      subtitle: T("왼쪽 82% · 오른쪽 84% · 케이스 60%", "Left 82% · Right 84% · Case 60%"),
+                                      detailValue: value, wing: s.btBattery == .both ? 70 : 56, valueTint: .green))
         case .btLow:
-            center.post(NotchActivity(kind: .bluetooth, symbol: "computermouse", tint: .red, value: .percent(0.12), wing: 56, valueTint: .red))
+            center.post(NotchActivity(kind: .bluetooth, presentation: presentation(AppSettings.shared.btStyle), symbol: "computermouse",
+                                      tint: .red, value: .percent(0.12), title: "Magic Mouse", subtitle: T("연결됨", "Connected"),
+                                      detailValue: .percent(0.12), wing: 56, valueTint: .red))
         case .btNoBattery:
             let text = T("연결됨", "Connected")
-            center.post(NotchActivity(kind: .bluetooth, symbol: "gamecontroller.fill", tint: .green, value: .text(text),
+            center.post(NotchActivity(kind: .bluetooth, presentation: presentation(AppSettings.shared.btStyle), symbol: "gamecontroller.fill",
+                                      tint: .green, value: .text(text), title: T("게임 컨트롤러", "Game Controller"), subtitle: text,
                                       wing: NetworkMonitor.wing(for: text), valueTint: .white))
-        case .focusOn: focus.preview(on: true)
-        case .focusOff: focus.preview(on: false)
+        case .focusOn: focus.preview(on: true, style: style)
+        case .focusOff: focus.preview(on: false, style: style)
         case .hudVolume:
             // 연속으로 조절할 때처럼 값만 바뀌는지 보여 준다
             for (i, v) in [0.40, 0.46, 0.53, 0.60].enumerated() {
@@ -121,10 +159,12 @@ final class FeaturePreview {
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "light.max",
                                       value: Self.hudValue(0.6), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .charger:
-            battery.postCharger(BatteryMonitor.read() ?? .init(percent: 64, isCharging: true, onAC: true, isCharged: false, minutesToFull: 48))
+            battery.postCharger(BatteryMonitor.read() ?? .init(percent: 64, isCharging: true, onAC: true, isCharged: false, minutesToFull: 48),
+                                style: style)
         case .low:
-            battery.postLow(.init(percent: Int(AppSettings.shared.batteryLowThreshold), isCharging: false, onAC: false, isCharged: false))
-        case .full: battery.postFull(.init(percent: 100, isCharging: false, onAC: true, isCharged: true))
+            battery.postLow(.init(percent: Int(AppSettings.shared.batteryLowThreshold), isCharging: false, onAC: false, isCharged: false),
+                            style: style)
+        case .full: battery.postFull(.init(percent: 100, isCharging: false, onAC: true, isCharged: true), style: style)
         case .mediaStart: media.startTest()
         case .mediaStop: media.stopTest()
         case .download: download()
@@ -185,9 +225,13 @@ final class FeaturePreview {
         }
     }
 
+    /// 테스트에서 고른 형태, 없으면 실제 설정
+    private func presentation(_ setting: AlertStyle) -> ActivityPresentation {
+        (style ?? setting) == .detail ? .detail : .compact
+    }
+
     private func network(_ symbol: String, _ tint: Color, _ short: String, _ title: String, _ detail: String) {
-        let detailed = AppSettings.shared.netStyle == .detail
-        center.post(NotchActivity(kind: .network, presentation: detailed ? .detail : .compact, symbol: symbol, tint: tint,
+        center.post(NotchActivity(kind: .network, presentation: presentation(AppSettings.shared.netStyle), symbol: symbol, tint: tint,
                                   value: .text(short), title: title, subtitle: detail, wing: NetworkMonitor.wing(for: short)))
     }
 
@@ -204,9 +248,13 @@ final class FeaturePreview {
                                                       subtitle: "\(Int(f * 100))%", detailValue: .ringPercent(f)))
                 } else {
                     self.hidePersistent(.download)
+                    // 실제 완료 알림과 같은 구성 (파일 아이콘 · Finder에서 보기). 가짜 파일이므로 Finder는 폴더를 연다.
+                    let folder = AppSettings.folderURL(AppSettings.shared.downloadFolder, fallback: AppSettings.defaultDownloadFolder)
                     self.center.post(NotchActivity(kind: .download, priority: ActivityPriority.info, duration: 3,
                                                    symbol: "checkmark.circle.fill", tint: .green, value: .check,
-                                                   title: T("다운로드 완료", "Download Complete"), subtitle: "Sample.zip", wing: 46))
+                                                   title: T("다운로드 완료", "Download Complete"), subtitle: "Sample.zip", wing: 46,
+                                                   artwork: NSWorkspace.shared.icon(for: .zip),
+                                                   fileURL: folder.appendingPathComponent("Sample.zip")))
                 }
             }
         }

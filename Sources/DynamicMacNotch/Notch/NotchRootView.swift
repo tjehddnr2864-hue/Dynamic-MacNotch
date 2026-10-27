@@ -64,10 +64,11 @@ struct NotchRootView: View {
     @ViewBuilder
     private var mediaArtLayer: some View {
         if let rect = vm.mediaArtRect, features.media.artwork != nil {
+            let inMediaPage = vm.state == .expanded && vm.expandedPage == .activity(.media)
             // 확장된 음악 팝업에서만 곡이 바뀔 때 앨범아트가 돌아간다 (곡 변경 알림 팝업에서는 안 함)
-            MediaArtView(media: features.media, size: rect.size,
-                         flipEnabled: vm.state == .expanded && vm.expandedPage == .activity(.media) && !vm.reduceMotion)
-                .offset(x: rect.minX, y: rect.minY)
+            MediaArtView(media: features.media, size: rect.size, flipEnabled: inMediaPage && !vm.reduceMotion)
+                // 좌우로 쓸어 곡을 넘길 때 팝업의 글자·아이콘과 함께 움직인다
+                .offset(x: rect.minX + (inMediaPage ? vm.swipeOffset : 0), y: rect.minY)
                 .allowsHitTesting(false)
                 .transition(.opacity.animation(.easeOut(duration: 0.15)))
         }

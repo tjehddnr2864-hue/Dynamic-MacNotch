@@ -96,12 +96,12 @@ final class BatteryMonitor: ObservableObject {
 
     // MARK: - 액티비티
 
-    func postCharger(_ s: Snapshot) {
+    func postCharger(_ s: Snapshot, style: AlertStyle? = nil) {
         var subtitle = T("충전 중", "Charging")
         if let m = s.minutesToFull { subtitle = T("완충까지 \(m / 60)시간 \(m % 60)분", "\(m / 60)h \(m % 60)m until full") }
         center.post(NotchActivity(
             kind: .battery,
-            presentation: settings.batteryStyle == .detail ? .detail : .compact,
+            presentation: (style ?? settings.batteryStyle) == .detail ? .detail : .compact,
             symbol: "bolt.fill",
             tint: .green,
             value: .text("\(s.percent)%"),
@@ -113,11 +113,11 @@ final class BatteryMonitor: ObservableObject {
         ))
     }
 
-    func postLow(_ s: Snapshot) {
+    func postLow(_ s: Snapshot, style: AlertStyle? = nil) {
         center.post(NotchActivity(
             kind: .battery,
             priority: ActivityPriority.batteryLow,
-            presentation: settings.batteryStyle == .detail ? .detail : .compact,
+            presentation: (style ?? settings.batteryStyle) == .detail ? .detail : .compact,
             duration: max(4, settings.transientDuration),
             symbol: Self.symbol(for: s.percent),
             tint: .red,
@@ -130,10 +130,10 @@ final class BatteryMonitor: ObservableObject {
         ))
     }
 
-    func postFull(_ s: Snapshot) {
+    func postFull(_ s: Snapshot, style: AlertStyle? = nil) {
         center.post(NotchActivity(
             kind: .battery,
-            presentation: settings.batteryStyle == .detail ? .detail : .compact,
+            presentation: (style ?? settings.batteryStyle) == .detail ? .detail : .compact,
             symbol: "battery.100percent.bolt",
             tint: .green,
             value: .text(T("완충", "Full")),
