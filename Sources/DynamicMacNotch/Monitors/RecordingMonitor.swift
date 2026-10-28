@@ -47,6 +47,24 @@ final class RecordingMonitor: ObservableObject {
         timer = t
     }
 
+    /// 스크린샷을 찍은 뒤, 스크린샷 도구의 전체 화면 창이 남아 있는 동안은 녹화로 보지 않는다.
+    /// (⌘⇧5로 스크린샷을 찍으면 도구 막대가 사라진 채 전체 화면 창이 한동안 남아 녹화와 같은 모양이 된다)
+    /// 창이 사라지거나 도구 막대가 다시 나타나면 풀린다.
+    private var suppressedAfterScreenshot = false
+
+    /// 스크린샷이 들어왔다: 방금 녹화로 잘못 본 것이 있으면 완료 알림 없이 거둔다.
+    /// 이미 한참 녹화 중이면(20초 이상) 녹화 도중 찍은 스크린샷이므로 건드리지 않는다.
+    func screenshotTaken() {
+        if let since = startedAt {
+            guard Date().timeIntervalSince(since) < 20 else { return }
+            startedAt = nil
+            center.removePersistent(.recording)
+            center.dismissTransient(kind: .recording)
+        }
+        suppressedAfterScreenshot = true
+        positiveStreak = 0
+    }
+
     /// 연속으로 녹화로 보인 횟수 (두 번 연속이어야 시작으로 본다 — 잠깐의 오감지 방지)
     private var positiveStreak = 0
     #if DEV
@@ -56,7 +74,12 @@ final class RecordingMonitor: ObservableObject {
     private func poll() {
         let procs = Self.recorderProcesses()
         schedule(interval: procs.ui || procs.cliVideo || startedAt != nil ? 0.4 : 1.5)
-        let recording = settings.recordingEnabled && Self.systemIsRecording(alreadyRecording: startedAt != nil, procs: procs)
+        if suppressedAfterScreenshot {
+            let ui = procs.ui ? Self.captureUI() : nil
+            if ui == nil || ui?.fullScreenLayer == false || ui?.toolbar == true { suppressedAfterScreenshot = false }
+        }
+        let recording = settings.recordingEnabled && !suppressedAfterScreenshot
+            && Self.systemIsRecording(alreadyRecording: startedAt != nil, procs: procs)
         positiveStreak = recording ? positiveStreak + 1 : 0
         #if DEV
         // 개발용: 감지 상태가 바뀔 때마다 기록 (실제 ⌘⇧4·⌘⇧5 흐름 확인)

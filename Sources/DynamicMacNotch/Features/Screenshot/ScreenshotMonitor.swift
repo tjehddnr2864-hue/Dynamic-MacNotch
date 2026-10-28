@@ -28,6 +28,8 @@ final class ScreenshotMonitor: ObservableObject {
     private var query: NSMetadataQuery?
     private let startedAt = Date()
     private(set) var lastSaved: URL?
+    /// 실제 스크린샷이 들어왔을 때 (화면 녹화 오감지 정리용, AppDelegate가 연결)
+    var onCapture: (() -> Void)?
 
     init(center: ActivityCenter) {
         self.center = center
@@ -146,6 +148,7 @@ final class ScreenshotMonitor: ObservableObject {
         // 카드에는 작은 썸네일만 쓴다. 원본은 디코딩하지 않고(전체 화면이면 수십 MB) 저장·복사용 데이터로만 보관하며,
         // 썸네일은 도우미 프로세스가 만들어 작은 PNG로 돌려준다 (본 앱 메모리가 늘지 않음).
         self.shot = s
+        if !s.isPreview { onCapture?() }
         let date = s.date
         ImageTool.process(.thumb, s.data) { [weak self] png in
             guard let self, self.shot?.date == date, let png else { return }
