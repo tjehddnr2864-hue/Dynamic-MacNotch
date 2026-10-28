@@ -17,8 +17,10 @@ struct HomePager: View {
         .offset(x: vm.swipeOffset)
     }
 
-    private var pageTransition: AnyTransition {
-        let forward = vm.pageForward
+    private var pageTransition: AnyTransition { Self.pageTransition(forward: vm.pageForward) }
+
+    /// 페이지 넘김 전환 (홈·상시 항목 팝업 공통)
+    static func pageTransition(forward: Bool) -> AnyTransition {
         let blur = AnyTransition.modifier(active: BlurModifier(radius: 6), identity: BlurModifier(radius: 0))
         return .asymmetric(
             insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity).combined(with: blur),
@@ -49,6 +51,53 @@ struct HomePages {
     var usage: AnyView
     var calendar: AnyView
     var tray: AnyView
+}
+
+/// 상시 표시 항목 팝업의 페이지 점 (홈 점과 같은 모양, 우선순위 순)
+struct PersistentDots: View {
+    @ObservedObject var vm: NotchViewModel
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(vm.persistentPages, id: \.self) { kind in
+                let selected = vm.expandedPage == .activity(kind)
+                Button { vm.selectPersistentPage(kind) } label: {
+                    Capsule()
+                        .fill(Color.white.opacity(selected ? 0.95 : 0.35))
+                        .frame(width: selected ? 14 : 6, height: 6)
+                        .frame(width: 20, height: 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .animation(vm.openSpring, value: vm.expandedPage)
+    }
+}
+
+/// 전용 화면이 없는 상시 항목(핫스팟·집중 모드 등)의 팝업: 아이콘 · 이름 · 설명 · 값
+struct PersistentInfoPage: View {
+    var activity: NotchActivity
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ActivityLeading(activity: activity, size: 30)
+                .frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(activity.title ?? "")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if let sub = activity.subtitle, !sub.isEmpty {
+                    Text(sub).font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+            ActivityValueView(value: activity.detailValue ?? activity.value, tint: activity.tint, large: true,
+                              textColor: activity.valueTint)
+        }
+        .frame(maxHeight: .infinity)
+    }
 }
 
 /// 확장된 노치 바깥에 따로 떠 있는 페이지 점. 선택된 점은 가로로 길어진다.

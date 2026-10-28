@@ -708,11 +708,12 @@ struct SettingsView: View {
         let connected = AIService.connected(settings.aiConnected)
         return Form {
             Section {
-                Toggle(T("노치에 상시 표시 (왼쪽 5시간 · 오른쪽 주간 한도)", "Keep showing in the notch (left: 5-hour, right: weekly limit)"),
+                Toggle(T("노치에 상시 표시 (왼쪽 5시간 · 오른쪽 주간 한도, 한도가 하나면 오른쪽은 초기화까지 남은 시간)",
+                         "Keep showing in the notch (left: 5-hour, right: weekly; with a single limit, the right shows time to reset)"),
                        isOn: $settings.aiUsagePinned)
             } header: { showHeader } footer: {
-                footnote(T("상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 노치를 길게 눌러 AI 사용량 페이지를 열 때만 새로고침합니다. 두 손가락으로 잠시 가려 둔 동안에는 계속 새로고침합니다.",
-                           "When this is off, nothing refreshes in the background; usage refreshes only when you long-press the notch and open the AI Usage page. While hidden with a two-finger swipe, it keeps refreshing."))
+                footnote(T("상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 노치를 길게 눌러 AI 사용량 페이지를 열 때만 새로고침합니다. 두 손가락으로 잠시 가려 둔 동안에는 계속 새로고침하고, 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다.",
+                           "When this is off, nothing refreshes in the background; usage refreshes only when you long-press the notch and open the AI Usage page. While hidden with a two-finger swipe it keeps refreshing; while covered by a higher-priority item it pauses and resumes once visible again."))
             }
             Section {
                 Picker(T("사용량 표시", "Usage Display"), selection: $settings.aiUsageStyle) {
@@ -725,7 +726,7 @@ struct SettingsView: View {
             } header: { styleHeader }
             Section {
                 Picker(T("새로고침 빈도", "Refresh Every"), selection: $settings.aiRefreshMinutes) {
-                    ForEach([5.0, 10.0, 15.0, 30.0, 60.0], id: \.self) { Text(T("\(Int($0))분", "\(Int($0)) min")).tag($0) }
+                    ForEach([1.0, 2.0, 5.0, 10.0], id: \.self) { Text(T("\(Int($0))분", "\(Int($0)) min")).tag($0) }
                 }
                 ForEach(AIService.allCases) { service in
                     LabeledContent {

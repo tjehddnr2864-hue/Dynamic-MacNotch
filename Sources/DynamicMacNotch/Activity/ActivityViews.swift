@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// 원형 게이지.
@@ -36,6 +37,15 @@ struct BarGauge: View {
 
 /// ActivityValue를 크기에 맞게 그린다.
 struct ActivityValueView: View {
+    /// 컴팩트 날개에 한 줄로 넣기엔 긴 두 단어 글자 → (윗줄, 아랫줄). 숫자가 든 값(64% 등)은 나누지 않는다.
+    static func twoLines(_ s: String) -> (String, String)? {
+        guard !s.contains(where: \.isNumber) else { return nil }
+        let parts = s.split(separator: " ", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return nil }
+        let width = (s as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 13.5, weight: .medium)]).width
+        return width > NotchActivity.compactWing - 12 ? (parts[0], parts[1]) : nil
+    }
+
     var value: ActivityValue
     var tint: Color
     var large = false
@@ -49,12 +59,27 @@ struct ActivityValueView: View {
         case .none:
             EmptyView()
         case .text(let s):
-            RollingText(text: s)
-                .font(large ? .system(size: 15, weight: .semibold, design: .rounded)
-                      : (s.contains(where: \.isNumber) ? numberFont : NotchActivity.compactFont))
-                .monospacedDigit()
+            if !large, let (top, bottom) = Self.twoLines(s) {
+                // 컴팩트: 두 단어 글자('전송 완료'·'녹화 시작')는 작게 위아래로 나눠 노치 안에 여백을 두고 넣는다
+                VStack(spacing: -1) {
+                    Text(top)
+                    Text(bottom)
+                }
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .foregroundStyle(textColor ?? .white)
+                .fixedSize()
+            } else {
+                RollingText(text: s)
+                    .font(large ? .system(size: 15, weight: .semibold, design: .rounded)
+                          : (s.contains(where: \.isNumber) ? numberFont : NotchActivity.compactFont))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    // 긴 한 단어(Connected 등)는 잘리지 않게 줄여서 날개 폭 안에 (양옆 여백 남김)
+                    .minimumScaleFactor(large ? 1 : 0.6)
+                    .frame(maxWidth: large ? nil : NotchActivity.compactWing - 12)
+                    .foregroundStyle(textColor ?? .white)
+            }
         case .percent(let v):
             RollingText(text: "\(Int((v * 100).rounded()))%")
                 .font(large ? .system(size: 20, weight: .semibold, design: .rounded) : numberFont)
@@ -93,6 +118,18 @@ struct ActivityValueView: View {
                 .fixedSize()
         case .usage(let label, let percent, let ring):
             UsageGlyph(label: label, percent: percent, ring: ring, tint: tint, large: large)
+        case .labeledText(let label, let text):
+            VStack(spacing: 1) {
+                Text(label)
+                    .font(.system(size: large ? 10 : 8, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.55))
+                Text(text)
+                    .font(.system(size: large ? 16 : 12.5, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(textColor ?? .white)
+            }
+            .lineLimit(1)
+            .fixedSize()
         case .check:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: large ? 22 : 14, weight: .semibold))

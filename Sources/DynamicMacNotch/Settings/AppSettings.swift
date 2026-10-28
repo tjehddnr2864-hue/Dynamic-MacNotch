@@ -316,7 +316,8 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
-        aiRefreshMinutes = value("aiRefreshMinutes", 15.0)
+        // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
+        aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
@@ -425,7 +426,8 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
-        aiRefreshMinutes = value("aiRefreshMinutes", 15.0)
+        // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
+        aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all

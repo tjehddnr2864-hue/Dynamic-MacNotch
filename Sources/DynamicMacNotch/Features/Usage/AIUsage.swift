@@ -69,21 +69,58 @@ enum AIService: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// 한 기간(5시간·주간)의 사용량
+/// 한 기간(5시간·주간·30일 등)의 사용량
 struct UsageWindow: Codable, Equatable {
     /// 사용한 비율 0~100
     var percent: Double
     var resetsAt: Date?
+    /// 한도 기간 (초) — 5시간 18000, 주간 604800, 30일 2592000
+    var seconds: Double
+
+    static let fiveHours: Double = 5 * 3600
+    static let week: Double = 7 * 86400
+
+    /// 노치 안 짧은 이름 (5h · wk · 30d)
+    var shortLabel: String {
+        if seconds <= 12 * 3600 { return "\(max(1, Int((seconds / 3600).rounded())))h" }
+        if (6 * 86400...8 * 86400).contains(seconds) { return "wk" }
+        return "\(Int((seconds / 86400).rounded()))d"
+    }
+
+    /// 화면의 이름 (5시간 · 주간 · 30일)
+    var label: String {
+        if seconds <= 12 * 3600 {
+            let h = max(1, Int((seconds / 3600).rounded()))
+            return T("\(h)시간", "\(h)-hour")
+        }
+        if (6 * 86400...8 * 86400).contains(seconds) { return T("주간", "Weekly") }
+        let d = Int((seconds / 86400).rounded())
+        return T("\(d)일", "\(d)-day")
+    }
 }
 
 struct ServiceUsage: Codable, Equatable {
-    var fiveHour: UsageWindow?
-    var weekly: UsageWindow?
+    /// 서비스가 주는 한도들 (짧은 기간부터). 5시간·주간이 둘 다 없고 30일 한도 하나만 있는 경우도 있다.
+    var windows: [UsageWindow] = []
     var fetched: Date
     /// "login"(다시 로그인 필요) · "parse"(페이지를 읽지 못함) · 그 밖의 오류
     var error: String?
 
-    var hasData: Bool { fiveHour != nil || weekly != nil }
+    var hasData: Bool { !windows.isEmpty }
+
+    init(windows: [UsageWindow] = [], fetched: Date, error: String? = nil) {
+        // 같은 기간은 하나만, 짧은 기간부터
+        var seen = Set<Int>()
+        self.windows = windows.sorted { $0.seconds < $1.seconds }.filter { seen.insert(Int($0.seconds / 3600)).inserted }
+        self.fetched = fetched
+        self.error = error
+    }
+
+    /// 노치 양옆에 둘 두 한도: 가장 짧은 것(왼쪽)과 가장 긴 것(오른쪽). 하나뿐이면 오른쪽은 nil.
+    var sides: (left: UsageWindow?, right: UsageWindow?) {
+        guard let first = windows.first else { return (nil, nil) }
+        return windows.count > 1 ? (first, windows.last) : (first, nil)
+    }
 }
 
 /// AI 사용량 저장소 (본 앱).
@@ -122,6 +159,25 @@ final class UsageStore: ObservableObject {
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] in self?.settingsChanged() }
             .store(in: &cancellables)
+        // 우선순위가 더 높은 상시 항목에 가려졌는지 (바뀐 뒤 잠깐 있다가 확인)
+        center.objectWillChange
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] in self?.updateCoverage() }
+            .store(in: &cancellables)
+    }
+
+    /// 상시 표시가 다른 상시 항목(우선순위가 더 높은 것)에 가려져 있으면 백그라운드 새로고침을 쉰다.
+    /// 두 손가락으로 잠시 숨긴 것은 가린 것으로 보지 않는다. 다시 보이면 이어서 하고, 오래됐으면 바로 한 번.
+    /// (가려진 동안에도 길게 눌러 사용량 페이지를 넘겨 보면 그때 새로고침한다 — pageAppeared)
+    private var covered = false
+
+    private func updateCoverage() {
+        let now = settings.aiUsagePinned && center.persistentKinds.contains(.aiUsage)
+            && center.orderedPersistent.first?.kind != .aiUsage
+        guard now != covered else { return }
+        covered = now
+        reschedule()
+        if !covered, settings.aiUsagePinned, isStale(max(1, settings.aiRefreshMinutes) * 60) { refresh() }
     }
 
     private var lastConnected: [AIService] = []
@@ -141,8 +197,8 @@ final class UsageStore: ObservableObject {
     private func reschedule() {
         timer?.invalidate()
         timer = nil
-        guard settings.aiUsagePinned, !connected.isEmpty else { return }
-        let interval = max(5, settings.aiRefreshMinutes) * 60
+        guard settings.aiUsagePinned, !connected.isEmpty, !covered else { return }
+        let interval = max(1, settings.aiRefreshMinutes) * 60
         let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
         t.tolerance = interval * 0.1
         RunLoop.main.add(t, forMode: .common)
@@ -224,15 +280,30 @@ final class UsageStore: ObservableObject {
     }
 
     static func activity(service: AIService, usage: ServiceUsage?, ring: Bool) -> NotchActivity {
-        let five = usage?.fiveHour?.percent, week = usage?.weekly?.percent
         func text(_ p: Double?) -> String { p.map { "\(Int($0.rounded()))%" } ?? "–" }
+        let sides: (left: UsageWindow?, right: UsageWindow?) = usage?.sides ?? (nil, nil)
+        let left: ActivityValue, right: ActivityValue
+        if let l = sides.left {
+            left = .usage(label: l.shortLabel, percent: l.percent, ring: ring)
+            if let r = sides.right {
+                right = .usage(label: r.shortLabel, percent: r.percent, ring: ring)
+            } else {
+                // 한도가 하나뿐(예: ChatGPT 무료 30일): 오른쪽에는 초기화까지 남은 시간
+                right = .labeledText(label: T("초기화", "reset"), text: l.resetsAt.map(UsageGlyph.shortRemaining) ?? "–")
+            }
+        } else {
+            // 아직 읽지 못함: 기본 자리 표시
+            left = .usage(label: "5h", percent: nil, ring: ring)
+            right = .usage(label: "wk", percent: nil, ring: ring)
+        }
+        let summary = (usage?.windows ?? []).map { "\($0.label) \(text($0.percent))" }.joined(separator: " · ")
         return NotchActivity(
             kind: .aiUsage, priority: ActivityPriority.pinned, symbol: "gauge.medium", tint: service.tint,
-            value: .usage(label: "wk", percent: week, ring: ring),
+            value: right,
             title: T("\(service.name) 사용량", "\(service.name) Usage"),
-            subtitle: T("5시간 \(text(five)) · 주간 \(text(week))", "5h \(text(five)) · Weekly \(text(week))"),
+            subtitle: summary.isEmpty ? T("불러오는 중…", "Loading…") : summary,
             wing: NotchActivity.compactWing,
-            leadingValue: .usage(label: "5h", percent: five, ring: ring))
+            leadingValue: left)
     }
 }
 
@@ -243,6 +314,14 @@ struct UsageGlyph: View {
     var ring: Bool
     var tint: Color
     var large = false
+
+    /// 초기화까지 남은 시간 (노치용 짧은 글자: 29d · 4h · 12m)
+    static func shortRemaining(_ date: Date) -> String {
+        let s = max(0, Int(date.timeIntervalSinceNow))
+        if s >= 86400 { return "\(s / 86400)d" }
+        if s >= 3600 { return "\(s / 3600)h" }
+        return "\(max(1, s / 60))m"
+    }
 
     static func color(_ percent: Double?, tint: Color) -> Color {
         guard let p = percent else { return .white.opacity(0.4) }
@@ -346,8 +425,10 @@ struct UsagePage: View {
             .buttonStyle(.plain)
             .help(T("사용량 페이지 열기", "Open usage page"))
             if let u, u.hasData {
-                meter("5h", u.fiveHour, tint: service.tint)
-                meter(T("주간", "Weekly"), u.weekly, tint: service.tint)
+                // 한도가 몇 개든 그대로 (하나뿐이면 한 칸이 줄 전체를 쓴다)
+                ForEach(u.windows.prefix(2), id: \.seconds) { w in
+                    meter(w.label, w, tint: service.tint)
+                }
             } else {
                 Text(Self.errorText(u?.error, loading: u == nil))
                     .font(.system(size: 10))

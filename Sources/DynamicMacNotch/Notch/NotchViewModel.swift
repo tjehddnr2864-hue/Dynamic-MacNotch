@@ -233,7 +233,7 @@ final class NotchViewModel: ObservableObject {
     /// 마우스가 반응해야 하는 영역 (확장 시 바깥 점 포함).
     var interactiveSize: CGSize {
         var size = targetSize
-        if state == .expanded, expandedPage == .home { size.height += Self.dotsAreaHeight }
+        if state == .expanded, expandedPage == .home || showsPersistentDots { size.height += Self.dotsAreaHeight }
         return size
     }
 
@@ -400,11 +400,44 @@ final class NotchViewModel: ObservableObject {
         UserDefaults.standard.set(option.rawValue, forKey: "homeOption")
     }
 
+    // MARK: - 상시 표시 항목 넘기기
+    // 상시 표시 항목을 길게 눌러 연 팝업에서는 홈처럼 아래 점·두 손가락 좌우로 다른 상시 항목을 넘겨 본다.
+    // (닫으면 노치는 언제나 우선순위가 가장 높은 항목을 보여 준다 — ActivityCenter.displayed)
+
+    /// 넘겨 볼 수 있는 상시 표시 항목 (우선순위 순)
+    var persistentPages: [ActivityKind] { center.orderedPersistent.map(\.kind) }
+
+    /// 지금 상시 항목 팝업을 보고 있고, 넘길 항목이 둘 이상인지
+    var showsPersistentDots: Bool {
+        guard state == .expanded, case .activity(let kind) = expandedPage else { return false }
+        let pages = persistentPages
+        return pages.count > 1 && pages.contains(kind)
+    }
+
+    func selectPersistentPage(_ kind: ActivityKind) {
+        guard case .activity(let current) = expandedPage, current != kind else { return }
+        let pages = persistentPages
+        pageForward = (pages.firstIndex(of: kind) ?? 0) >= (pages.firstIndex(of: current) ?? 0)
+        withAnimation(openSpring) {
+            expandedPage = .activity(kind)
+            mediaVolumeShown = false
+            swipeOffset = 0
+        }
+    }
+
     /// 스와이프 중 손가락을 따라 콘텐츠를 옮긴다. 양 끝에서는 고무줄처럼 덜 움직인다.
     func dragPage(by contentDX: CGFloat) {
         if expandedPage != .home {
-            // 음악 팝업은 좌우 스와이프로 곡 이동 → 살짝만 따라 움직임
-            swipeOffset = expandedPage == .activity(.media) ? contentDX * 0.2 : 0
+            if expandedPage == .activity(.media) {
+                // 음악 팝업은 좌우 스와이프로 곡 이동 → 살짝만 따라 움직임
+                swipeOffset = contentDX * 0.2
+            } else if showsPersistentDots, case .activity(let kind) = expandedPage {
+                let pages = persistentPages
+                let atEdge = (contentDX > 0 && pages.first == kind) || (contentDX < 0 && pages.last == kind)
+                swipeOffset = atEdge ? contentDX * 0.15 : contentDX * 0.45
+            } else {
+                swipeOffset = 0
+            }
             return
         }
         let atEdge = (contentDX > 0 && homeOption == .camera) || (contentDX < 0 && homeOption == .tray)
@@ -426,7 +459,14 @@ final class NotchViewModel: ObservableObject {
             return
         }
         if expandedPage != .home {
-            // 상시 항목 팝업은 홈과 독립: 넘기지 않는다.
+            // 상시 항목 팝업: 다른 상시 항목으로 넘긴다 (홈과는 따로)
+            if showsPersistentDots, case .activity(let kind) = expandedPage {
+                let pages = persistentPages
+                if let i = pages.firstIndex(of: kind), pages.indices.contains(i + (forward ? 1 : -1)) {
+                    selectPersistentPage(pages[i + (forward ? 1 : -1)])
+                    return
+                }
+            }
             cancelDrag()
             return
         }
