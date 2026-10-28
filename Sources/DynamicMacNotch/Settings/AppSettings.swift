@@ -79,6 +79,13 @@ enum RecordingStyle: String, CaseIterable, Identifiable {
     var label: String { self == .brief ? T("잠깐 알림", "Brief Alert") : T("계속 표시 (녹화 시간)", "Keep Showing (Elapsed Time)") }
 }
 
+/// AI 사용량 표시 형태
+enum UsageStyle: String, CaseIterable, Identifiable {
+    case text, ring
+    var id: String { rawValue }
+    var label: String { self == .text ? T("텍스트", "Text") : T("원형", "Ring") }
+}
+
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
     private let defaults = UserDefaults.standard
@@ -156,7 +163,7 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Published var persistentOrder: [String] { didSet { save(persistentOrder, "persistentOrder") } }
-    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "hotspot", "focusPinned"]
 
     // 미디어 (5.7)
     @Published var mediaSource: MediaSource { didSet { save(mediaSource.rawValue, "mediaSource") } }
@@ -217,6 +224,17 @@ final class AppSettings: ObservableObject {
     @Published var lyricsOnline: Bool { didSet { save(lyricsOnline, "lyricsOnline") } }
     /// 0 = 작게, 1 = 보통, 2 = 크게
     @Published var lyricsSize: Int { didSet { save(lyricsSize, "lyricsSize") } }
+
+    // AI 사용량 (Claude · ChatGPT · Gemini)
+    /// 노치에 상시 표시 (켜져 있을 때만 백그라운드에서 새로고침)
+    @Published var aiUsagePinned: Bool { didSet { save(aiUsagePinned, "aiUsagePinned") } }
+    @Published var aiUsageStyle: UsageStyle { didSet { save(aiUsageStyle.rawValue, "aiUsageStyle") } }
+    /// 상시 표시할 서비스 (AIService rawValue)
+    @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
+    /// 새로고침 간격 (분)
+    @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
+    /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
+    @Published var aiConnected: String { didSet { save(aiConnected, "aiConnected") } }
 
     /// 0이면 nil(일반 설정 따름).
     static func duration(_ value: Double) -> TimeInterval? { value > 0 ? value : nil }
@@ -295,6 +313,11 @@ final class AppSettings: ObservableObject {
         lyricsEnabled = value("lyricsEnabled", true)
         lyricsOnline = value("lyricsOnline", false)
         lyricsSize = value("lyricsSize", 1)
+        aiUsagePinned = value("aiUsagePinned", false)
+        aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
+        aiUsageService = value("aiUsageService", "claude")
+        aiRefreshMinutes = value("aiRefreshMinutes", 15.0)
+        aiConnected = value("aiConnected", "")
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
@@ -399,6 +422,11 @@ final class AppSettings: ObservableObject {
         lyricsEnabled = value("lyricsEnabled", true)
         lyricsOnline = value("lyricsOnline", false)
         lyricsSize = value("lyricsSize", 1)
+        aiUsagePinned = value("aiUsagePinned", false)
+        aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
+        aiUsageService = value("aiUsageService", "claude")
+        aiRefreshMinutes = value("aiRefreshMinutes", 15.0)
+        aiConnected = value("aiConnected", "")
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)

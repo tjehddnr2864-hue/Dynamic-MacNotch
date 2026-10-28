@@ -3,14 +3,14 @@ import SwiftUI
 /// 설정 창 페이지. '상호작용'은 기능별 페이지를 펼치는 묶음이다.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general, priority, interaction
-    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock
+    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage
     case test, permissions, about
 
     var id: String { rawValue }
 
     /// '상호작용' 아래에 펼쳐지는 기능별 페이지
     static let features: [SettingsPage] = [.network, .bluetooth, .focus, .call, .media, .download, .airdrop,
-                                           .screenshot, .recording, .battery, .hud, .lock]
+                                           .screenshot, .recording, .battery, .hud, .lock, .aiUsage]
     static let top: [SettingsPage] = [.general, .priority, .interaction, .test, .permissions, .about]
 
     var title: String {
@@ -30,6 +30,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .battery: return T("배터리 및 충전", "Battery & Charging")
         case .hud: return "HUD"
         case .lock: return T("잠금화면", "Lock Screen")
+        case .aiUsage: return T("AI 사용량", "AI Usage")
         case .test: return T("테스트", "Test")
         case .permissions: return T("권한 관리", "Permissions")
         case .about: return T("정보", "About")
@@ -53,6 +54,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .battery: return "battery.75percent"
         case .hud: return "speaker.wave.2"
         case .lock: return "lock"
+        case .aiUsage: return "gauge.medium"
         case .test: return "play.rectangle"
         case .permissions: return "hand.raised"
         case .about: return "info.circle"
@@ -190,6 +192,7 @@ struct SettingsView: View {
         case .battery: battery
         case .hud: hudPage
         case .lock: lockPage
+        case .aiUsage: aiUsagePage
         case .test: testTab
         case .permissions: PermissionsView(onboarding: false, embedded: true) {}
         case .about: about
@@ -326,6 +329,7 @@ struct SettingsView: View {
         case "media": return T("음악 재생", "Music")
         case "hotspot": return T("핫스팟 연결", "Hotspot")
         case "focusPinned": return T("집중 모드", "Focus")
+        case "aiUsage": return T("AI 사용량", "AI Usage")
         default: return key
         }
     }
@@ -340,6 +344,7 @@ struct SettingsView: View {
         case "media": return "music.note"
         case "hotspot": return "personalhotspot"
         case "focusPinned": return "moon"
+        case "aiUsage": return "gauge.medium"
         default: return "circle"
         }
     }
@@ -697,6 +702,63 @@ struct SettingsView: View {
         .settingsForm()
     }
 
+    // MARK: AI 사용량
+
+    private var aiUsagePage: some View {
+        let connected = AIService.connected(settings.aiConnected)
+        return Form {
+            Section {
+                Toggle(T("노치에 상시 표시 (왼쪽 5시간 · 오른쪽 주간 한도)", "Keep showing in the notch (left: 5-hour, right: weekly limit)"),
+                       isOn: $settings.aiUsagePinned)
+            } header: { showHeader } footer: {
+                footnote(T("상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 노치를 길게 눌러 AI 사용량 페이지를 열 때만 새로고침합니다. 두 손가락으로 잠시 가려 둔 동안에는 계속 새로고침합니다.",
+                           "When this is off, nothing refreshes in the background; usage refreshes only when you long-press the notch and open the AI Usage page. While hidden with a two-finger swipe, it keeps refreshing."))
+            }
+            Section {
+                Picker(T("사용량 표시", "Usage Display"), selection: $settings.aiUsageStyle) {
+                    ForEach(UsageStyle.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Picker(T("상시 표시할 서비스", "Service to Show"), selection: $settings.aiUsageService) {
+                    ForEach(AIService.allCases) { Text($0.name).tag($0.rawValue) }
+                }
+            } header: { styleHeader }
+            Section {
+                Picker(T("새로고침 빈도", "Refresh Every"), selection: $settings.aiRefreshMinutes) {
+                    ForEach([5.0, 10.0, 15.0, 30.0, 60.0], id: \.self) { Text(T("\(Int($0))분", "\(Int($0)) min")).tag($0) }
+                }
+                ForEach(AIService.allCases) { service in
+                    LabeledContent {
+                        HStack(spacing: 8) {
+                            Text(connected.contains(service) ? T("연결됨", "Connected") : T("연결 안 됨", "Not connected"))
+                                .foregroundStyle(connected.contains(service) ? .green : .secondary)
+                            if connected.contains(service) {
+                                Button(T("로그아웃", "Sign Out")) { signOut(service) }
+                            } else {
+                                Button(T("로그인…", "Sign In…")) { UsageLoginWindow.show(service) }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Circle().fill(service.tint).frame(width: 8, height: 8)
+                            Text(service.name)
+                        }
+                    }
+                }
+            } header: { detailHeader } footer: {
+                footnote(T("각 서비스 웹사이트에 로그인해 연동합니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남으며, 사용량은 Claude(claude.ai 사용량), ChatGPT(Codex 사용 한도), Gemini(gemini.google.com/usage)에서 읽습니다.",
+                           "Sign in on each service's website. Sign-in data stays in this app's own web storage. Usage is read from Claude (claude.ai usage), ChatGPT (Codex usage limits) and Gemini (gemini.google.com/usage)."))
+            }
+            previewSection([("ai-usage", T("상시 표시", "Live Display"))])
+        }
+        .settingsForm()
+    }
+
+    private func signOut(_ service: AIService) {
+        UsageWeb.signOut(service) {}
+        settings.aiConnected = AppSettings.list(settings.aiConnected).filter { $0 != service.rawValue }.joined(separator: ",")
+    }
+
     // MARK: 잠금화면
 
     private var lockPage: some View {
@@ -769,7 +831,8 @@ struct SettingsView: View {
                            [("hud-volume", T("음량 HUD", "Volume HUD")), ("hud-brightness", T("화면 밝기 HUD", "Display Brightness HUD")),
                             ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
-                            ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)"))],
+                            ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)")),
+                            ("ai-usage", T("AI 사용량", "AI Usage"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
             testSection(T("상세로만 표시", "Detailed Only"),

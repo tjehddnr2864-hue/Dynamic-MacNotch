@@ -23,6 +23,8 @@ enum PreviewID: String, CaseIterable {
     case callIncoming = "call-incoming", callActive = "call-active"
     // 잠금화면
     case lock
+    // AI 사용량
+    case aiUsage = "ai-usage"
     // 모두 끝내기
     case stopAll = "stop-all"
 }
@@ -45,7 +47,7 @@ extension PreviewID {
             return .selectable
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -191,6 +193,14 @@ final class FeaturePreview {
         case .callIncoming: call.startPreview(incoming: true)
         case .callActive: call.startPreview(incoming: false)
         case .lock: lockPreview()
+        case .aiUsage:
+            // 상시 표시 모양 (설정의 텍스트·원형을 따름) 6초
+            let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude
+            let sample = ServiceUsage(fiveHour: UsageWindow(percent: 42, resetsAt: Date().addingTimeInterval(2 * 3600)),
+                                      weekly: UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(3 * 86400)), fetched: Date())
+            var a = UsageStore.activity(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring)
+            a.kind = .demo
+            showPersistent(a, for: 6)
         case .stopAll: stopAll()
         }
     }

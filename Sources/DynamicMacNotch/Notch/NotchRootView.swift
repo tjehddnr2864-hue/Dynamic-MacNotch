@@ -10,6 +10,7 @@ struct NotchFeatures {
     let tray: TrayStore
     let calendar: CalendarController
     let call: CallMonitor
+    let usage: UsageStore
 }
 
 struct NotchRootView: View {
@@ -118,6 +119,7 @@ struct ExpandedView: View {
     private var pages: HomePages {
         HomePages(
             camera: AnyView(CameraPage(vm: vm)),
+            usage: AnyView(UsagePage(store: features.usage, openSettings: openSettings)),
             calendar: AnyView(CalendarPage(calendar: features.calendar)),
             tray: AnyView(TrayPage(store: features.tray, vm: vm))
         )
@@ -156,6 +158,8 @@ struct ExpandedView: View {
             RecordingPage(monitor: features.recording)
         case .call:
             CallPage(monitor: features.call)
+        case .aiUsage:
+            UsagePage(store: features.usage, openSettings: openSettings)
         case .download:
             if let a = vm.center.displayed, a.kind == .download {
                 DownloadPage(activity: a)

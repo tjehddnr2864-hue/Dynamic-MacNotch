@@ -10,7 +10,14 @@ if let op = ImageTool.op(from: CommandLine.arguments) {
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
-if let purpose = FilePicker.purpose(from: CommandLine.arguments) {
+if let services = UsageWeb.services(from: CommandLine.arguments) {
+    // AI 사용량 조회 도우미: 웹에서 읽어 JSON을 출력하고 끝남 (WebKit 메모리는 끝나면 반환)
+    AppSettings.isHelper = true
+    app.setActivationPolicy(.prohibited)
+    let fetcher = UsageFetchDelegate(services: services)
+    app.delegate = fetcher
+    app.run()
+} else if let purpose = FilePicker.purpose(from: CommandLine.arguments) {
     // 에어드랍·트레이 파일 선택 창 전용 도우미 프로세스 (고른 경로를 출력하고 끝남)
     AppSettings.isHelper = true
     let picker = FilePickerDelegate(purpose: purpose)

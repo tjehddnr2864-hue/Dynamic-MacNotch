@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).
@@ -33,6 +33,7 @@ enum ActivityValue: Equatable {
     case check                // 완료 체크
     case bigNumber(Double)    // 0...1, % 없이 큰 숫자 (밝기·음량 HUD)
     case elapsed(Date)        // 그 시각부터 흐른 시간 (화면 녹화: 오른쪽 녹화 시간)
+    case usage(label: String, percent: Double?, ring: Bool)   // AI 사용량: 위 작은 이름(5h·wk), 아래 퍼센트 또는 원형
 }
 
 enum ActivityPresentation: Equatable {
@@ -90,6 +91,8 @@ struct NotchActivity: Identifiable, Equatable {
     var battery: BatteryGlyphInfo? = nil
     /// 관련 파일 (다운로드 완료 시 Finder에서 보기)
     var fileURL: URL? = nil
+    /// 좌측 아이콘 대신 그릴 값 (AI 사용량: 왼쪽 5시간 · 오른쪽 주간)
+    var leadingValue: ActivityValue? = nil
     /// 시작 시각 (통화: 왼쪽에 통화 시간을 센다)
     var startDate: Date? = nil
     /// 커서가 노치 위에 있어도 표시 시간이 흐른다 (메뉴바 근처에서 끝나는 녹화 완료 알림 등)

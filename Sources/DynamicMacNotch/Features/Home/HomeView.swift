@@ -33,6 +33,8 @@ struct HomePager: View {
             TimerPage(timer: timer)
         case .camera:
             if let pages { pages.camera } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
+        case .usage:
+            if let pages { pages.usage } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .calendar:
             if let pages { pages.calendar } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .tray:
@@ -44,6 +46,7 @@ struct HomePager: View {
 /// 3단계 기능 페이지 묶음 (AppDelegate가 주입).
 struct HomePages {
     var camera: AnyView
+    var usage: AnyView
     var calendar: AnyView
     var tray: AnyView
 }

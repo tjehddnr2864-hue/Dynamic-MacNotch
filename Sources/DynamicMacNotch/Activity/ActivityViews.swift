@@ -91,6 +91,8 @@ struct ActivityValueView: View {
         case .elapsed(let since):
             CallDurationText(since: since, font: large ? .system(size: 18, weight: .semibold, design: .rounded) : numberFont)
                 .fixedSize()
+        case .usage(let label, let percent, let ring):
+            UsageGlyph(label: label, percent: percent, ring: ring, tint: tint, large: large)
         case .check:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: large ? 22 : 14, weight: .semibold))
@@ -150,7 +152,9 @@ struct ActivityLeading: View {
     var size: CGFloat
 
     var body: some View {
-        if activity.kind == .media, activity.artwork != nil {
+        if let leading = activity.leadingValue {
+            ActivityValueView(value: leading, tint: activity.tint)
+        } else if activity.kind == .media, activity.artwork != nil {
             // 음악 앨범아트는 NotchRootView의 공용 레이어가 그린다 (상태 전환 시 끊기지 않게)
             Color.clear.frame(width: size, height: size)
         } else if activity.kind == .lock {
