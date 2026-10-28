@@ -230,8 +230,7 @@ final class NotchController: NotchGestureDelegate {
             vm.endPress()
             return
         }
-        let page: ExpandedPage = vm.center.displayed.map { .activity($0.kind) } ?? .home
-        vm.expand(page: page)
+        vm.expand(page: vm.longPressPage(for: vm.center.displayed))
         if haptic { Haptics.perform() }
     }
 

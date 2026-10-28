@@ -404,6 +404,19 @@ final class NotchViewModel: ObservableObject {
     // 상시 표시 항목을 길게 눌러 연 팝업에서는 홈처럼 아래 점·두 손가락 좌우로 다른 상시 항목을 넘겨 본다.
     // (닫으면 노치는 언제나 우선순위가 가장 높은 항목을 보여 준다 — ActivityCenter.displayed)
 
+    /// 길게 눌러 열 화면: 보이는 알림·상시 항목의 팝업, 아무것도 없으면 홈.
+    /// AI 사용량만 상시 표시 중이면 홈의 AI 사용량 페이지로 연다 (홈 점·스와이프로 카메라·타이머 등).
+    /// 다른 상시 항목과 함께 있으면 상시 항목 모음 팝업으로 연다 (점으로 넘겨 봄).
+    func longPressPage(for activity: NotchActivity?) -> ExpandedPage {
+        guard let a = activity else { return .home }
+        if a.kind == .aiUsage, center.transient?.id != a.id, persistentPages.count <= 1 {
+            homeOption = .usage
+            UserDefaults.standard.set(homeOption.rawValue, forKey: "homeOption")
+            return .home
+        }
+        return .activity(a.kind)
+    }
+
     /// 넘겨 볼 수 있는 상시 표시 항목 (우선순위 순)
     var persistentPages: [ActivityKind] { center.orderedPersistent.map(\.kind) }
 
