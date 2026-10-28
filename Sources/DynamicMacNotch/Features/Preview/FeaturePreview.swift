@@ -25,6 +25,8 @@ enum PreviewID: String, CaseIterable {
     case lock
     // AI 사용량
     case aiUsage = "ai-usage"
+    // 코딩 에이전트
+    case agentDone = "agent-done"
     // 모두 끝내기
     case stopAll = "stop-all"
 }
@@ -47,7 +49,7 @@ extension PreviewID {
             return .selectable
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .agentDone,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -193,6 +195,8 @@ final class FeaturePreview {
         case .callIncoming: call.startPreview(incoming: true)
         case .callActive: call.startPreview(incoming: false)
         case .lock: lockPreview()
+        case .agentDone:
+            center.post(AgentNotify.activity(.claude, project: "DynamicMacNotch", target: nil))
         case .aiUsage:
             // 상시 표시 모양 (설정의 텍스트·원형을 따름) 6초
             let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude

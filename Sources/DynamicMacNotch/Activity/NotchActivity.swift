@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).
@@ -92,6 +92,8 @@ struct NotchActivity: Identifiable, Equatable {
     var battery: BatteryGlyphInfo? = nil
     /// 관련 파일 (다운로드 완료 시 Finder에서 보기)
     var fileURL: URL? = nil
+    /// 눌렀을 때 열 앱 ("번들ID|pid", 코딩 에이전트 완료 알림)
+    var targetApp: String? = nil
     /// 좌측 아이콘 대신 그릴 값 (AI 사용량: 왼쪽 5시간 · 오른쪽 주간)
     var leadingValue: ActivityValue? = nil
     /// 시작 시각 (통화: 왼쪽에 통화 시간을 센다)

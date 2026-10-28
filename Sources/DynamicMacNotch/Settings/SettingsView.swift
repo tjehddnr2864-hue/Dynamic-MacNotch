@@ -3,14 +3,14 @@ import SwiftUI
 /// 설정 창 페이지. '상호작용'은 기능별 페이지를 펼치는 묶음이다.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general, priority, interaction
-    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage
+    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage, agent
     case test, permissions, about
 
     var id: String { rawValue }
 
     /// '상호작용' 아래에 펼쳐지는 기능별 페이지
     static let features: [SettingsPage] = [.network, .bluetooth, .focus, .call, .media, .download, .airdrop,
-                                           .screenshot, .recording, .battery, .hud, .lock, .aiUsage]
+                                           .screenshot, .recording, .battery, .hud, .lock, .aiUsage, .agent]
     static let top: [SettingsPage] = [.general, .priority, .interaction, .test, .permissions, .about]
 
     var title: String {
@@ -31,6 +31,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .hud: return "HUD"
         case .lock: return T("잠금화면", "Lock Screen")
         case .aiUsage: return T("AI 사용량", "AI Usage")
+        case .agent: return "Claude Code · Codex"
         case .test: return T("테스트", "Test")
         case .permissions: return T("권한 관리", "Permissions")
         case .about: return T("정보", "About")
@@ -55,6 +56,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .hud: return "speaker.wave.2"
         case .lock: return "lock"
         case .aiUsage: return "gauge.medium"
+        case .agent: return "terminal"
         case .test: return "play.rectangle"
         case .permissions: return "hand.raised"
         case .about: return "info.circle"
@@ -193,6 +195,7 @@ struct SettingsView: View {
         case .hud: hudPage
         case .lock: lockPage
         case .aiUsage: aiUsagePage
+        case .agent: AgentSettingsPage(settings: settings, preview: preview)
         case .test: testTab
         case .permissions: PermissionsView(onboarding: false, embedded: true) {}
         case .about: about
@@ -833,7 +836,7 @@ struct SettingsView: View {
                             ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
                             ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)")),
-                            ("ai-usage", T("AI 사용량", "AI Usage"))],
+                            ("ai-usage", T("AI 사용량", "AI Usage")), ("agent-done", T("Claude Code 작업 완료", "Claude Code Finished"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
             testSection(T("상세로만 표시", "Detailed Only"),
@@ -1024,5 +1027,60 @@ private struct BluetoothGlyph: Shape {
         path.addLine(to: p(1, 0.28))
         path.addLine(to: p(0, 0.72))
         return path
+    }
+}
+
+/// Claude Code · Codex 작업 완료 알림 설정. '연결'을 눌러야만 각 설정 파일에 훅을 넣는다.
+private struct AgentSettingsPage: View {
+    @ObservedObject var settings: AppSettings
+    var preview: (String) -> Void
+    private let refresh = State(initialValue: 0)
+    private let errorState = State(initialValue: String?.none)
+
+    var body: some View {
+        let _ = refresh.wrappedValue   // 연결·해제 뒤 상태를 다시 읽는다
+        Form {
+            Section {
+                Toggle(T("작업이 끝나면 노치에 알림 (누르면 그 앱 열기)", "Alert in the notch when a task finishes (click to open that app)"),
+                       isOn: $settings.agentAlerts)
+            } header: { Text(T("표시", "Show")) }
+            Section {
+                ForEach(AgentSource.allCases) { source in
+                    let installed = AgentHooks.isInstalled(source)
+                    LabeledContent {
+                        HStack(spacing: 8) {
+                            Text(installed ? T("연결됨", "Connected") : T("연결 안 됨", "Not connected"))
+                                .foregroundStyle(installed ? .green : .secondary)
+                            Button(installed ? T("연결 해제", "Disconnect") : T("연결", "Connect")) {
+                                do {
+                                    try installed ? AgentHooks.uninstall(source) : AgentHooks.install(source)
+                                    errorState.wrappedValue = nil
+                                } catch {
+                                    errorState.wrappedValue = error.localizedDescription
+                                }
+                                refresh.wrappedValue += 1
+                            }
+                        }
+                    } label: {
+                        Label(source.name, systemImage: source.symbol)
+                    }
+                }
+                if let error = errorState.wrappedValue {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+            } header: { Text(T("세부 설정", "Details")) } footer: {
+                Text(T("연결하면 Claude Code는 ~/.claude/settings.json에 '작업 완료(Stop)' 훅을, Codex는 ~/.codex/config.toml의 notify에 이 앱을 넣습니다. Codex에 이미 notify가 있으면 그 명령도 그대로 이어서 실행되고, 연결 해제 시 원래대로 돌려놓습니다. 처음 바꾸기 전 원본은 .dynamicmacnotch.bak으로 남깁니다. 새로 시작한 Claude Code·Codex 세션부터 적용됩니다.",
+                       "Connecting adds a Stop hook to ~/.claude/settings.json for Claude Code, and sets notify in ~/.codex/config.toml for Codex. If Codex already has a notify command, it still runs, and disconnecting restores it. The original file is kept as .dynamicmacnotch.bak before the first change. Applies to new Claude Code and Codex sessions."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(T("미리보기", "Preview")) {
+                HStack {
+                    Button(T("작업 완료 알림", "Finished Alert")) { preview("agent-done") }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }

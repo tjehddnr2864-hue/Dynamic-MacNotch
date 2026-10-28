@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var recording = RecordingMonitor(center: center)
     private lazy var call = CallMonitor(center: center)
     private lazy var usage = UsageStore(center: center)
+    private var agentObserver: NSObjectProtocol?
     private lazy var featurePreview = FeaturePreview(
         center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
         lockScreen: { [weak self] in self?.lockScreen })
@@ -94,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         call.start()
         calendar.start()
         usage.start()
+        agentObserver = AgentNotify.observe(center: center)
 
         settings.$showStatusItem
             .sink { [weak self] show in self?.setStatusItem(visible: show) }
@@ -366,6 +368,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let url = activity.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .screenshot:
             break   // 카드 안 버튼으로 조작
+        case .agent:
+            // Claude Code·Codex 작업 완료: 그 에이전트가 돌던 앱을 연다
+            AgentNotify.open(activity.targetApp)
+            center.dismissTransient()
         default:
             center.dismissTransient()
         }
