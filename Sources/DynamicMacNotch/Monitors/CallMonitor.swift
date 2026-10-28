@@ -233,24 +233,27 @@ final class CallMonitor: ObservableObject {
         if Self.callApps.contains(id) { refreshSoon() }
     }
 
-    private var burst: [DispatchWorkItem] = []
+    private var burstActive = false
+    private var burstGeneration = 0
 
     /// 창·요소가 생겼다는 알림을 받으면 바로 확인하고, 배너 안의 버튼·이름이 늦게 채워지는 경우를 위해
     /// 짧게 몇 번 더 확인한다 (상태가 바뀌면 그만). 알림이 연달아 와도 한 묶음만 돈다.
+    /// (예약 작업이 자기 자신을 붙잡지 않도록 세대 번호로만 구분한다)
     func refreshSoon() {
-        guard burst.isEmpty else { return }
+        guard !burstActive else { return }
+        burstActive = true
+        burstGeneration &+= 1
+        let generation = burstGeneration
         let before = state
-        for delay in [0.0, 0.1, 0.25, 0.5, 0.8, 1.2] {
-            var work: DispatchWorkItem!
-            work = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.burst.removeAll { $0 === work }
+        let delays: [TimeInterval] = [0, 0.1, 0.25, 0.5, 0.8, 1.2]
+        for (i, delay) in delays.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.burstActive, self.burstGeneration == generation else { return }
                 // 상태가 바뀌었으면 남은 확인은 건너뛴다 (통화 중에는 1초 확인 타이머가 따로 돈다)
-                if delay > 0, self.state != before { self.burst.forEach { $0.cancel() }; self.burst.removeAll(); return }
+                if delay > 0, self.state != before { self.burstActive = false; return }
+                if i == delays.count - 1 { self.burstActive = false }
                 self.refresh()
             }
-            burst.append(work)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
         }
     }
 

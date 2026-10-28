@@ -7,12 +7,13 @@ enum NotchState: Int, Equatable {
 
 /// 홈의 네 가지 옵션. 한 번에 하나씩 표시하고 점·스와이프로 넘긴다.
 enum HomeOption: Int, CaseIterable {
-    case camera, timer, calendar, tray
+    case camera, timer, usage, calendar, tray
 
     var title: String {
         switch self {
         case .camera: return T("카메라", "Camera")
         case .timer: return T("타이머", "Timer")
+        case .usage: return T("AI 사용량", "AI Usage")
         case .calendar: return T("오늘 일정", "Today")
         case .tray: return T("에어드랍 · 트레이", "AirDrop · Tray")
         }
@@ -22,6 +23,7 @@ enum HomeOption: Int, CaseIterable {
         switch self {
         case .camera: return "camera.fill"
         case .timer: return "timer"
+        case .usage: return "gauge.medium"
         case .calendar: return "calendar"
         case .tray: return "tray.and.arrow.down.fill"
         }
@@ -173,6 +175,7 @@ final class NotchViewModel: ObservableObject {
         case .expanded:
             switch expandedPage {
             case .home:
+                if homeOption == .usage { return usageSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)
@@ -198,6 +201,8 @@ final class NotchViewModel: ObservableObject {
             return CGSize(width: max(n.width + 125, 300) + 2 * topRadius, height: n.height + 104)
         case .recording:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 110)
+        case .aiUsage:
+            return usageSize
         default:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 84)
         }
@@ -210,6 +215,11 @@ final class NotchViewModel: ObservableObject {
         let contentHeight: CGFloat = 200
         let contentWidth = (contentHeight * 16 / 9).rounded()
         return CGSize(width: contentWidth + 2 * (topRadius + 22), height: notchSize.height + 6 + contentHeight + 22)
+    }
+
+    /// AI 사용량: 서비스 세 줄(이름 · 5시간 · 주간)이 들어가도록 좌우·아래로 조금 더 넓게
+    var usageSize: CGSize {
+        CGSize(width: 300 + 2 * (topRadius + 22), height: notchSize.height + 6 + 124 + 22)
     }
 
     var expandedBaseSize: CGSize {

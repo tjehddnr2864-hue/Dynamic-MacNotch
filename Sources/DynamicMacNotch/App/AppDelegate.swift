@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var screenshot = ScreenshotMonitor(center: center)
     private lazy var recording = RecordingMonitor(center: center)
     private lazy var call = CallMonitor(center: center)
+    private lazy var usage = UsageStore(center: center)
     private lazy var featurePreview = FeaturePreview(
         center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
         lockScreen: { [weak self] in self?.lockScreen })
@@ -33,7 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar, call: call)
+        let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar,
+                                     call: call, usage: usage)
         let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
@@ -91,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recording.start()
         call.start()
         calendar.start()
+        usage.start()
 
         settings.$showStatusItem
             .sink { [weak self] show in self?.setStatusItem(visible: show) }
@@ -299,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
-    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download]
+    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download, .aiUsage]
 
     /// 길게누르기·누름 반응이 있는지: 상세로 이미 떠 있는 알림과 HUD는 클릭만 받는다.
     private func hasLongPressAction(_ activity: NotchActivity?) -> Bool {
