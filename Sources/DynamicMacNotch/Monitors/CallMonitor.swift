@@ -359,20 +359,6 @@ final class CallMonitor: ObservableObject {
         }
     }
 
-    #if DEV
-    /// 개발용: 가짜 통화 상태 ("incoming|이름", "active|이름", "mute", "idle")
-    func debugSimulate(_ spec: String) {
-        let p = spec.split(separator: "|").map(String.init)
-        switch p.first {
-        case "incoming": setState(.incoming(name: p.count > 1 ? p[1] : "Test"))
-        case "active": setState(.active(name: p.count > 1 ? p[1] : "Test", since: Date(), muted: false))
-        case "min": minimizeIncoming()
-        case "mute":
-            if case .active(let n, let s, let m) = state { setState(.active(name: n, since: s, muted: !m)) }
-        default: setState(.idle)
-        }
-    }
-    #endif
 }
 
 // MARK: - 손쉬운 사용 요소

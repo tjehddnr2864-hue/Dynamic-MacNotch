@@ -189,26 +189,6 @@ final class MediaController: ObservableObject {
         receive(np, artwork: artwork)
     }
 
-    #if DEV
-    /// 개발용: 가짜 보고 주입. "adapter|<bundle>|<title>|<playing 0/1>", "adapter-empty", "music|<Playing/Paused/Stopped>|<title>"
-    func debugInject(_ spec: String) {
-        let p = spec.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        switch p.first {
-        case "adapter" where p.count == 4:
-            handleAdapter(["title": p[2], "artist": "Test", "bundle": p[1], "playing": p[3] == "1", "duration": 200.0, "elapsed": 10.0])
-        case "adapter-empty":
-            handleAdapter(["empty": true])
-        case "music" where p.count == 3:
-            fallbackNotification(["Player State": p[1], "Name": p[2], "Artist": "Test", "Album": "Test", "Total Time": 200000.0,
-                                  "Playback Position": 10.0], bundle: "com.apple.Music")
-        default: break
-        }
-    }
-
-    var debugState: String {
-        "\(nowPlaying.map { "\($0.bundleID ?? "?"):\($0.title):\($0.playing ? "playing" : "paused")" } ?? "none") deferred=\(deferred.map { "\($0.np.bundleID ?? "?"):\($0.np.title)" } ?? "-")"
-    }
-    #endif
 
     // MARK: - 어떤 앱을 보여 줄지 판정
 

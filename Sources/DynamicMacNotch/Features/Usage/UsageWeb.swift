@@ -162,7 +162,8 @@ final class UsageFetchDelegate: NSObject, NSApplicationDelegate, WKNavigationDel
     private func readGemini(attempt: Int) {
         web?.evaluateJavaScript("document.body ? document.body.innerText : ''") { [weak self] value, _ in
             guard let self, self.current == .gemini, !self.finishedCurrent else { return }
-            if let text = value as? String, let usage = UsageParser.gemini(text) {
+            // 한도 두 개를 찾으면 바로, 하나뿐이면 화면이 다 채워지도록 8초까지 기다린다
+            if let text = value as? String, let usage = UsageParser.gemini(text), attempt >= 8 || usage.windows.count >= 2 {
                 self.complete(.gemini, usage: usage)
             } else if attempt >= 20 {
                 self.complete(.gemini, error: "parse")
@@ -239,19 +240,24 @@ enum UsageParser {
         return usage.hasData ? usage : nil
     }
 
-    /// gemini.google.com/usage 화면 글자에서 한도(5시간·일일·주간·월간)를 찾는다.
-    /// 퍼센트(42%)나 개수(12 / 100) 앞뒤 몇 줄 안에 기간을 나타내는 말이 있으면 그 한도로 본다.
+    /// gemini.google.com/usage 화면 글자에서 한도를 찾는다. 화면은 이런 모양이다:
+    ///   현재 사용량 / 1% 사용됨 / 오후 7:49에 초기화 / 주간 한도 / 11월 4일 오후 3:49에 초기화 / 0% 사용됨
+    /// 퍼센트(또는 '12 / 100') 줄마다 가장 가까운 위쪽 제목으로 기간을 정하고, 근처의 '초기화' 줄에서 초기화 시각을 읽는다.
     /// '남음/remaining/left'이면 사용량 = 100 - 값.
-    static func gemini(_ text: String) -> ServiceUsage? {
+    static func gemini(_ text: String, now: Date = Date()) -> ServiceUsage? {
         let lines = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         var windows: [UsageWindow] = []
-        // 기간 이름 → 길이(초). 앞의 것부터 확인한다.
+        // 기간 이름 → 길이(초). '현재 사용량'은 짧은 주기(5시간) 한도다.
         let periods: [([String], Double)] = [
-            (["5시간", "5 시간", "5 hour", "5-hour", "5h"], UsageWindow.fiveHours),
+            (["5시간", "5 시간", "5 hour", "5-hour", "5h", "현재 사용량", "current usage"], UsageWindow.fiveHours),
             (["일일", "매일", "하루", "24시간", "daily", "per day", "24 hour", "24-hour"], 86400),
             (["주간", "매주", "week", "7일", "7 day"], UsageWindow.week),
             (["월간", "매월", "30일", "month", "30 day", "30-day"], 30 * 86400),
         ]
+        func period(of line: String) -> Double? {
+            let l = line.lowercased()
+            return periods.first { $0.0.contains(where: l.contains) }?.1
+        }
         let percentRe = try! NSRegularExpression(pattern: #"(\d{1,3}(?:[.,]\d+)?)\s*%"#)
         let countRe = try! NSRegularExpression(pattern: #"(\d+)\s*(?:/|of|중)\s*(\d+)"#)
         for (i, line) in lines.enumerated() {
@@ -265,15 +271,54 @@ enum UsageParser {
                 value = used / total * 100
             }
             guard var v = value, v <= 100 else { continue }
-            let context = lines[max(0, i - 3)...min(lines.count - 1, i + 1)].joined(separator: " ").lowercased()
-            if ["남음", "남은", "remaining", "left"].contains(where: context.contains) { v = 100 - v }
-            if let period = periods.first(where: { $0.0.contains(where: context.contains) }),
-               !windows.contains(where: { $0.seconds == period.1 }) {
-                windows.append(UsageWindow(percent: v, resetsAt: nil, seconds: period.1))
-            }
+            // 같은 줄 → 위로 4줄 → 바로 아랫줄 순으로 가장 가까운 기간 이름
+            let order = [i, i - 1, i - 2, i - 3, i - 4, i + 1].filter { lines.indices.contains($0) }
+            guard let seconds = order.lazy.compactMap({ period(of: lines[$0]) }).first,
+                  !windows.contains(where: { $0.seconds == seconds }) else { continue }
+            let lower = line.lowercased()
+            if ["남음", "남은", "remaining", "left"].contains(where: lower.contains) { v = 100 - v }
+            // 초기화 시각: 위아래 두 줄 안의 '초기화/reset' 줄
+            let resetLine = [i + 1, i - 1, i + 2, i - 2].filter { lines.indices.contains($0) }.map { lines[$0] }
+                .first { $0.contains("초기화") || $0.lowercased().contains("reset") }
+            windows.append(UsageWindow(percent: v, resetsAt: resetLine.flatMap { resetDate($0, now: now) }, seconds: seconds))
         }
-        let usage = ServiceUsage(windows: windows, fetched: Date())
+        let usage = ServiceUsage(windows: windows, fetched: now)
         return usage.hasData ? usage : nil
+    }
+
+    /// '오후 7:49에 초기화' · '11월 4일 오후 3:49에 초기화' · 'Resets at 7:49 PM' · 'Resets Nov 4, 3:49 PM' → 날짜
+    static func resetDate(_ line: String, now: Date) -> Date? {
+        let cal = Calendar.current
+        var month: Int?, day: Int?, hour = 0, minute = 0
+        let ko = try! NSRegularExpression(pattern: #"(?:(\d{1,2})월\s*(\d{1,2})일\s*)?(오전|오후)\s*(\d{1,2}):(\d{2})"#)
+        let en = try! NSRegularExpression(pattern: #"(?:([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s*(?:at\s*)?)?(\d{1,2}):(\d{2})\s*([AaPp][Mm])"#)
+        let range = NSRange(line.startIndex..., in: line)
+        func str(_ m: NSTextCheckingResult, _ i: Int) -> String? { Range(m.range(at: i), in: line).map { String(line[$0]) } }
+        if let m = ko.firstMatch(in: line, range: range) {
+            month = str(m, 1).flatMap(Int.init); day = str(m, 2).flatMap(Int.init)
+            hour = (Int(str(m, 4) ?? "") ?? 0) % 12 + (str(m, 3) == "오후" ? 12 : 0)
+            minute = Int(str(m, 5) ?? "") ?? 0
+        } else if let m = en.firstMatch(in: line, range: range) {
+            if let mon = str(m, 1)?.lowercased() {
+                let names = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+                month = names.firstIndex(of: mon).map { $0 + 1 }
+            }
+            day = str(m, 2).flatMap(Int.init)
+            hour = (Int(str(m, 3) ?? "") ?? 0) % 12 + (str(m, 5)?.lowercased() == "pm" ? 12 : 0)
+            minute = Int(str(m, 4) ?? "") ?? 0
+        } else {
+            return nil
+        }
+        var comps = cal.dateComponents([.year, .month, .day], from: now)
+        if let month, let day { comps.month = month; comps.day = day }
+        comps.hour = hour
+        comps.minute = minute
+        guard var date = cal.date(from: comps) else { return nil }
+        // 이미 지난 시각이면 다음 날(날짜가 있으면 다음 해)
+        if date < now.addingTimeInterval(-60) {
+            date = cal.date(byAdding: month != nil ? .year : .day, value: 1, to: date) ?? date
+        }
+        return date
     }
 
     private static func number(_ any: Any?) -> Double? {

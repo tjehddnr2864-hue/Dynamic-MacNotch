@@ -67,9 +67,6 @@ final class RecordingMonitor: ObservableObject {
 
     /// 연속으로 녹화로 보인 횟수 (두 번 연속이어야 시작으로 본다 — 잠깐의 오감지 방지)
     private var positiveStreak = 0
-    #if DEV
-    private var lastLoggedState = ""
-    #endif
 
     private func poll() {
         let procs = Self.recorderProcesses()
@@ -81,17 +78,6 @@ final class RecordingMonitor: ObservableObject {
         let recording = settings.recordingEnabled && !suppressedAfterScreenshot
             && Self.systemIsRecording(alreadyRecording: startedAt != nil, procs: procs)
         positiveStreak = recording ? positiveStreak + 1 : 0
-        #if DEV
-        // 개발용: 감지 상태가 바뀔 때마다 기록 (실제 ⌘⇧4·⌘⇧5 흐름 확인)
-        let state = Self.debugState() + " recording=\(recording)"
-        if state != lastLoggedState {
-            lastLoggedState = state
-            let line = "\(Date()) \(state)\n"
-            let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-rec.txt")
-            if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
-            else { try? line.write(to: url, atomically: true, encoding: .utf8) }
-        }
-        #endif
         if recording, startedAt == nil, positiveStreak >= 2 {
             started()
         } else if !recording, startedAt != nil {
@@ -274,27 +260,6 @@ final class RecordingMonitor: ObservableObject {
         return Array(parts.prefix(argc))
     }
 
-    #if DEV
-    static func debugState() -> String {
-        let p = recorderProcesses()
-        let ui = captureUI()
-        return "watcher=\(screenWatcherPresent?() ?? false) ui=\(p.ui) cliVideo=\(p.cliVideo) full=\(ui.fullScreenLayer) toolbar=\(ui.toolbar) stop=\(ui.stopButton) windows=\(captureWindows())"
-    }
-
-    static func captureWindows() -> [String] {
-        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
-        return list.compactMap { w in
-            let owner = w[kCGWindowOwnerName as String] as? String ?? ""
-            let b = w[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
-            let layer = w[kCGWindowLayer as String] as? Int ?? 0
-            let capture = ["screencaptureui", "QuickTime Player", "Screenshot", "스크린샷"].contains(owner)
-            // 그 밖에는 메뉴바 줄(y≈0)의 작은 창만 (정지 버튼이 다른 프로세스에 그려지는지 확인용)
-            guard capture || ((b["Y"] ?? 99) <= 2 && (b["Height"] ?? 99) <= 44 && layer >= 25) else { return nil }
-            let name = w[kCGWindowName as String] as? String ?? ""
-            return "\(owner)[\(name)]:\(Int(b["X"] ?? 0)),\(Int(b["Y"] ?? 0)) \(Int(b["Width"] ?? 0))x\(Int(b["Height"] ?? 0)) L\(layer)"
-        }
-    }
-    #endif
 
     /// 녹화 정지·저장: 시스템 녹화 정지 단축키 ⌃⌘Esc (손쉬운 사용 권한 필요). macOS가 파일을 저장한다.
     func stop() {

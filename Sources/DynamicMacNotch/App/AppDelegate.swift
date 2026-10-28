@@ -1,9 +1,6 @@
 import AppKit
 import SwiftUI
 import Combine
-import CoreWLAN
-import Intents
-import IOBluetooth
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = AppSettings.shared
@@ -167,7 +164,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             switch command {
             case "home": self.vm.expand(page: .home)
             case "collapse": self.vm.collapse()
-            case "diag": self.writeDiagnostics()
             case "media": self.vm.expand(page: .activity(.media))
             case "shot": self.screenshot.debugPresentClipboard()
             case let c where c.hasPrefix("popup:"):
@@ -176,14 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "permissions": self.showPermissions(onboarding: false)
             case "closewin": self.closeHelper()
             case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
-            case let c where c.hasPrefix("call:"): self.call.debugSimulate(String(c.dropFirst(5)))   // 개발용: 가짜 통화
             case "longpress":   // 개발용: 길게누르기와 같은 판단
                 if self.vm.longPressShouldExpand?(self.center.displayed) ?? true {
-                    self.vm.expand(page: self.center.displayed.map { .activity($0.kind) } ?? .home)
+                    self.vm.expand(page: self.vm.longPressPage(for: self.center.displayed))
                 }
-            case "sizes":   // 개발용: 홈 기본·카메라 크기
-                let line = "home=\(self.vm.expandedBaseSize) camera=\(self.vm.cameraSize) notch=\(self.vm.notchSize) panel=\(NotchGeometry.panelSize) dots=\(NotchViewModel.dotsAreaHeight)\n"
-                try? line.write(to: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-sizes.txt"), atomically: true, encoding: .utf8)
             case let c where c.hasPrefix("shotfile:"): self.screenshot.debugPresentFile(URL(fileURLWithPath: String(c.dropFirst(9))))
             case "shotdelete": self.screenshot.delete()
             case "memtest":   // 개발용: 기준을 1MB로 낮춰 지킴이 동작(캐시 비우기 → 쉬는 동안 재시작)을 시험
@@ -192,38 +184,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "skipnext": self.vm.onMediaSwipe?(true)
             case "skipprev": self.vm.onMediaSwipe?(false)
             case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
-            case "recstate":   // 개발용: 녹화 감지 결과를 로그로
-                let line = "\(Date()) \(RecordingMonitor.debugState()) recording=\(RecordingMonitor.systemIsRecording()) startedAt=\(self.recording.startedAt.map { "\($0)" } ?? "nil") persistent=\(self.center.persistentKinds.contains(.recording))\n"
-                let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-rec.txt")
-                if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
-                else { try? line.write(to: url, atomically: true, encoding: .utf8) }
-            case let c where c.hasPrefix("inject:"):   // 개발용: 가짜 재생 보고 → 결과를 로그 파일에
-                self.media.debugInject(String(c.dropFirst(7)))
-                let line = "\(c) => \(self.media.debugState)\n"
-                let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-media.txt")
-                if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
-                else { try? line.write(to: url, atomically: true, encoding: .utf8) }
-            case "focuson": self.focus.preview(on: true)    // 개발용: 집중 모드 알림 미리보기
-            case "focusoff": self.focus.preview(on: false)
             case "pick": FilePicker.choose(.tray) { self.tray.add($0) }   // 개발용: 트레이 파일 선택 창
             case "volrow": self.vm.toggleMediaVolume()   // 개발용: 음악 팝업 음량 줄 토글
             case "favtoggle": self.media.toggleFavorite()   // 개발용: 즐겨찾기 토글
-            case "outmenu": OutputMenuView.visible?.showMenu(autoClose: 3)   // 개발용: 출력 기기 메뉴 3초간 표시
-            case "digits":   // 개발용: 1의 자리만 바뀌는 숫자 굴림 확인
-                for (i, v) in [0.41, 0.42, 0.43, 0.44].enumerated() {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.5) {
-                        self.center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5,
-                                                       symbol: "speaker.wave.2.fill", value: .bigNumber(v)))
-                    }
-                }
             case let c where c.hasPrefix("trayadd:"):   // 개발용
                 self.tray.add(String(c.dropFirst(8)).split(separator: "|").map { URL(fileURLWithPath: String($0)) })
-            case "trayselect":   // 개발용: 첫 번째와 세 번째를 ⌘ 선택
-                let items = self.tray.items
-                if items.count >= 3 {
-                    self.tray.select(items[0], command: false, shift: false)
-                    self.tray.select(items[2], command: true, shift: false)
-                }
             case "trayclear": self.tray.clear()
             case "hide": self.center.setPersistentHidden(true)
             case "unhide": self.center.setPersistentHidden(false)
@@ -245,50 +210,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         media.stop()
     }
 
-    /// 개발용: 각 모니터가 읽는 값을 ~/Library/Logs/NotchIsland-diag.txt에 기록한다.
-    #if DEV
-    private func writeDiagnostics() {
-        let device = AudioOutput.defaultDevice()
-        let iface = CWWiFiClient.shared().interface()
-        let lines = [
-            "time: \(Date())",
-            "hud.tapActive: \(hud.tapActive)",
-            "display brightness: \(Brightness.display().map { String($0) } ?? "n/a") available=\(Brightness.displayAvailable)",
-            "keyboard brightness: \(Brightness.keyboard().map { String($0) } ?? "n/a") available=\(Brightness.keyboardAvailable)",
-            "output: \(AudioOutput.name(device) ?? "?") volume=\(AudioOutput.volume(device).map { String($0) } ?? "n/a") muted=\(AudioOutput.isMuted(device)) symbol=\(AudioOutput.currentSymbol() ?? "builtin")",
-            "wifi: power=\(iface?.powerOn() ?? false) ssid=\(iface?.ssid() ?? "nil") channel=\(iface?.wlanChannel()?.channelNumber ?? -1)",
-            "vpn: \(NetworkMonitor.activeVPNName() ?? "none")",
-            "fullDiskAccess(db readable): \(FileManager.default.isReadableFile(atPath: NSHomeDirectory() + "/Library/DoNotDisturb/DB/Assertions.json")) check=\(PermissionsManager.hasFullDiskAccess())",
-            "focus(db): \(FocusMonitor.readActiveMode()?.name ?? "none")",
-            "focus(fallback authorized): \(INFocusStatusCenter.default.authorizationStatus == .authorized)",
-            "battery: \(String(describing: BatteryMonitor.read()))",
-            "media: adapter=\(media.adapterRunning) now=\(media.nowPlaying.map { "\($0.title) / \($0.artist) playing=\($0.playing) app=\($0.bundleID ?? "?")" } ?? "none") artwork=\(media.artwork != nil)",
-            "recording: \(RecordingMonitor.systemIsRecording())",
-            "calendar: authorized=\(calendar.authorized) events=\(calendar.events.count)",
-            "tray: \(tray.items.count) items",
-            "settings.hudStyle: \(settings.hudStyle.rawValue)",
-            "lockPanelReady(SkyLight): \(notch?.lockPanelReady ?? false)",
-        ]
-        var bt: [String] = []
-        for d in (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? [] {
-            bt.append("bt: \(d.name ?? "?") major=\(d.deviceClassMajor) minor=\(String(format: "0x%02x", d.deviceClassMinor)) pnp=\(BluetoothMonitor.pnpSymbol(for: d) ?? "-") icon=\(BluetoothMonitor.symbol(for: d)) cached=\(BluetoothMonitor.cachedSymbol(d.addressString ?? "") ?? "-") connected=\(d.isConnected()) battery=\(BluetoothMonitor.accessoryBattery(name: d.name ?? "").map { "main=\($0.main ?? -1) L=\($0.left ?? -1) R=\($0.right ?? -1) case=\($0.caseLevel ?? -1) primary=\($0.primary ?? -1)" } ?? "none")")
-        }
-        var fav: [String] = []
-        for prop in ["favorited", "loved"] {
-            var err: NSDictionary?
-            let r = NSAppleScript(source: "tell application id \"com.apple.Music\" to get \(prop) of current track")?.executeAndReturnError(&err)
-            fav.append("music.\(prop): \(r.map { String($0.booleanValue) } ?? "nil") err=\(err?["NSAppleScriptErrorNumber"] ?? "-") \(err?["NSAppleScriptErrorMessage"] ?? "")")
-        }
-        fav.append("media.favorited: \(String(describing: media.favorited))")
-        for d in AudioOutput.outputDevices() {
-            fav.append("out: \(AudioOutput.name(d) ?? "?") uid=\(AudioOutput.uid(d) ?? "?") transport=\(String(format: "%08x", AudioOutput.transport(d))) symbol=\(AudioOutput.deviceSymbol(d))\(d == device ? " *" : "")")
-        }
-        fav.append("route: \(OutputRoute.shared.name) \(OutputRoute.shared.symbol)")
-        let allLines = lines + fav + bt
-        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DynamicMacNotch-diag.txt")
-        try? allLines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
-    }
-    #endif
 
     // MARK: - 짧은 클릭
 
