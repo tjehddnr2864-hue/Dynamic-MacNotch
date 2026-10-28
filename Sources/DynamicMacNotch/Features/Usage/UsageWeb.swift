@@ -203,19 +203,21 @@ enum UsageParser {
     /// claude.ai: {"five_hour": {"utilization": 42, "resets_at": "..."}, "seven_day": {...}}
     static func claude(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        func window(_ key: String) -> UsageWindow? {
+        func window(_ key: String, _ seconds: Double) -> UsageWindow? {
             guard let w = obj[key] as? [String: Any], let u = number(w["utilization"]) else { return nil }
-            return UsageWindow(percent: min(100, max(0, u)), resetsAt: (w["resets_at"] as? String).flatMap(date))
+            return UsageWindow(percent: min(100, max(0, u)), resetsAt: (w["resets_at"] as? String).flatMap(date), seconds: seconds)
         }
-        let usage = ServiceUsage(fiveHour: window("five_hour"), weekly: window("seven_day"), fetched: Date())
+        let usage = ServiceUsage(windows: [window("five_hour", UsageWindow.fiveHours), window("seven_day", UsageWindow.week)].compactMap { $0 },
+                                 fetched: Date())
         return usage.hasData ? usage : nil
     }
 
     /// chatgpt.com(Codex 한도): rate_limit.primary_window / secondary_window
     /// {"used_percent": 12, "limit_window_seconds": 18000, "reset_at": 1730000000 | "reset_after_seconds": 3600}
+    /// 유료는 5시간·주간, 무료는 30일 한도 하나만 오는 식이라 기간을 그대로 담는다.
     static func chatgpt(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) else { return nil }
-        var five: UsageWindow?, week: UsageWindow?
+        var windows: [UsageWindow] = []
         func visit(_ any: Any) {
             if let d = any as? [String: Any] {
                 if let used = number(d["used_percent"]) {
@@ -223,9 +225,9 @@ enum UsageParser {
                     var reset: Date?
                     if let at = number(d["reset_at"]) { reset = Date(timeIntervalSince1970: at) }
                     else if let after = number(d["reset_after_seconds"]) { reset = Date().addingTimeInterval(after) }
-                    let w = UsageWindow(percent: min(100, max(0, used)), resetsAt: reset)
-                    if seconds > 0 && seconds <= 6 * 3600 { five = five ?? w }
-                    else if seconds >= 6 * 86400 { week = week ?? w }
+                    if seconds > 0 {
+                        windows.append(UsageWindow(percent: min(100, max(0, used)), resetsAt: reset, seconds: seconds))
+                    }
                 }
                 d.values.forEach(visit)
             } else if let a = any as? [Any] {
@@ -233,16 +235,23 @@ enum UsageParser {
             }
         }
         visit(obj)
-        let usage = ServiceUsage(fiveHour: five, weekly: week, fetched: Date())
+        let usage = ServiceUsage(windows: windows, fetched: Date())
         return usage.hasData ? usage : nil
     }
 
-    /// gemini.google.com/usage 화면 글자에서 5시간·주간 한도를 찾는다.
-    /// 퍼센트(42%)나 개수(12 / 100) 앞뒤 몇 줄 안에 '5시간/5 hours'·'주간/week'가 있으면 그 한도로 본다.
+    /// gemini.google.com/usage 화면 글자에서 한도(5시간·일일·주간·월간)를 찾는다.
+    /// 퍼센트(42%)나 개수(12 / 100) 앞뒤 몇 줄 안에 기간을 나타내는 말이 있으면 그 한도로 본다.
     /// '남음/remaining/left'이면 사용량 = 100 - 값.
     static func gemini(_ text: String) -> ServiceUsage? {
         let lines = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var five: UsageWindow?, week: UsageWindow?
+        var windows: [UsageWindow] = []
+        // 기간 이름 → 길이(초). 앞의 것부터 확인한다.
+        let periods: [([String], Double)] = [
+            (["5시간", "5 시간", "5 hour", "5-hour", "5h"], UsageWindow.fiveHours),
+            (["일일", "매일", "하루", "24시간", "daily", "per day", "24 hour", "24-hour"], 86400),
+            (["주간", "매주", "week", "7일", "7 day"], UsageWindow.week),
+            (["월간", "매월", "30일", "month", "30 day", "30-day"], 30 * 86400),
+        ]
         let percentRe = try! NSRegularExpression(pattern: #"(\d{1,3}(?:[.,]\d+)?)\s*%"#)
         let countRe = try! NSRegularExpression(pattern: #"(\d+)\s*(?:/|of|중)\s*(\d+)"#)
         for (i, line) in lines.enumerated() {
@@ -258,11 +267,12 @@ enum UsageParser {
             guard var v = value, v <= 100 else { continue }
             let context = lines[max(0, i - 3)...min(lines.count - 1, i + 1)].joined(separator: " ").lowercased()
             if ["남음", "남은", "remaining", "left"].contains(where: context.contains) { v = 100 - v }
-            let w = UsageWindow(percent: v, resetsAt: nil)
-            if five == nil, ["5시간", "5 시간", "5 hour", "5-hour", "5h"].contains(where: context.contains) { five = w }
-            else if week == nil, ["주간", "매주", "week", "7일", "7 day"].contains(where: context.contains) { week = w }
+            if let period = periods.first(where: { $0.0.contains(where: context.contains) }),
+               !windows.contains(where: { $0.seconds == period.1 }) {
+                windows.append(UsageWindow(percent: v, resetsAt: nil, seconds: period.1))
+            }
         }
-        let usage = ServiceUsage(fiveHour: five, weekly: week, fetched: Date())
+        let usage = ServiceUsage(windows: windows, fetched: Date())
         return usage.hasData ? usage : nil
     }
 

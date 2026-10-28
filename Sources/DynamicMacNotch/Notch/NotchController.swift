@@ -246,12 +246,16 @@ final class NotchController: NotchGestureDelegate {
         pressOrigin = nil
     }
 
+    /// 이번 누름은 확장하지 않는다 (HUD·자물쇠처럼 누를 때 길게누르기가 없던 항목 — 누르는 사이 HUD가 사라져도 유지)
+    private var pressBlocked = false
+
     func pointerDown(_ event: NSEvent) {
         guard !vm.isExpanded else { return }
         pressFired = false
         pressOrigin = NSEvent.mouseLocation
         // 상세 알림처럼 길게누르기가 없는 경우: 누름 반응·길게누르기 없이 클릭만 받는다
-        guard vm.allowsPressFeedback?(vm.center.displayed) ?? true else { return }
+        pressBlocked = !(vm.allowsPressFeedback?(vm.center.displayed) ?? true)
+        guard !pressBlocked else { return }
         let duration = settings.longPressDuration
         vm.beginPress(duration: duration)
         let work = DispatchWorkItem { [weak self] in
@@ -285,7 +289,7 @@ final class NotchController: NotchGestureDelegate {
     }
 
     func pressure(_ event: NSEvent) {
-        guard settings.forceTouchEnabled, !vm.isExpanded, pressOrigin != nil else { return }
+        guard settings.forceTouchEnabled, !vm.isExpanded, pressOrigin != nil, !pressBlocked else { return }
         if event.stage >= 2 {
             // 깊게누르기: 길게누르기를 기다리지 않고 즉시 확장
             cancelPress()

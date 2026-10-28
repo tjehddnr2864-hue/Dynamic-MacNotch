@@ -51,6 +51,13 @@ struct NotchRootView: View {
                     .padding(.vertical, 1)
                     .background(Color.black.opacity(0.8), in: Capsule())
                     .transition(.opacity.combined(with: .scale(scale: 0.5, anchor: .top)))
+            } else if vm.showsPersistentDots {
+                // 상시 표시 항목 팝업: 같은 모양의 점으로 다른 상시 항목을 넘겨 본다
+                PersistentDots(vm: vm)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.black.opacity(0.8), in: Capsule())
+                    .transition(.opacity.combined(with: .scale(scale: 0.5, anchor: .top)))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -134,8 +141,9 @@ struct ExpandedView: View {
                     HomePager(vm: vm, timer: timer, pages: pages)
                 case .activity(let kind):
                     activityPage(kind)
+                        .id(kind)
                         .offset(x: vm.swipeOffset)
-                        .transition(.opacity)
+                        .transition(vm.showsPersistentDots ? HomePager.pageTransition(forward: vm.pageForward) : .opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -165,7 +173,11 @@ struct ExpandedView: View {
                 DownloadPage(activity: a)
             }
         default:
-            EmptyView()   // 알림은 확장 화면 대신 상세 카드로 표시한다
+            // 전용 화면이 없는 상시 항목(핫스팟·집중 모드 등)은 내용을 크게 보여 준다.
+            // 알림은 확장 화면 대신 상세 카드로 표시한다.
+            if let a = vm.center.orderedPersistent.first(where: { $0.kind == kind }) {
+                PersistentInfoPage(activity: a)
+            }
         }
     }
 }

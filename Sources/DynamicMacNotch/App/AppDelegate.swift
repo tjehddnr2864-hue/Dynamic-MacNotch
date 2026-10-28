@@ -317,6 +317,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func longPress(_ activity: NotchActivity?) -> Bool {
         guard let a = activity, !Self.pagedKinds.contains(a.kind) else { return true }
         guard hasLongPressAction(a) else { return false }
+        // 상시 표시 항목(핫스팟·집중 모드 등): 팝업을 열고 다른 상시 항목을 점·스와이프로 넘겨 본다
+        if center.transient?.id != a.id, center.persistentKinds.contains(a.kind) { return true }
         Haptics.perform()
         if center.transient?.id == a.id {
             center.promoteToDetail()   // 컴팩트 알림 → 상세 카드

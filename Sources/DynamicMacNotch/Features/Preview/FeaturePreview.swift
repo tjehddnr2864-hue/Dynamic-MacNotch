@@ -196,8 +196,10 @@ final class FeaturePreview {
         case .aiUsage:
             // 상시 표시 모양 (설정의 텍스트·원형을 따름) 6초
             let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude
-            let sample = ServiceUsage(fiveHour: UsageWindow(percent: 42, resetsAt: Date().addingTimeInterval(2 * 3600)),
-                                      weekly: UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(3 * 86400)), fetched: Date())
+            let sample = ServiceUsage(windows: [
+                UsageWindow(percent: 42, resetsAt: Date().addingTimeInterval(2 * 3600), seconds: UsageWindow.fiveHours),
+                UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(3 * 86400), seconds: UsageWindow.week)
+            ], fetched: Date())
             var a = UsageStore.activity(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring)
             a.kind = .demo
             showPersistent(a, for: 6)
