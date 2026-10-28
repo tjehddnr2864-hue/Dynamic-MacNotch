@@ -233,6 +233,8 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
     /// 새로고침 간격 (분)
     @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
+    /// Claude Code·Codex 작업 완료 알림
+    @Published var agentAlerts: Bool { didSet { save(agentAlerts, "agentAlerts") } }
     /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
     @Published var aiConnected: String { didSet { save(aiConnected, "aiConnected") } }
 
@@ -319,6 +321,7 @@ final class AppSettings: ObservableObject {
         // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
+        agentAlerts = value("agentAlerts", true)
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
@@ -429,6 +432,7 @@ final class AppSettings: ObservableObject {
         // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
+        agentAlerts = value("agentAlerts", true)
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
