@@ -233,13 +233,25 @@ final class CallMonitor: ObservableObject {
         if Self.callApps.contains(id) { refreshSoon() }
     }
 
-    private var pendingRefresh: DispatchWorkItem?
+    private var burst: [DispatchWorkItem] = []
 
+    /// 창·요소가 생겼다는 알림을 받으면 바로 확인하고, 배너 안의 버튼·이름이 늦게 채워지는 경우를 위해
+    /// 짧게 몇 번 더 확인한다 (상태가 바뀌면 그만). 알림이 연달아 와도 한 묶음만 돈다.
     func refreshSoon() {
-        pendingRefresh?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.refresh() }
-        pendingRefresh = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+        guard burst.isEmpty else { return }
+        let before = state
+        for delay in [0.0, 0.1, 0.25, 0.5, 0.8, 1.2] {
+            var work: DispatchWorkItem!
+            work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.burst.removeAll { $0 === work }
+                // 상태가 바뀌었으면 남은 확인은 건너뛴다 (통화 중에는 1초 확인 타이머가 따로 돈다)
+                if delay > 0, self.state != before { self.burst.forEach { $0.cancel() }; self.burst.removeAll(); return }
+                self.refresh()
+            }
+            burst.append(work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
     }
 
     /// 손쉬운 사용으로 본 통화 상태

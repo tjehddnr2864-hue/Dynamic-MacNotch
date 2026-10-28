@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 음악 팝업·작은 노치에서 두 손가락 좌우: 다음/이전 곡 (넘길 수 없는 미디어면 아무 일도 하지 않음)
         vm.onMediaSwipe = { [weak self] forward in
             guard let self, self.media.canSkip(forward ? 1 : -1) else { return }
-            forward ? self.media.next() : self.media.previous()
+            forward ? self.media.next() : self.media.previousTrack()
             Haptics.perform()
         }
         vm.longPressShouldExpand = { [weak self] activity in self?.longPress(activity) ?? true }
@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         downloads.onAirDropReceived = { [weak self] urls in self?.tray.airDropReceived(urls) }
         downloads.start()
         screenshot.start()
+        screenshot.onCapture = { [weak self] in self?.recording.screenshotTaken() }
         recording.start()
         call.start()
         calendar.start()

@@ -466,6 +466,17 @@ final class MediaController: ObservableObject {
         command("prev", script: "previous track", mediaKey: 18)
     }
 
+    /// 두 손가락 스와이프용 '이전 곡': 곡이 3초 넘게 재생됐으면 대부분의 앱은 '이전'을 처음부터 다시 듣기로 처리하므로
+    /// 한 번 더 보내 실제 이전 곡으로 간다. (Apple Music의 'previous track' 스크립트는 바로 이전 곡이라 한 번만)
+    func previousTrack() {
+        previous()
+        guard !testActive, nowPlaying?.bundleID != "com.apple.Music",
+              (nowPlaying?.position(at: Date()) ?? 0) > 3 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.command("prev", script: "previous track", mediaKey: 18)
+        }
+    }
+
     func seek(to seconds: Double) {
         if testActive { testControl { $0.elapsed = seconds }; return }
         if let bundle = nowPlaying?.bundleID, ["com.apple.Music", "com.spotify.client"].contains(bundle) {
