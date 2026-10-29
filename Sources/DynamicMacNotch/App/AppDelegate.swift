@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var recording = RecordingMonitor(center: center)
     private lazy var call = CallMonitor(center: center)
     private lazy var usage = UsageStore(center: center)
+    private let memo = MemoStore()
     private var agentObserver: NSObjectProtocol?
     private lazy var featurePreview = FeaturePreview(
         center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
@@ -33,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar,
-                                     call: call, usage: usage)
+                                     call: call, usage: usage, memo: memo)
         let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
@@ -197,6 +198,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "lockfull": self.lockScreen?.openFull()
             case "saveron": self.lockScreen?.setScreenSaver(active: true)    // 개발용: 화면 보호기 시작/끝 흉내
             case "saveroff": self.lockScreen?.setScreenSaver(active: false)
+            case "memolist": self.memo.toggleList()   // 개발용: 메모 목록 열기/닫기
+            case let c where c.hasPrefix("devclick:"):   // 개발용: 노치 창에 클릭 보내기 (화면 좌표, 왼쪽 위 기준 "x,y")
+                let xy = c.dropFirst(9).split(separator: ",").compactMap { Double($0) }
+                if xy.count == 2, let panel = self.notch?.panel, let screen = panel.screen {
+                    panel.ignoresMouseEvents = false   // 실제 커서가 노치 위에 없어도 받도록
+                    let p = NSPoint(x: xy[0] - panel.frame.minX, y: screen.frame.maxY - xy[1] - panel.frame.minY)
+                    for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                        if let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                      windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                            panel.sendEvent(e)
+                        }
+                    }
+                }
+            case let c where c.hasPrefix("devtype:"):   // 개발용: 이 앱에만 글자 입력
+                for ch in String(c.dropFirst(8)) {
+                    for down in [true, false] {
+                        let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down)
+                        var u = Array(String(ch).utf16)
+                        e?.keyboardSetUnicodeString(stringLength: u.count, unicodeString: &u)
+                        e?.postToPid(getpid())
+                    }
+                }
             case "next": self.vm.switchExpandedPage(forward: true)
             case "prev": self.vm.switchExpandedPage(forward: false)
             case let c where c.hasPrefix("page"):
@@ -204,10 +227,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             default: if let id = PreviewID(rawValue: command) { self.featurePreview.run(id) }
             }
     }
+
     #endif
 
     func applicationWillTerminate(_ notification: Notification) {
         media.stop()
+        memo.saveNow()   // 쓰던 메모 (다시 시작·메모리 정리 재시작 포함)
     }
 
 

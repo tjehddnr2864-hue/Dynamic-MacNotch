@@ -76,12 +76,13 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Right-click** the notch | Menu: Open Home, Settings, Permissions, Preview alerts, Restart, Quit |
 | **Hover** | Optional: grow slightly, or open on hover (Settings → General) |
 
-### Home (5 pages)
+### Home (6 pages)
 1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages.
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
 3. **AI Usage** — 5-hour and weekly limits for **Claude, ChatGPT (Codex) and Gemini**, with reset times. Sign in to each website once in Settings → Interactions → AI Usage; sign-in data stays in the app's own web storage. Optionally **keep it in the notch**: 5-hour on the left, weekly on the right, as text or rings. Services with a single limit (e.g. ChatGPT Free's 30-day limit) show one bar, and the notch shows that limit with the time to reset. If AI usage is the only live activity, long-pressing it opens Home on this page (swipe or use the dots for the other Home pages); with other live activities it opens in the live-activity popup. Choose how often it refreshes (1, 2, 5 or 10 min). When it isn't kept in the notch, nothing runs in the background: it refreshes only when you open the page. While a higher-priority live activity covers it, refreshing pauses and resumes once it's visible again. Each refresh runs in a short-lived helper process, so the web memory is released right after.
-4. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts.
-5. **AirDrop · Tray**
+4. **Memo** — a simple text memo: a fixed title on top and a scrolling body below. Click the title or body to type (it continues where you clicked). It saves automatically as you type and when you leave, and reopens where you left off. The list icon (top right) slides the memo over and shows your memos on the right third; click one to open it, right-click to delete. Memos are kept on disk, not in memory: a few seconds after the notch closes they're unloaded, and they're read again only when you open the memo page.
+5. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts.
+6. **AirDrop · Tray**
    - **Click** the AirDrop or Tray box to choose files; **or drag files** onto the notch — while dragging, the boxes only act as drop zones.
    - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
    - Tray files: click / ⌘-click / ⇧-click to select, double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
@@ -255,12 +256,13 @@ scripts/build.sh --install --run  # install to /Applications
 | 노치 **우클릭** | 메뉴: 홈 열기, 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
 | **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 일반) |
 
-### 홈 (5페이지)
+### 홈 (6페이지)
 1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다.
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
 3. **AI 사용량** — **Claude, ChatGPT(Codex), Gemini**의 5시간·주간 한도와 초기화 시각. 설정 → 상호작용 → AI 사용량에서 각 웹사이트에 한 번 로그인합니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다. **노치에 상시 표시**(왼쪽 5시간, 오른쪽 주간 · 텍스트 또는 원형)를 켤 수 있고, 한도가 하나뿐인 서비스(예: ChatGPT 무료 30일 한도)는 바 하나로, 노치에는 그 한도와 초기화까지 남은 시간이 나옵니다. 상시 항목이 AI 사용량뿐이면 길게 눌렀을 때 홈의 이 페이지가 열리고(점·스와이프로 다른 홈 기능), 다른 상시 항목과 함께면 상시 항목 팝업에서 열립니다. 새로고침 빈도(1·2·5·10분)를 고릅니다. 상시 표시를 끄면 백그라운드에서는 아무것도 하지 않고 이 페이지를 열 때만 새로고침합니다. 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다. 새로고침은 잠깐 뜨는 도우미 프로세스가 하므로 끝나면 웹 메모리가 바로 반환됩니다.
-4. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택).
-5. **에어드랍 · 트레이**
+4. **메모** — 텍스트만 쓰는 간단한 메모. 위에 고정된 제목, 아래에 스크롤되는 본문. 제목이나 본문을 누르면 그 자리부터 이어서 씁니다. 쓰는 동안과 나갈 때 자동 저장되고, 다시 열면 마지막으로 쓰던 메모가 그대로 열립니다. 오른쪽 위 목록 아이콘을 누르면 메모가 밀리며 오른쪽 1/3에 메모 목록이 나오고, 눌러서 불러오거나 우클릭으로 지웁니다. 메모는 메모리가 아니라 디스크에 두며, 노치가 닫히고 몇 초 뒤 메모리에서 내리고 메모 페이지를 열 때만 다시 읽습니다.
+5. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택).
+6. **에어드랍 · 트레이**
    - 에어드랍·트레이 칸을 **클릭**해 파일을 고르거나, 파일을 노치로 **끌어다 놓습니다**. 끄는 동안에는 칸이 놓는 곳으로만 동작합니다.
    - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
    - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
