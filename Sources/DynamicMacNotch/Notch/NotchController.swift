@@ -185,7 +185,8 @@ final class NotchController: NotchGestureDelegate {
     }
 
     private func checkFileDrag() {
-        guard !vm.isFileDragging else { return }
+        // 에어드랍·트레이를 끄면 파일을 노치로 끌어와도 아무 일도 하지 않는다
+        guard !vm.isFileDragging, settings.trayMode != .off else { return }
         // 먼저 커서 위치(계산만)로 거르고, 노치 근처일 때만 드래그 페이스트보드(프로세스 간 통신)를 확인한다.
         let loc = NSEvent.mouseLocation
         let f = panel.frame

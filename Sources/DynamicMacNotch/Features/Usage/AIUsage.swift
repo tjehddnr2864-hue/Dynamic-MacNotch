@@ -148,14 +148,18 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    var connected: [AIService] { AIService.connected(settings.aiConnected) }
+    /// 연결된 서비스. 설정 → 기본에서 AI 사용량을 끄면 없는 것으로 본다 (새로고침·상시 표시 모두 멈춤)
+    var connected: [AIService] {
+        settings.isHomeFeatureOn("usage") ? AIService.connected(settings.aiConnected) : []
+    }
 
     func start() {
         settings.$aiUsagePinned.map { _ in () }
             .merge(with: settings.$aiRefreshMinutes.map { _ in () },
                    settings.$aiConnected.map { _ in () },
                    settings.$aiUsageService.map { _ in () },
-                   settings.$aiUsageStyle.map { _ in () })
+                   settings.$aiUsageStyle.map { _ in () },
+                   settings.$homeDisabled.map { _ in () })
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] in self?.settingsChanged() }
             .store(in: &cancellables)

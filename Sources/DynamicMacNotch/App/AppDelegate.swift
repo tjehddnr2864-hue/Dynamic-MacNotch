@@ -85,13 +85,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         focus.start()
         hud.start()
         media.start()
-        downloads.onAirDropReceived = { [weak self] urls in self?.tray.airDropReceived(urls) }
+        downloads.onAirDropReceived = { [weak self] urls in
+            // 에어드랍·트레이를 끄면 받은 파일을 트레이에 넣지 않는다
+            guard let self, self.settings.trayMode != .off else { return }
+            self.tray.airDropReceived(urls)
+        }
         downloads.start()
         screenshot.start()
         screenshot.onCapture = { [weak self] in self?.recording.screenshotTaken() }
         recording.start()
         call.start()
-        calendar.start()
+        // 기본 노치 기능 켜기·끄기: 끈 기능은 백그라운드 작업까지 멈춘다
+        settings.$homeDisabled
+            .receive(on: RunLoop.main)
+            .sink { [weak self] disabled in self?.applyHomeFeatures(disabled) }
+            .store(in: &cancellables)
         usage.start()
         agentObserver = AgentNotify.observe(center: center)
 
@@ -220,6 +228,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         e?.postToPid(getpid())
                     }
                 }
+            case let c where c.hasPrefix("devcmd:"):   // 개발용: 이 앱에만 ⌘+키 (가상 키 코드, 예: devcmd:0 = ⌘A)
+                if let code = CGKeyCode(c.dropFirst(7)) {
+                    for down in [true, false] {
+                        let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)
+                        e?.flags = .maskCommand
+                        e?.postToPid(getpid())
+                    }
+                }
             case "next": self.vm.switchExpandedPage(forward: true)
             case "prev": self.vm.switchExpandedPage(forward: false)
             case let c where c.hasPrefix("page"):
@@ -229,6 +245,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #endif
+
+    private func applyHomeFeatures(_ disabled: [String]) {
+        if disabled.contains("calendar") { calendar.stop() } else { calendar.start() }
+        if disabled.contains("timer"), timer.isActive { timer.cancel() }
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         media.stop()

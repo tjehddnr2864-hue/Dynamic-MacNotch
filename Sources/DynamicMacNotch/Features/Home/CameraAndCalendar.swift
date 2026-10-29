@@ -159,18 +159,34 @@ final class CalendarController: ObservableObject {
         self.center = center
     }
 
+    private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+
+    /// 설정 → 기본에서 '일정'이 켜져 있는 동안만 일정 변화를 듣고 알림 시각에 깨어난다.
     func start() {
-        NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: store, queue: .main) { [weak self] _ in
-            self?.reload()
-        }
-        // 날짜가 바뀌거나 시계가 크게 바뀌면(잠자기 해제 등) 다시 읽는다.
-        NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
-            self?.reload()
-        }
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.reload()
-        }
+        guard observers.isEmpty else { return }
+        observers = [
+            (NotificationCenter.default, NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: store, queue: .main) { [weak self] _ in
+                self?.reload()
+            }),
+            // 날짜가 바뀌거나 시계가 크게 바뀌면(잠자기 해제 등) 다시 읽는다.
+            (NotificationCenter.default, NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
+                self?.reload()
+            }),
+            (NSWorkspace.shared.notificationCenter, NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.reload()
+            }),
+        ]
         reload()
+    }
+
+    /// 끄기: 듣기·타이머를 모두 멈추고 읽어 둔 일정도 비운다
+    func stop() {
+        for (nc, token) in observers { nc.removeObserver(token) }
+        observers.removeAll()
+        timer?.invalidate()
+        timer = nil
+        events = []
+        alerted.removeAll()
     }
 
     /// 30초마다 다시 읽는 대신, 다음에 할 일이 있는 시각(일정 알림 시각 · 일정 끝 · 자정)에 한 번만 깨어난다.
