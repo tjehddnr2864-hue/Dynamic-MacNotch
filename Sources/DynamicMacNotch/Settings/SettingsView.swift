@@ -889,13 +889,15 @@ struct SettingsView: View {
                                 items: [("focus-on", T("집중 모드 켜짐", "Focus On")), ("focus-off", T("집중 모드 꺼짐", "Focus Off"))])
             StylePreviewSection(title: T("배터리", "Battery"), initial: settings.batteryStyle, preview: preview,
                                 items: [("charger", T("충전기 연결", "Charger Connected")), ("low", T("배터리 부족", "Low Battery")), ("full", T("완충", "Full"))])
+            StylePreviewSection(title: "Claude Code · Codex", initial: settings.agentStyle, preview: preview,
+                                items: [("agent-done", T("작업 완료", "Task Finished"))])
             // 형태가 정해진 알림
             testSection(T("컴팩트로만 표시", "Compact Only"),
                            [("hud-volume", T("음량 HUD", "Volume HUD")), ("hud-brightness", T("화면 밝기 HUD", "Display Brightness HUD")),
                             ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
                             ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)")),
-                            ("ai-usage", T("AI 사용량", "AI Usage")), ("agent-done", T("Claude Code 작업 완료", "Claude Code Finished"))],
+                            ("ai-usage", T("AI 사용량", "AI Usage"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
             testSection(T("상세로만 표시", "Detailed Only"),
@@ -1103,6 +1105,17 @@ private struct AgentSettingsPage: View {
                 Toggle(T("작업이 끝나면 노치에 알림 (누르면 그 앱 열기)", "Alert in the notch when a task finishes (click to open that app)"),
                        isOn: $settings.agentAlerts)
             } header: { Text(T("표시", "Show")) }
+            Section {
+                Picker(T("표시 형태", "Style"), selection: $settings.agentStyle) {
+                    ForEach(AlertStyle.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            } header: { Text(T("표시 방식", "Appearance")) } footer: {
+                Text(T("상세는 '에이전트 · 프로젝트'와 함께 끝난 작업(마지막으로 보낸 요청)을 한 줄로 보여 줍니다. 컴팩트는 아이콘과 '완료'만 보이고, 길게 누르면 상세로 볼 수 있습니다.",
+                       "Detailed shows 'Agent · project' and the finished task (your last request) on one line. Compact shows only the icon and Done; long-press it to see the details."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .disabled(!settings.agentAlerts)
             Section {
                 ForEach(AgentSource.allCases) { source in
                     let installed = AgentHooks.isInstalled(source)

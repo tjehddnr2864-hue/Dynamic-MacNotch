@@ -38,20 +38,67 @@ enum AgentNotify {
                 try? p.run()
             }
         }
-        // 프로젝트 폴더: Codex가 넘긴 JSON의 cwd, 없으면 현재 폴더
+        // 프로젝트 폴더와 끝난 작업(사용자가 마지막으로 보낸 요청)
         var folder = FileManager.default.currentDirectoryPath
-        if let last = payloadArgs.last, let data = last.data(using: .utf8),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let cwd = obj["cwd"] as? String {
-            folder = cwd
+        var task = ""
+        switch source {
+        case .codex:
+            // Codex는 마지막 인자로 JSON을 넘긴다: {"cwd": ..., "input-messages": [...], "last-assistant-message": ...}
+            if let last = payloadArgs.last, let data = last.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let cwd = obj["cwd"] as? String { folder = cwd }
+                task = (obj["input-messages"] as? [String])?.last ?? ""
+            }
+        case .claude:
+            // Claude Code는 표준 입력으로 JSON을 준다: {"cwd": ..., "transcript_path": ...}
+            if let data = try? FileHandle.standardInput.readToEnd(),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let cwd = obj["cwd"] as? String { folder = cwd }
+                if let path = obj["transcript_path"] as? String { task = lastUserPrompt(transcript: path) }
+            }
         }
         let app = guiAncestor()
         DistributedNotificationCenter.default().postNotificationName(
             notification, object: source.rawValue,
             userInfo: ["project": URL(fileURLWithPath: folder).lastPathComponent,
+                       "task": oneLine(task, limit: 80),
                        "bundle": app?.bundleIdentifier ?? "",
                        "pid": Int(app?.processIdentifier ?? 0)],
             deliverImmediately: true)
         exit(0)
+    }
+
+    /// 대화 기록(JSONL)에서 사용자가 마지막으로 보낸 요청. 파일 끝 512KB만 읽는다.
+    /// 도구 결과·시스템이 붙인 메시지·요약·하위 작업·태그로 시작하는 메시지는 건너뛴다.
+    static func lastUserPrompt(transcript path: String) -> String {
+        guard let h = FileHandle(forReadingAtPath: path) else { return "" }
+        defer { try? h.close() }
+        let size = (try? h.seekToEnd()) ?? 0
+        try? h.seek(toOffset: size > 524_288 ? size - 524_288 : 0)
+        guard let data = try? h.readToEnd(), let text = String(data: data, encoding: .utf8) else { return "" }
+        for line in text.split(separator: "\n").reversed() {
+            guard let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                  obj["type"] as? String == "user",
+                  obj["isMeta"] as? Bool != true, obj["isSidechain"] as? Bool != true,
+                  obj["isCompactSummary"] as? Bool != true, obj["toolUseResult"] == nil,
+                  let message = obj["message"] as? [String: Any] else { continue }
+            var parts: [String] = []
+            if let s = message["content"] as? String { parts = [s] }
+            else if let list = message["content"] as? [[String: Any]] {
+                parts = list.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }
+            }
+            let prompt = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty && !$0.hasPrefix("<") } ?? ""
+            if !prompt.isEmpty { return prompt }
+        }
+        return ""
+    }
+
+    /// 한 줄로 줄이고 길면 자른다
+    static func oneLine(_ s: String, limit: Int) -> String {
+        let flat = s.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        return flat.count > limit ? String(flat.prefix(limit)) + "…" : flat
     }
 
     /// 이 프로세스를 띄운 화면 앱 (부모 프로세스를 거슬러 올라가 처음 만나는 일반 앱: 터미널·VS Code·Claude 등)
@@ -83,16 +130,21 @@ enum AgentNotify {
             let project = info["project"] as? String ?? ""
             let bundle = info["bundle"] as? String ?? ""
             let pid = info["pid"] as? Int ?? 0
-            center.post(activity(source, project: project, target: bundle.isEmpty ? nil : "\(bundle)|\(pid)"))
+            let task = info["task"] as? String ?? ""
+            center.post(activity(source, project: project, task: task, target: bundle.isEmpty ? nil : "\(bundle)|\(pid)"))
         }
     }
 
-    static func activity(_ source: AgentSource, project: String, target: String?) -> NotchActivity {
-        NotchActivity(kind: .agent, priority: ActivityPriority.info, duration: 5, symbol: source.symbol, tint: source.tint,
-                      value: .text(T("완료", "Done")),
-                      title: T("\(source.name) 작업 완료", "\(source.name) Finished"),
-                      subtitle: project.isEmpty ? T("눌러서 열기", "Click to open") : project,
-                      targetApp: target)
+    /// 컴팩트: 왼쪽 에이전트 아이콘, 오른쪽 '완료'.
+    /// 상세(설정): 제목 'Claude Code · 프로젝트', 아래에 끝난 작업(마지막으로 보낸 요청)을 한 줄로.
+    static func activity(_ source: AgentSource, project: String, task: String, target: String?,
+                         style: AlertStyle? = nil) -> NotchActivity {
+        let detailed = (style ?? AppSettings.shared.agentStyle) == .detail
+        let title = project.isEmpty ? T("\(source.name) 작업 완료", "\(source.name) Finished") : "\(source.name) · \(project)"
+        let subtitle = task.isEmpty ? T("작업 완료 · 눌러서 열기", "Finished · Click to open") : task
+        return NotchActivity(kind: .agent, priority: ActivityPriority.info, presentation: detailed ? .detail : .compact,
+                             duration: detailed ? 7 : 5, symbol: source.symbol, tint: source.tint,
+                             value: .text(T("완료", "Done")), title: title, subtitle: subtitle, targetApp: target)
     }
 
     /// 알림을 눌렀을 때: 에이전트가 돌던 앱을 앞으로 (같은 창이 남아 있으면 그 앱 그대로)

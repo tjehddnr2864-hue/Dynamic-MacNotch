@@ -129,7 +129,7 @@ Every alert can be **compact or detailed**, and durations are configurable. **Lo
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → Priority** is shown. Reorder with the arrows. Long-press it to open its popup, then use the dots or a two-finger swipe to page through the other live activities (on the music player, the swipe skips songs; use the dots instead). When it closes, the notch again shows the highest-priority one.
 
 ### Claude Code · Codex
-When a Claude Code or Codex task finishes, the notch shows **Finished**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
+When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
 ### Lock screen
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
@@ -311,7 +311,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 우선순위**에서 위에 있는 것이 표시됩니다. 화살표로 순서를 바꿉니다. 길게 눌러 팝업을 열면 아래 점이나 두 손가락 좌우로 다른 상시 항목을 넘겨 볼 수 있습니다(음악 팝업에서는 좌우가 곡 넘기기라 점을 누르세요). 닫으면 다시 우선순위가 가장 높은 항목이 표시됩니다.
 
 ### Claude Code · Codex
-Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
 
 ### 잠금화면
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.
