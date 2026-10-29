@@ -236,6 +236,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         e?.postToPid(getpid())
                     }
                 }
+            case let c where c.hasPrefix("ppage:"):   // 개발용: 상시 항목 팝업에서 점 누르기 (예: ppage:aiUsage)
+                if let kind = ActivityKind(rawValue: String(c.dropFirst(6))) { self.vm.selectPersistentPage(kind) }
             case "next": self.vm.switchExpandedPage(forward: true)
             case "prev": self.vm.switchExpandedPage(forward: false)
             case let c where c.hasPrefix("page"):
