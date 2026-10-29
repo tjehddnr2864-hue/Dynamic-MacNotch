@@ -31,6 +31,7 @@ struct MemoPage: View {
                     if live {
                         MemoTitleField(text: store.current?.title ?? "", memoID: store.current?.id,
                                        focus: editing == .title) { store.setTitle($0) }
+                            .padding(.leading, 2)   // 보기 화면의 제목과 같은 위치
                     } else {
                         let title = store.current?.title ?? ""
                         Text(title.isEmpty ? T("제목", "Title") : title)
@@ -61,21 +62,31 @@ struct MemoPage: View {
                                          focus: editing == .body, clickPoint: clickPoint) { store.setBody($0) }
                         } else {
                             // 보기: 넘치면 스크롤. 누른 자리부터 바로 이어서 쓸 수 있다.
-                            ScrollView(.vertical) {
-                                Text(store.current?.body ?? "")
-                                    .font(.system(size: 12.5))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture(coordinateSpace: .local) { p in startEditing(.body, at: p) }
+                            // 글이 짧거나 비어 있어도 칸 전체를 누를 수 있게 최소 높이를 칸 높이로 (아래 빈 곳 = 맨 끝)
+                            GeometryReader { box in
+                                ScrollView(.vertical) {
+                                    Text(store.current?.body ?? "")
+                                        .font(.system(size: 12.5))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity, minHeight: box.size.height, alignment: .topLeading)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture(coordinateSpace: .local) { p in startEditing(.body, at: p) }
+                                }
+                                .scrollIndicators(.automatic)
                             }
-                            .scrollIndicators(.automatic)
-                            // 빈 곳(본문 아래)을 눌러도 쓰기 시작
-                            .background(Color.black.opacity(0.001).onTapGesture { startEditing(.body) })
                         }
                     }
-                        .padding(6)
-                        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        // 본문은 노치와 같은 검은 바탕 (상자 없음). 비어 있으면 쓸 자리를 연한 '내용'으로 알려 준다.
+                        .padding(.leading, 2)
+                        .background(alignment: .topLeading) {
+                            if (store.current?.body ?? "").isEmpty {
+                                Text(T("내용", "Note"))
+                                    .font(.system(size: 12.5))
+                                    .foregroundStyle(.white.opacity(0.3))
+                                    .padding(.leading, 2)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                     if store.showList {
                         MemoListView(store: store)
                             .frame(width: (geo.size.width - 8) / 3)

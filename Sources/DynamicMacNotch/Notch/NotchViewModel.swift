@@ -368,7 +368,8 @@ final class NotchViewModel: ObservableObject {
         let n = notchSize
         switch state {
         case .expanded:
-            guard expandedPage == .activity(.media) else { return nil }
+            // 상시 항목 팝업에서 다른 항목을 보는 동안에도 음악이 그 묶음에 있으면 남겨 두고 옆으로 비켜 둔다 (mediaArtPageShift)
+            guard expandedPage == .activity(.media) || (showsPersistentDots && persistentPages.contains(.media)) else { return nil }
             // MediaPage: 좌우 여백(위쪽 모서리 + 22), 위 여백 6 + 4
             return CGRect(x: topRadius + 22, y: n.height + 10, width: 50, height: 50)
         case .detail:
@@ -382,6 +383,15 @@ final class NotchViewModel: ObservableObject {
         case .idle:
             return nil
         }
+    }
+
+    /// 상시 항목 팝업에서 음악 앨범아트가 있어야 할 곳 (페이지 한 칸 = 1).
+    /// 음악 페이지면 0, 음악보다 뒤 페이지를 보면 -1(왼쪽으로 밀려남), 앞 페이지를 보면 +1(오른쪽에서 대기).
+    /// 페이지를 넘길 때 다른 내용과 같은 애니메이션으로 함께 밀려나고 들어온다.
+    var mediaArtPageShift: CGFloat {
+        guard state == .expanded, case .activity(let kind) = expandedPage, kind != .media,
+              let current = persistentPages.firstIndex(of: kind), let media = persistentPages.firstIndex(of: .media) else { return 0 }
+        return current > media ? -1 : 1
     }
 
     // 도형이 줄어드는 중인지 (줄어들 때 새로 나타나는 내용은 바깥으로 퍼지지 않고 제자리에서 나타나야 한다)
