@@ -7,13 +7,14 @@ enum NotchState: Int, Equatable {
 
 /// 홈의 네 가지 옵션. 한 번에 하나씩 표시하고 점·스와이프로 넘긴다.
 enum HomeOption: Int, CaseIterable {
-    case camera, timer, usage, calendar, tray
+    case camera, timer, usage, memo, calendar, tray
 
     var title: String {
         switch self {
         case .camera: return T("카메라", "Camera")
         case .timer: return T("타이머", "Timer")
         case .usage: return T("AI 사용량", "AI Usage")
+        case .memo: return T("메모", "Memo")
         case .calendar: return T("오늘 일정", "Today")
         case .tray: return T("에어드랍 · 트레이", "AirDrop · Tray")
         }
@@ -24,6 +25,7 @@ enum HomeOption: Int, CaseIterable {
         case .camera: return "camera.fill"
         case .timer: return "timer"
         case .usage: return "gauge.medium"
+        case .memo: return "note.text"
         case .calendar: return "calendar"
         case .tray: return "tray.and.arrow.down.fill"
         }
@@ -175,7 +177,7 @@ final class NotchViewModel: ObservableObject {
         case .expanded:
             switch expandedPage {
             case .home:
-                if homeOption == .usage { return usageSize }
+                if homeOption == .usage || homeOption == .memo { return usageSize }   // 메모도 AI 사용량과 같은 크기
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)

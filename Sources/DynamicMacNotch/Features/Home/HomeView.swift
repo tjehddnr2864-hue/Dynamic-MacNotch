@@ -37,6 +37,8 @@ struct HomePager: View {
             if let pages { pages.camera } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .usage:
             if let pages { pages.usage } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
+        case .memo:
+            if let pages { pages.memo } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .calendar:
             if let pages { pages.calendar } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .tray:
@@ -49,6 +51,7 @@ struct HomePager: View {
 struct HomePages {
     var camera: AnyView
     var usage: AnyView
+    var memo: AnyView
     var calendar: AnyView
     var tray: AnyView
 }

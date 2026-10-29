@@ -11,6 +11,7 @@ struct NotchFeatures {
     let calendar: CalendarController
     let call: CallMonitor
     let usage: UsageStore
+    let memo: MemoStore
 }
 
 struct NotchRootView: View {
@@ -127,6 +128,8 @@ struct ExpandedView: View {
         HomePages(
             camera: AnyView(CameraPage(vm: vm)),
             usage: AnyView(UsagePage(store: features.usage, openSettings: openSettings)),
+            memo: AnyView(MemoPage(store: features.memo,
+                                   active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .memo)),
             calendar: AnyView(CalendarPage(calendar: features.calendar)),
             tray: AnyView(TrayPage(store: features.tray, vm: vm))
         )
