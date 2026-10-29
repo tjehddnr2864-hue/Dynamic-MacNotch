@@ -9,9 +9,17 @@ struct HomePager: View {
 
     var body: some View {
         ZStack {
-            page(vm.homeOption)
-                .id(vm.homeOption)
-                .transition(pageTransition)
+            if vm.homePages.isEmpty && !vm.isFileDragging {
+                // 설정에서 홈 기능을 모두 껐을 때
+                Text(T("설정 → 상호작용 → 기본에서 기능을 켜세요", "Turn on features in Settings → Interactions → Basics"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+            } else {
+                page(vm.homeOption)
+                    .id(vm.homeOption)
+                    .transition(pageTransition)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .offset(x: vm.swipeOffset)
@@ -109,7 +117,7 @@ struct PageDots: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(HomeOption.allCases, id: \.self) { option in
+            ForEach(vm.homePages, id: \.self) { option in
                 let selected = vm.expandedPage == .home && option == vm.homeOption
                 Button { vm.selectHomeOption(option) } label: {
                     Capsule()

@@ -3,13 +3,13 @@ import SwiftUI
 /// 설정 창 페이지. '상호작용'은 기능별 페이지를 펼치는 묶음이다.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general, priority, interaction
-    case network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage, agent
+    case basics, network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage, agent
     case test, permissions, about
 
     var id: String { rawValue }
 
     /// '상호작용' 아래에 펼쳐지는 기능별 페이지
-    static let features: [SettingsPage] = [.network, .bluetooth, .focus, .call, .media, .download, .airdrop,
+    static let features: [SettingsPage] = [.basics, .network, .bluetooth, .focus, .call, .media, .download, .airdrop,
                                            .screenshot, .recording, .battery, .hud, .lock, .aiUsage, .agent]
     static let top: [SettingsPage] = [.general, .priority, .interaction, .test, .permissions, .about]
 
@@ -18,6 +18,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return T("일반", "General")
         case .priority: return T("우선순위", "Priority")
         case .interaction: return T("상호작용", "Interactions")
+        case .basics: return T("기본", "Basics")
         case .network: return T("네트워크", "Network")
         case .bluetooth: return T("블루투스", "Bluetooth")
         case .focus: return T("방해금지 모드", "Focus")
@@ -43,6 +44,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .priority: return "list.number"
         case .interaction: return "bell.badge"
+        case .basics: return "square.grid.2x2"
         case .network: return "wifi"
         case .bluetooth: return "airpodspro"
         case .focus: return "moon"
@@ -182,6 +184,7 @@ struct SettingsView: View {
         case .general: general
         case .priority: priority
         case .interaction: interactionOverview
+        case .basics: basics
         case .network: network
         case .bluetooth: bluetooth
         case .focus: focus
@@ -428,6 +431,62 @@ struct SettingsView: View {
 
     private func footnote(_ text: String) -> some View {
         Text(text).font(.caption).foregroundStyle(.secondary)
+    }
+
+    // MARK: 기본 (홈 기능 순서·켜기)
+
+    private var basics: some View {
+        Form {
+            Section {
+                ForEach(Array(settings.homeOrder.enumerated()), id: \.element) { index, key in
+                    if let option = HomeOption(key: key) {
+                        HStack(spacing: 10) {
+                            Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 18)
+                            Label(option.title, systemImage: option.symbol)
+                                .foregroundStyle(settings.isHomeFeatureOn(key) ? .primary : .secondary)
+                            Spacer()
+                            if option == .tray {
+                                Picker("", selection: $settings.trayMode) {
+                                    ForEach(TrayMode.allCases) { Text($0.label).tag($0) }
+                                }
+                                .labelsHidden()
+                                .fixedSize()
+                            } else {
+                                Toggle("", isOn: homeToggle(key)).labelsHidden().toggleStyle(.switch).controlSize(.small)
+                            }
+                            Button { moveHome(index, by: -1) } label: { Image(systemName: "chevron.up") }
+                                .disabled(index == 0)
+                            Button { moveHome(index, by: 1) } label: { Image(systemName: "chevron.down") }
+                                .disabled(index == settings.homeOrder.count - 1)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            } header: {
+                Text(T("기본 노치 기능 (길게 눌러 여는 홈)", "Home Features (long-press the notch)"))
+            } footer: {
+                footnote(T("위에서부터 홈 페이지 순서입니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다(일정 감시·알림, 진행 중인 타이머, AI 사용량 새로고침 등). 에어드랍·트레이의 '노치에서 가림'은 홈 페이지에서만 숨기고 파일을 노치로 끌어오면 그대로 동작하며, '끄기'는 파일을 끌어와도 동작하지 않습니다.",
+                           "Top to bottom is the Home page order. A feature that's off disappears from the notch and stops running in the background (calendar watching and alerts, a running timer, AI usage refresh…). For AirDrop & Tray, Hide in Notch only removes the Home page — dragging files to the notch still works — while Off ignores dragged files too."))
+            }
+        }
+        .settingsForm()
+    }
+
+    private func homeToggle(_ key: String) -> Binding<Bool> {
+        Binding(get: { !settings.homeDisabled.contains(key) },
+                set: { on in
+                    var list = settings.homeDisabled.filter { $0 != key }
+                    if !on { list.append(key) }
+                    settings.homeDisabled = list
+                })
+    }
+
+    private func moveHome(_ index: Int, by delta: Int) {
+        var order = settings.homeOrder
+        let target = index + delta
+        guard order.indices.contains(target) else { return }
+        order.swapAt(index, target)
+        withAnimation { settings.homeOrder = order }
     }
 
     // MARK: 네트워크

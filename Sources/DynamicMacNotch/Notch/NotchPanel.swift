@@ -28,23 +28,30 @@ final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    /// 메뉴가 없는 앱이라 편집 단축키(⌘X·C·V·A·Z, ⇧⌘Z)를 직접 입력 칸에 보낸다 (메모·타이머 입력)
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    /// 편집 단축키(⌘X·C·V·A·Z, ⇧⌘Z)를 입력 칸에 직접 보낸다 (메모·타이머 입력).
+    /// 메뉴가 없고, 노치 창이 키보드를 받는 동안에도 앱이 '활성'이 아니라 메뉴 단축키 단계를 거치지 않으므로
+    /// 창이 키 이벤트를 받는 단계에서 처리한다.
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, handleEditingShortcut(event) { return }
+        super.sendEvent(event)
+    }
+
+    private func handleEditingShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags.contains(.command), !flags.contains(.control), !flags.contains(.option),
-              let key = event.charactersIgnoringModifiers?.lowercased() else { return super.performKeyEquivalent(with: event) }
-        let action: Selector?
-        switch (key, flags.contains(.shift)) {
-        case ("x", false): action = #selector(NSText.cut(_:))
-        case ("c", false): action = #selector(NSText.copy(_:))
-        case ("v", false): action = #selector(NSText.paste(_:))
-        case ("a", false): action = #selector(NSText.selectAll(_:))
-        case ("z", false): action = Selector(("undo:"))
-        case ("z", true): action = Selector(("redo:"))
-        default: action = nil
+              let responder = firstResponder, responder is NSText else { return false }
+        let action: Selector
+        // 키 위치로 판단한다 (한글 입력 상태에서도 ⌘C 등이 동작하게)
+        switch (event.keyCode, flags.contains(.shift)) {
+        case (7, false): action = #selector(NSText.cut(_:))        // X
+        case (8, false): action = #selector(NSText.copy(_:))       // C
+        case (9, false): action = #selector(NSText.paste(_:))      // V
+        case (0, false): action = #selector(NSText.selectAll(_:))  // A
+        case (6, false): action = Selector(("undo:"))              // Z
+        case (6, true): action = Selector(("redo:"))               // ⇧Z
+        default: return false
         }
-        if let action, NSApp.sendAction(action, to: nil, from: self) { return true }
-        return super.performKeyEquivalent(with: event)
+        return responder.tryToPerform(action, with: self)
     }
 
     /// 메뉴바 영역 위에 놓을 수 있도록 시스템의 프레임 보정을 막는다.

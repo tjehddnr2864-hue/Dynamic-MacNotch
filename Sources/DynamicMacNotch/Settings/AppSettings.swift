@@ -79,6 +79,19 @@ enum RecordingStyle: String, CaseIterable, Identifiable {
     var label: String { self == .brief ? T("잠깐 알림", "Brief Alert") : T("계속 표시 (녹화 시간)", "Keep Showing (Elapsed Time)") }
 }
 
+/// 에어드랍·트레이: 사용 / 노치 홈에서 가림(파일을 끌어오면 여전히 동작) / 끄기(끌어와도 동작 안 함)
+enum TrayMode: String, CaseIterable, Identifiable {
+    case on, hidden, off
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .on: return T("사용", "On")
+        case .hidden: return T("노치에서 가림", "Hide in Notch")
+        case .off: return T("끄기", "Off")
+        }
+    }
+}
+
 /// AI 사용량 표시 형태
 enum UsageStyle: String, CaseIterable, Identifiable {
     case text, ring
@@ -233,6 +246,21 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
     /// 새로고침 간격 (분)
     @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
+    // 기본 노치 (홈) 기능: 순서, 끈 기능, 트레이 방식
+    @Published var homeOrder: [String] { didSet { save(homeOrder, "homeOrder") } }
+    @Published var homeDisabled: [String] { didSet { save(homeDisabled, "homeDisabled") } }
+    @Published var trayMode: TrayMode { didSet { save(trayMode.rawValue, "trayMode") } }
+    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray"]
+
+    func isHomeFeatureOn(_ key: String) -> Bool {
+        key == "tray" ? trayMode != .off : !homeDisabled.contains(key)
+    }
+
+    /// 홈에 페이지로 보이는지 (트레이는 '노치에서 가림'이면 페이지만 숨김)
+    func homeEnabled(_ option: HomeOption) -> Bool {
+        option == .tray ? trayMode == .on : !homeDisabled.contains(option.key)
+    }
+
     /// Claude Code·Codex 작업 완료 알림
     @Published var agentAlerts: Bool { didSet { save(agentAlerts, "agentAlerts") } }
     /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
@@ -322,6 +350,11 @@ final class AppSettings: ObservableObject {
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
+        // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
+        let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
+        homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
+        homeDisabled = value("homeDisabled", [String]())
+        trayMode = TrayMode(rawValue: value("trayMode", "")) ?? .on
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
@@ -433,6 +466,11 @@ final class AppSettings: ObservableObject {
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
+        // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
+        let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
+        homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
+        homeDisabled = value("homeDisabled", [String]())
+        trayMode = TrayMode(rawValue: value("trayMode", "")) ?? .on
 
         mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
         mediaHideAfterPause = value("mediaHideAfterPause", 30.0)

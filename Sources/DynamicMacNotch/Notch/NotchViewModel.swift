@@ -9,6 +9,23 @@ enum NotchState: Int, Equatable {
 enum HomeOption: Int, CaseIterable {
     case camera, timer, usage, memo, calendar, tray
 
+    /// 설정·저장에 쓰는 이름 (순서를 바꿔도 변하지 않음)
+    var key: String {
+        switch self {
+        case .camera: return "camera"
+        case .timer: return "timer"
+        case .usage: return "usage"
+        case .memo: return "memo"
+        case .calendar: return "calendar"
+        case .tray: return "tray"
+        }
+    }
+
+    init?(key: String) {
+        guard let o = HomeOption.allCases.first(where: { $0.key == key }) else { return nil }
+        self = o
+    }
+
     var title: String {
         switch self {
         case .camera: return T("카메라", "Camera")
@@ -66,9 +83,39 @@ final class NotchViewModel: ObservableObject {
     @Published var stretch = CGSize(width: 1, height: 1)
     @Published var shakeTrigger: CGFloat = 0
     /// 현재 홈 옵션. 마지막으로 본 옵션을 기억한다.
-    @Published private(set) var homeOption: HomeOption =
-        HomeOption(rawValue: UserDefaults.standard.integer(forKey: "homeOption")) ?? .camera {
+    @Published private(set) var homeOption: HomeOption = NotchViewModel.savedHomeOption() {
         didSet { if homeOption != .camera { cameraOn = false } }   // 다른 페이지로 넘기면 카메라 끔
+    }
+
+    private static let homeKey = "homeOptionKey"
+
+    /// 마지막으로 본 홈 페이지 (이름으로 저장. 예전 번호 저장값은 한 번 옮겨 읽는다)
+    private static func savedHomeOption() -> HomeOption {
+        let d = UserDefaults.standard
+        if let key = d.string(forKey: homeKey), let o = HomeOption(key: key) { return o }
+        if d.object(forKey: "homeOption") != nil, let o = HomeOption(rawValue: d.integer(forKey: "homeOption")) { return o }
+        return .camera
+    }
+
+    private func saveHomeOption() {
+        UserDefaults.standard.set(homeOption.key, forKey: Self.homeKey)
+    }
+
+    // MARK: - 홈 페이지 목록 (설정 → 상호작용 → 기본)
+
+    /// 보이는 홈 페이지 (설정한 순서, 끈 기능·노치에서 가린 트레이는 빠짐)
+    var homePages: [HomeOption] {
+        settings.homeOrder.compactMap(HomeOption.init(key:)).filter(settings.homeEnabled)
+    }
+
+    /// 지금 페이지가 꺼졌거나 가려졌으면 보이는 첫 페이지로 (파일을 끄는 중의 트레이는 예외)
+    func ensureValidHome() {
+        guard !isFileDragging else { return }
+        let pages = homePages
+        if !pages.contains(homeOption), let first = pages.first {
+            homeOption = first
+            saveHomeOption()
+        }
     }
     /// 페이지 전환 방향 (true = 다음 페이지가 오른쪽에서 들어옴).
     @Published private(set) var pageForward = true
@@ -92,6 +139,12 @@ final class NotchViewModel: ObservableObject {
             .store(in: &cancellables)
         settings.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        // 홈 기능을 끄거나 순서를 바꾸면 지금 페이지가 남아 있는지 확인
+        settings.$homeOrder.map { _ in () }
+            .merge(with: settings.$homeDisabled.map { _ in () }, settings.$trayMode.map { _ in () })
+            .receive(on: RunLoop.main)
+            .sink { [weak self] in self?.ensureValidHome() }
             .store(in: &cancellables)
     }
 
@@ -288,6 +341,7 @@ final class NotchViewModel: ObservableObject {
 
     func expand(page: ExpandedPage) {
         guard !isExpanded else { return }
+        if page == .home { ensureValidHome() }
         expandedPage = page
         mediaVolumeShown = false
         if !reduceMotion {
@@ -393,13 +447,14 @@ final class NotchViewModel: ObservableObject {
 
     func selectHomeOption(_ option: HomeOption) {
         guard option != homeOption || expandedPage != .home else { return }
-        pageForward = option.rawValue >= homeOption.rawValue
+        let pages = homePages
+        pageForward = (pages.firstIndex(of: option) ?? 0) >= (pages.firstIndex(of: homeOption) ?? 0)
         withAnimation(openSpring) {
             homeOption = option
             expandedPage = .home
             swipeOffset = 0
         }
-        UserDefaults.standard.set(option.rawValue, forKey: "homeOption")
+        saveHomeOption()
     }
 
     // MARK: - 상시 표시 항목 넘기기
@@ -411,9 +466,9 @@ final class NotchViewModel: ObservableObject {
     /// 다른 상시 항목과 함께 있으면 상시 항목 모음 팝업으로 연다 (점으로 넘겨 봄).
     func longPressPage(for activity: NotchActivity?) -> ExpandedPage {
         guard let a = activity else { return .home }
-        if a.kind == .aiUsage, center.transient?.id != a.id, persistentPages.count <= 1 {
+        if a.kind == .aiUsage, center.transient?.id != a.id, persistentPages.count <= 1, homePages.contains(.usage) {
             homeOption = .usage
-            UserDefaults.standard.set(homeOption.rawValue, forKey: "homeOption")
+            saveHomeOption()
             return .home
         }
         return .activity(a.kind)
@@ -455,7 +510,8 @@ final class NotchViewModel: ObservableObject {
             }
             return
         }
-        let atEdge = (contentDX > 0 && homeOption == .camera) || (contentDX < 0 && homeOption == .tray)
+        let pages = homePages
+        let atEdge = (contentDX > 0 && pages.first == homeOption) || (contentDX < 0 && pages.last == homeOption)
         swipeOffset = atEdge ? contentDX * 0.15 : contentDX * 0.45
     }
 
@@ -485,9 +541,9 @@ final class NotchViewModel: ObservableObject {
             cancelDrag()
             return
         }
-        let next = homeOption.rawValue + (forward ? 1 : -1)
-        if let option = HomeOption(rawValue: next) {
-            selectHomeOption(option)
+        let pages = homePages
+        if let i = pages.firstIndex(of: homeOption), pages.indices.contains(i + (forward ? 1 : -1)) {
+            selectHomeOption(pages[i + (forward ? 1 : -1)])
         } else {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { swipeOffset = 0 }
         }
@@ -495,7 +551,7 @@ final class NotchViewModel: ObservableObject {
 
     /// 파일 드래그가 노치에 가까워지면 트레이 페이지로 자동 확장한다.
     func beginFileDrag() {
-        guard !isFileDragging else { return }
+        guard !isFileDragging, settings.trayMode != .off else { return }
         homeOption = .tray
         expandedPage = .home
         withAnimation(openSpring) { isFileDragging = true }
