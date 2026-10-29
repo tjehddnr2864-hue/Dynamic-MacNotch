@@ -263,6 +263,8 @@ final class AppSettings: ObservableObject {
 
     /// Claude Code·Codex 작업 완료 알림
     @Published var agentAlerts: Bool { didSet { save(agentAlerts, "agentAlerts") } }
+    /// 작업 완료 알림 형태 (상세: 끝난 작업 이름까지)
+    @Published var agentStyle: AlertStyle { didSet { save(agentStyle.rawValue, "agentStyle") } }
     /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
     @Published var aiConnected: String { didSet { save(aiConnected, "aiConnected") } }
 
@@ -350,6 +352,7 @@ final class AppSettings: ObservableObject {
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
+        agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
         // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
         let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
         homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
@@ -466,6 +469,7 @@ final class AppSettings: ObservableObject {
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
+        agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
         // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
         let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
         homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }

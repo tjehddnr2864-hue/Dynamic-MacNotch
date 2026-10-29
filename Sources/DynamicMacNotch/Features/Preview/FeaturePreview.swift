@@ -45,11 +45,11 @@ extension PreviewID {
     var layout: PreviewLayout {
         switch self {
         case .wifiOn, .wifiOff, .wifiConnected, .wifiDisconnected, .vpnOn, .vpnOff, .hotspot,
-             .airpods, .btLow, .btNoBattery, .focusOn, .focusOff, .charger, .low, .full:
+             .airpods, .btLow, .btNoBattery, .focusOn, .focusOff, .charger, .low, .full, .agentDone:
             return .selectable
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .agentDone,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -196,7 +196,8 @@ final class FeaturePreview {
         case .callActive: call.startPreview(incoming: false)
         case .lock: lockPreview()
         case .agentDone:
-            center.post(AgentNotify.activity(.claude, project: "DynamicMacNotch", target: nil))
+            center.post(AgentNotify.activity(.claude, project: "DynamicMacNotch", task: T("메모 기능 UI 수정", "Tweak the memo UI"),
+                                             target: nil, style: style ?? AppSettings.shared.agentStyle))
         case .aiUsage:
             // 상시 표시 모양 (설정의 텍스트·원형을 따름) 6초
             let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude
