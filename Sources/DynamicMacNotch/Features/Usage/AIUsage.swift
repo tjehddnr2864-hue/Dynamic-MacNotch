@@ -335,7 +335,7 @@ struct UsageGlyph: View {
     var body: some View {
         VStack(spacing: 1) {
             Text(label)
-                .font(.system(size: large ? 10 : 8, weight: .semibold, design: .rounded))
+                .font(.system(size: large ? 10 : 8, weight: large ? .semibold : .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.55))
                 .lineLimit(1)
                 .fixedSize()
@@ -344,7 +344,7 @@ struct UsageGlyph: View {
                     .frame(width: large ? 22 : 13, height: large ? 22 : 13)
             } else {
                 Text(percent.map { "\(Int($0.rounded()))%" } ?? "–")
-                    .font(.system(size: large ? 16 : 12.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: large ? 16 : 12.5, weight: large ? .semibold : .regular, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle((percent ?? 0) >= 90 ? .red : .white)
                     .lineLimit(1)
