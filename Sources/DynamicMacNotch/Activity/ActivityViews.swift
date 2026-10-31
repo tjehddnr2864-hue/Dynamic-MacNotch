@@ -65,7 +65,7 @@ struct ActivityValueView: View {
                     Text(top)
                     Text(bottom)
                 }
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
                 .lineLimit(1)
                 .foregroundStyle(textColor ?? .white)
                 .fixedSize()
@@ -121,10 +121,10 @@ struct ActivityValueView: View {
         case .labeledText(let label, let text):
             VStack(spacing: 1) {
                 Text(label)
-                    .font(.system(size: large ? 10 : 8, weight: .semibold, design: .rounded))
+                    .font(.system(size: large ? 10 : 8, weight: large ? .semibold : .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
                 Text(text)
-                    .font(.system(size: large ? 16 : 12.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: large ? 16 : 12.5, weight: large ? .semibold : .regular, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(textColor ?? .white)
             }
