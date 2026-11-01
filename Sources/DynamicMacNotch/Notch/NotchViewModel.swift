@@ -187,6 +187,15 @@ final class NotchViewModel: ObservableObject {
 
     /// 액티비티가 바뀐 뒤 호출: 컴팩트 → 다른 컴팩트면 잠깐 들어갔다가 새 항목으로 나온다.
     /// 상세 알림·확장 팝업이 끼면 기존처럼 바로 바뀐다.
+    /// 상시 표시 우선순위를 바꾼 뒤(설정에서 5초 동안 더 바뀌지 않으면) 지금 보이는 항목을 새 순서로 다시 맞춘다.
+    /// 교체 애니메이션 대기 중이던 항목·이전 항목 기억을 버리고, 현재 우선순위가 가장 높은 항목으로 갱신한다.
+    func resyncPersistentOrder() {
+        swapWork?.cancel()
+        swapWork = nil
+        shownCompactKind = baseState == .compact ? center.displayed?.kind : nil
+        withAnimation(openSpring) { objectWillChange.send() }
+    }
+
     private func updateCompactSwap() {
         guard baseState == .compact, let kind = center.displayed?.kind else {
             swapWork?.cancel()

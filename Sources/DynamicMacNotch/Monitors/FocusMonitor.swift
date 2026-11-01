@@ -127,7 +127,9 @@ final class FocusMonitor {
         if settings.focusPinned, let mode = current, !AppSettings.list(settings.focusExcluded).contains(mode.name) {
             center.setPersistent(NotchActivity(
                 kind: .focusPinned, priority: ActivityPriority.pinned,
-                symbol: mode.symbol, tint: mode.tint, value: .none, title: mode.name, wing: 34
+                // 켜지는 순간의 알림에만 '켬'을 보이고, 계속 표시하는 동안은 아이콘만. 길게 눌러 여는 화면에는 '켬'.
+                symbol: mode.symbol, tint: mode.tint, value: .none, title: mode.name,
+                subtitle: T("집중 모드 켜짐", "Focus On"), detailValue: .text(T("켬", "On"))
             ))
         } else {
             center.removePersistent(.focusPinned)

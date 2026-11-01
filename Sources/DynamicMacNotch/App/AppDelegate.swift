@@ -95,6 +95,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenshot.onCapture = { [weak self] in self?.recording.screenshotTaken() }
         recording.start()
         call.start()
+        // 상시 표시 우선순위: 바뀌면 바로 교체 애니메이션을 시작하고(순서만 바뀌면 상시 항목은 그대로라 신호가 없었음),
+        // 5초 동안 더 바뀌지 않으면 새 순서로 다시 맞춘다 (중간 상태가 남아 표시가 꼬이지 않게)
+        settings.$persistentOrder
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.center.objectWillChange.send() }
+            .store(in: &cancellables)
+        settings.$persistentOrder
+            .dropFirst()
+            .removeDuplicates()
+            .debounce(for: .seconds(5), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.center.objectWillChange.send()   // 정렬·상시 표시·AI 사용량 가림 여부 다시 계산
+                self.vm.resyncPersistentOrder()
+            }
+            .store(in: &cancellables)
         // 기본 노치 기능 켜기·끄기: 끈 기능은 백그라운드 작업까지 멈춘다
         settings.$homeDisabled
             .receive(on: RunLoop.main)

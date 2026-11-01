@@ -270,9 +270,11 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         if settings.hotspotPinned, state.hotspot {
             center.setPersistent(NotchActivity(
                 kind: .hotspot, priority: ActivityPriority.pinned,
+                // 연결 순간의 알림에만 '연결됨'을 보이고, 계속 표시하는 동안은 아이콘만 (집중 모드와 같음).
+                // 길게 눌러 여는 화면에는 '연결됨'을 보여 준다.
                 symbol: "personalhotspot", tint: .green,
-                value: .text(T("연결됨", "Connected")), title: T("개인용 핫스팟", "Personal Hotspot"), subtitle: state.ssid,
-                wing: Self.wing(for: T("연결됨", "Connected"))
+                value: .none, title: T("개인용 핫스팟", "Personal Hotspot"), subtitle: state.ssid,
+                detailValue: .text(T("연결됨", "Connected"))
             ))
         } else {
             center.removePersistent(.hotspot)
