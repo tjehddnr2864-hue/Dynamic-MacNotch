@@ -25,6 +25,8 @@ enum PreviewID: String, CaseIterable {
     case lock
     // AI 사용량
     case aiUsage = "ai-usage"
+    // 상시 표시: 충전 중 · 다음 일정
+    case chargingPinned = "charging-pinned", calendarPinned = "calendar-pinned"
     // 코딩 에이전트
     case agentDone = "agent-done"
     // 모두 끝내기
@@ -49,7 +51,7 @@ extension PreviewID {
             return .selectable
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -195,6 +197,15 @@ final class FeaturePreview {
         case .callIncoming: call.startPreview(incoming: true)
         case .callActive: call.startPreview(incoming: false)
         case .lock: lockPreview()
+        case .chargingPinned:
+            var a = BatteryMonitor.chargingActivity(.init(percent: 64, isCharging: true, onAC: true, isCharged: false, minutesToFull: 85))
+            a.kind = .demo
+            showPersistent(a, for: 6)
+        case .calendarPinned:
+            showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "calendar", tint: .orange,
+                                         value: .labeledText(label: T("다음", "next"), text: "15:00"),
+                                         title: T("팀 회의", "Team Meeting"), subtitle: T("15:00 – 16:00", "3:00 – 4:00 PM"),
+                                         detailValue: .text("15:00"), wing: NotchActivity.compactWing), for: 6)
         case .agentDone:
             center.post(AgentNotify.activity(.claude, project: "DynamicMacNotch", task: T("메모 기능 UI 수정", "Tweak the memo UI"),
                                              target: nil, style: style ?? AppSettings.shared.agentStyle))

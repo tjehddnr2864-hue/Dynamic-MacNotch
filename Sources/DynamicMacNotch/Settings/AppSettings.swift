@@ -176,7 +176,7 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Published var persistentOrder: [String] { didSet { save(persistentOrder, "persistentOrder") } }
-    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "battery", "calendar", "hotspot", "focusPinned"]
 
     // 미디어 (5.7)
     @Published var mediaSource: MediaSource { didSet { save(mediaSource.rawValue, "mediaSource") } }
@@ -246,6 +246,11 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
     /// 새로고침 간격 (분)
     @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
+    /// 충전 중 상시 표시 (배터리 %·완충까지 남은 시간). 완충·충전 멈춤(어댑터로만 동작) 중에는 표시 안 함
+    @Published var batteryChargingPinned: Bool { didSet { save(batteryChargingPinned, "batteryChargingPinned") } }
+    /// 다음(진행 중) 일정 상시 표시
+    @Published var calendarPinned: Bool { didSet { save(calendarPinned, "calendarPinned") } }
+
     // 기본 노치 (홈) 기능: 순서, 끈 기능, 트레이 방식
     @Published var homeOrder: [String] { didSet { save(homeOrder, "homeOrder") } }
     @Published var homeDisabled: [String] { didSet { save(homeDisabled, "homeDisabled") } }
@@ -353,6 +358,8 @@ final class AppSettings: ObservableObject {
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
         agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
+        batteryChargingPinned = value("batteryChargingPinned", true)
+        calendarPinned = value("calendarPinned", false)
         // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
         let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
         homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
@@ -470,6 +477,8 @@ final class AppSettings: ObservableObject {
         aiConnected = value("aiConnected", "")
         agentAlerts = value("agentAlerts", true)
         agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
+        batteryChargingPinned = value("batteryChargingPinned", true)
+        calendarPinned = value("calendarPinned", false)
         // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
         let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
         homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }

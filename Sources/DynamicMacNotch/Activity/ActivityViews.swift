@@ -118,6 +118,8 @@ struct ActivityValueView: View {
                 .fixedSize()
         case .usage(let label, let percent, let ring):
             UsageGlyph(label: label, percent: percent, ring: ring, tint: tint, large: large)
+        case .batteryLevel(let level):
+            BatteryPercentGlyph(level: level, tint: tint, width: large ? 44 : 32)
         case .labeledText(let label, let text):
             VStack(spacing: 1) {
                 Text(label)
@@ -379,6 +381,25 @@ extension Image {
 }
 
 /// 배터리 알림 아이콘 정보 (잔량 0~1, 충전 중이면 번개)
+/// 배터리 아이콘 안에 퍼센트 숫자를 겹친 모양 (충전 중 상시 표시 왼쪽)
+struct BatteryPercentGlyph: View {
+    var level: Double
+    var tint: Color
+    var width: CGFloat
+
+    var body: some View {
+        BatteryGlyph(info: BatteryGlyphInfo(level: level, charging: false), tint: tint.opacity(0.75), width: width)
+            .overlay(alignment: .center) {
+                Text("\(Int((level * 100).rounded()))")
+                    .font(.system(size: width * 0.34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.7), radius: 0.8)
+                    .offset(x: -width * 0.04)   // 오른쪽 단자를 뺀 몸통 가운데
+            }
+    }
+}
+
 struct BatteryGlyphInfo: Equatable {
     var level: Double
     var charging: Bool

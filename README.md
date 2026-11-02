@@ -83,7 +83,7 @@ Reorder the pages or turn features off in **Settings → Interactions → Basics
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
 3. **AI Usage** — 5-hour and weekly limits for **Claude, ChatGPT (Codex) and Gemini**, with reset times. Sign in to each website once in Settings → Interactions → AI Usage; sign-in data stays in the app's own web storage. Optionally **keep it in the notch**: 5-hour on the left, weekly on the right, as text or rings. Services with a single limit (e.g. ChatGPT Free's 30-day limit) show one bar, and the notch shows that limit with the time to reset. If AI usage is the only live activity, long-pressing it opens Home on this page (swipe or use the dots for the other Home pages); with other live activities it opens in the live-activity popup. Choose how often it refreshes (1, 2, 5 or 10 min). When it isn't kept in the notch, nothing runs in the background: it refreshes only when you open the page. While a higher-priority live activity covers it, refreshing pauses and resumes once it's visible again. Each refresh runs in a short-lived helper process, so the web memory is released right after.
 4. **Memo** — a simple text memo: a fixed title on top and a scrolling body below. Click the title or body to type (it continues where you clicked); ⌘A, ⌘C, ⌘V, ⌘X and ⌘Z work. It saves automatically as you type and when you leave, and reopens where you left off. The list icon (top right) slides the memo over and shows your memos on the right third; click one to open it, right-click to delete. Memos are kept on disk, not in memory: a few seconds after the notch closes they're unloaded, and they're read again only when you open the memo page.
-5. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts.
+5. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts. Optionally keep the next event in the notch (its start time, or its end time while it's on).
 6. **AirDrop · Tray**
    - **Click** the AirDrop or Tray box to choose files; **or drag files** onto the notch — while dragging, the boxes only act as drop zones.
    - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
@@ -117,7 +117,7 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard), personal hotspot (can stay pinned), and a card when every network is lost.
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
-- **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable).
+- **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable). While actually charging, the notch can keep showing the battery % on the left and the time to full (from macOS) on the right. It isn't shown when fully charged, or when charging is paused and the Mac runs on the adapter (charge limit / Optimized Battery Charging).
 - **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Interactions → Downloads, plus extra folders); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
@@ -265,7 +265,7 @@ scripts/build.sh --install --run  # install to /Applications
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
 3. **AI 사용량** — **Claude, ChatGPT(Codex), Gemini**의 5시간·주간 한도와 초기화 시각. 설정 → 상호작용 → AI 사용량에서 각 웹사이트에 한 번 로그인합니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다. **노치에 상시 표시**(왼쪽 5시간, 오른쪽 주간 · 텍스트 또는 원형)를 켤 수 있고, 한도가 하나뿐인 서비스(예: ChatGPT 무료 30일 한도)는 바 하나로, 노치에는 그 한도와 초기화까지 남은 시간이 나옵니다. 상시 항목이 AI 사용량뿐이면 길게 눌렀을 때 홈의 이 페이지가 열리고(점·스와이프로 다른 홈 기능), 다른 상시 항목과 함께면 상시 항목 팝업에서 열립니다. 새로고침 빈도(1·2·5·10분)를 고릅니다. 상시 표시를 끄면 백그라운드에서는 아무것도 하지 않고 이 페이지를 열 때만 새로고침합니다. 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다. 새로고침은 잠깐 뜨는 도우미 프로세스가 하므로 끝나면 웹 메모리가 바로 반환됩니다.
 4. **메모** — 텍스트만 쓰는 간단한 메모. 위에 고정된 제목, 아래에 스크롤되는 본문. 제목이나 본문을 누르면 그 자리부터 이어서 씁니다. ⌘A·⌘C·⌘V·⌘X·⌘Z를 쓸 수 있습니다. 쓰는 동안과 나갈 때 자동 저장되고, 다시 열면 마지막으로 쓰던 메모가 그대로 열립니다. 오른쪽 위 목록 아이콘을 누르면 메모가 밀리며 오른쪽 1/3에 메모 목록이 나오고, 눌러서 불러오거나 우클릭으로 지웁니다. 메모는 메모리가 아니라 디스크에 두며, 노치가 닫히고 몇 초 뒤 메모리에서 내리고 메모 페이지를 열 때만 다시 읽습니다.
-5. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택).
+5. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택). 다음 일정을 노치에 상시 표시할 수 있습니다(시작 시각, 진행 중이면 끝나는 시각).
 6. **에어드랍 · 트레이**
    - 에어드랍·트레이 칸을 **클릭**해 파일을 고르거나, 파일을 노치로 **끌어다 놓습니다**. 끄는 동안에는 칸이 놓는 곳으로만 동작합니다.
    - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
@@ -299,7 +299,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
-- **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능).
+- **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능). 실제로 충전 중일 때는 왼쪽에 배터리 %, 오른쪽에 완충까지 남은 시간(macOS 계산값)을 상시 표시할 수 있습니다. 완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 어댑터로만 동작할 때는 표시하지 않습니다.
 - **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 상호작용 → 다운로드에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import IOKit.ps
 
 /// 배터리 이벤트 감지 (가이드라인 5.6): 충전기 연결, 부족 경고, 완충.
@@ -18,6 +19,7 @@ final class BatteryMonitor: ObservableObject {
     private var source: CFRunLoopSource?
     private var lastACChange = Date.distantPast
     private var lowArmed = true
+    private var cancellables = Set<AnyCancellable>()
 
     init(center: ActivityCenter) {
         self.center = center
@@ -25,6 +27,12 @@ final class BatteryMonitor: ObservableObject {
 
     func start() {
         snapshot = Self.read()
+        applyChargingPin()
+        settings.$batteryChargingPinned
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.applyChargingPin() }
+            .store(in: &cancellables)
         let context = Unmanaged.passUnretained(self).toOpaque()
         guard let src = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
@@ -68,6 +76,7 @@ final class BatteryMonitor: ObservableObject {
         guard let new = Self.read() else { return }
         let old = snapshot
         snapshot = new
+        applyChargingPin()
         guard let old else { return }
 
         // 충전기 연결 (빠르게 뺐다 꽂는 경우 2초 디바운스)
@@ -92,6 +101,34 @@ final class BatteryMonitor: ObservableObject {
         if ((new.isCharged && !old.isCharged) || reachedLimit), settings.batteryFullAlert {
             postFull(new)
         }
+    }
+
+    // MARK: - 충전 중 상시 표시
+
+    /// 실제로 충전 중일 때만: 어댑터 연결 + 충전 중 + 완충 아님.
+    /// 완충됐거나 충전 한도·최적화 충전으로 멈춰 어댑터로만 동작(바이패스)하는 동안은 띄우지 않는다.
+    static func isActuallyCharging(_ s: Snapshot) -> Bool { s.onAC && s.isCharging && !s.isCharged }
+
+    private func applyChargingPin() {
+        guard settings.batteryChargingPinned, let s = snapshot, Self.isActuallyCharging(s) else {
+            center.removePersistent(.battery)
+            return
+        }
+        center.setPersistent(Self.chargingActivity(s))
+    }
+
+    /// 왼쪽: 배터리 아이콘 위에 % / 오른쪽: 완충까지 남은 시간 (macOS가 계산한 값, 계산 중이면 –)
+    static func chargingActivity(_ s: Snapshot) -> NotchActivity {
+        let level = Double(s.percent) / 100
+        let remaining = s.minutesToFull.map { String(format: "%d:%02d", $0 / 60, $0 % 60) } ?? "–"
+        let subtitle = s.minutesToFull.map { T("완충까지 \($0 / 60)시간 \($0 % 60)분", "\($0 / 60)h \($0 % 60)m until full") }
+            ?? T("완충까지 남은 시간 계산 중", "Estimating time to full")
+        return NotchActivity(
+            kind: .battery, priority: ActivityPriority.pinned, symbol: "bolt.fill", tint: .green,
+            value: .labeledText(label: T("완충까지", "to full"), text: remaining),
+            title: T("충전 중 \(s.percent)%", "Charging \(s.percent)%"), subtitle: subtitle,
+            detailValue: .percent(level), wing: NotchActivity.compactWing,
+            leadingValue: .batteryLevel(level))
     }
 
     // MARK: - 액티비티

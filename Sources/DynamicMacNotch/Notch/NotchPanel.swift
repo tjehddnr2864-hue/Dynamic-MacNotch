@@ -33,6 +33,11 @@ final class NotchPanel: NSPanel {
     /// 창이 키 이벤트를 받는 단계에서 처리한다.
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown, handleEditingShortcut(event) { return }
+        // 두 손가락 스크롤은 창 단계에서 먼저 노치 제스처(페이지 넘기기 등)로 보낸다.
+        // 메모 본문처럼 안쪽 스크롤 영역이 있으면 이벤트가 그 영역에서 멈춰 제스처가 동작하지 않기 때문.
+        if event.type == .scrollWheel, let host = contentView as? NotchHostingView {
+            host.gestureDelegate?.scroll(event)
+        }
         super.sendEvent(event)
     }
 
@@ -105,10 +110,7 @@ final class NotchHostingView: NSHostingView<NotchRootView> {
         gestureDelegate?.secondaryClick(event, in: self)
     }
 
-    override func scrollWheel(with event: NSEvent) {
-        gestureDelegate?.scroll(event)
-        super.scrollWheel(with: event)
-    }
+    // 스크롤 제스처는 NotchPanel.sendEvent가 먼저 넘긴다 (여기서 또 넘기면 두 번 처리됨)
 }
 
 enum Haptics {

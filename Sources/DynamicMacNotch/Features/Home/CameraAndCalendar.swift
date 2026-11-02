@@ -183,6 +183,7 @@ final class CalendarController: ObservableObject {
     func stop() {
         for (nc, token) in observers { nc.removeObserver(token) }
         observers.removeAll()
+        center.removePersistent(.calendar)
         timer?.invalidate()
         timer = nil
         events = []
@@ -200,6 +201,8 @@ final class CalendarController: ObservableObject {
                 candidates.append(e.start.addingTimeInterval(-lead))
             }
             if e.end > now { candidates.append(e.end.addingTimeInterval(1)) }
+            // 상시 표시: 일정이 시작하는 순간 '다음' → '진행 중'으로 바꾼다
+            if settings.calendarPinned, e.start > now { candidates.append(e.start.addingTimeInterval(1)) }
         }
         guard let next = candidates.min() else { return }
         let t = Timer(fire: next, interval: 0, repeats: false) { [weak self] _ in self?.reload() }
@@ -229,7 +232,31 @@ final class CalendarController: ObservableObject {
                       allDay: e.isAllDay, color: Color(nsColor: e.calendar.color ?? .systemBlue))
             }
         checkAlerts()
+        applyPin()
         scheduleNextWake()
+    }
+
+    // MARK: - 상시 표시 (다음·진행 중 일정)
+
+    /// 오늘 시간이 정해진 일정 중 진행 중인 것, 없으면 다음 것. 노치에는 시각만 보이고 제목은 길게 눌러야 보인다.
+    private func applyPin() {
+        let now = Date()
+        let timed = events.filter { !$0.allDay }
+        guard settings.calendarPinned, !observers.isEmpty,
+              let e = timed.first(where: { $0.start <= now && $0.end > now }) ?? timed.first(where: { $0.start > now }) else {
+            center.removePersistent(.calendar)
+            return
+        }
+        let ongoing = e.start <= now
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        center.setPersistent(NotchActivity(
+            kind: .calendar, priority: ActivityPriority.pinned, symbol: "calendar", tint: e.color,
+            value: .labeledText(label: ongoing ? T("진행 중", "now") : T("다음", "next"),
+                                text: ongoing ? "~" + f.string(from: e.end) : f.string(from: e.start)),
+            title: e.title, subtitle: Self.timeText(e),
+            detailValue: .text(ongoing ? T("진행 중", "Now") : f.string(from: e.start)),
+            wing: NotchActivity.compactWing))
     }
 
     /// 일정 시작 N분 전 컴팩트 알림 (가이드라인 5.1)

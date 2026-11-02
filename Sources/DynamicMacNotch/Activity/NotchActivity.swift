@@ -35,6 +35,7 @@ enum ActivityValue: Equatable {
     case elapsed(Date)        // 그 시각부터 흐른 시간 (화면 녹화: 오른쪽 녹화 시간)
     case usage(label: String, percent: Double?, ring: Bool)   // AI 사용량: 위 작은 이름(5h·wk), 아래 퍼센트 또는 원형
     case labeledText(label: String, text: String)            // 위 작은 이름, 아래 글자 (AI 사용량 초기화까지 남은 시간)
+    case batteryLevel(Double)                                // 0...1, 배터리 아이콘 위에 퍼센트 숫자를 겹쳐 (충전 중 상시 표시)
 }
 
 enum ActivityPresentation: Equatable {

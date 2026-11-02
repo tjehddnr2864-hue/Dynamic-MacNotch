@@ -113,6 +113,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.vm.resyncPersistentOrder()
             }
             .store(in: &cancellables)
+        // 일정 상시 표시 켜기·끄기 (일정 기능이 켜져 있을 때만 다시 읽음)
+        settings.$calendarPinned
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.settings.isHomeFeatureOn("calendar") else { return }
+                self.calendar.reload()
+            }
+            .store(in: &cancellables)
         // 기본 노치 기능 켜기·끄기: 끈 기능은 백그라운드 작업까지 멈춘다
         settings.$homeDisabled
             .receive(on: RunLoop.main)
@@ -235,6 +244,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                       windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
                             panel.sendEvent(e)
                         }
+                    }
+                }
+            case let c where c.hasPrefix("devswipe:"):   // 개발용: 노치 창에 두 손가락 좌우 스크롤 (예: devswipe:-120 = 다음 페이지)
+                if let dx = Double(c.dropFirst(9)), let panel = self.notch?.panel {
+                    let center = CGPoint(x: panel.frame.midX, y: (NSScreen.screens.first?.frame.maxY ?? 0) - panel.frame.maxY + 120)
+                    let steps: [(Int64, Double)] = [(1, 0)] + Array(repeating: (2, dx / 6), count: 6) + [(4, 0)]
+                    for (phase, delta) in steps {
+                        guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0,
+                                               wheel2: Int32(delta), wheel3: 0) else { continue }
+                        cg.location = center
+                        cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+                        cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+                        cg.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: delta)
+                        if let e = NSEvent(cgEvent: cg) { panel.sendEvent(e) }
                     }
                 }
             case let c where c.hasPrefix("devtype:"):   // 개발용: 이 앱에만 글자 입력

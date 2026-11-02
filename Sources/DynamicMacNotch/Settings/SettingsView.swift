@@ -267,6 +267,9 @@ struct SettingsView: View {
                     Text(T("끄기", "Off")).tag(0.0)
                     ForEach([5.0, 10.0, 15.0], id: \.self) { Text(T("\(Int($0))분 전", "\(Int($0)) min before")).tag($0) }
                 }
+                Toggle(T("다음 일정 상시 표시 (시작 시각, 진행 중이면 끝나는 시각)", "Keep showing the next event (start time, or end time while it's on)"),
+                       isOn: $settings.calendarPinned)
+                    .disabled(!settings.isHomeFeatureOn("calendar"))
             }
             Section {
                 percentSlider(T("배경 흐림", "Background Blur"), value: $settings.settingsBlur, range: 0...1)
@@ -336,6 +339,8 @@ struct SettingsView: View {
         case "hotspot": return T("핫스팟 연결", "Hotspot")
         case "focusPinned": return T("집중 모드", "Focus")
         case "aiUsage": return T("AI 사용량", "AI Usage")
+        case "battery": return T("충전 중", "Charging")
+        case "calendar": return T("일정", "Events")
         default: return key
         }
     }
@@ -351,6 +356,8 @@ struct SettingsView: View {
         case "hotspot": return "personalhotspot"
         case "focusPinned": return "moon"
         case "aiUsage": return "gauge.medium"
+        case "battery": return "battery.100percent.bolt"
+        case "calendar": return "calendar"
         default: return "circle"
         }
     }
@@ -706,7 +713,12 @@ struct SettingsView: View {
                 Toggle(T("충전기 연결 알림", "Charger connected alert"), isOn: $settings.batteryChargerAlert)
                 Toggle(T("완충 알림", "Fully charged alert"), isOn: $settings.batteryFullAlert)
                 Toggle(T("배터리 부족 경고", "Low battery warning"), isOn: $settings.batteryLowAlert)
-            } header: { showHeader }
+                Toggle(T("충전 중 상시 표시 (왼쪽 배터리 %, 오른쪽 완충까지 남은 시간)",
+                         "Keep showing while charging (left: battery %, right: time to full)"), isOn: $settings.batteryChargingPinned)
+            } header: { showHeader } footer: {
+                footnote(T("완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 전원 어댑터로만 동작하는 동안에는 상시 표시하지 않습니다. 남은 시간은 macOS가 계산한 값이며, 계산 중이면 –로 표시합니다.",
+                           "Not shown when fully charged, or when charging is paused (charge limit or Optimized Battery Charging) and the Mac runs on the adapter. The time comes from macOS; – means it's still estimating."))
+            }
             Section {
                 alertStylePicker($settings.batteryStyle)
             } header: { styleHeader }
@@ -897,7 +909,8 @@ struct SettingsView: View {
                             ("hud-keyboard", T("키보드 밝기 HUD", "Keyboard Brightness HUD")), ("download", T("다운로드", "Download")),
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
                             ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)")),
-                            ("ai-usage", T("AI 사용량", "AI Usage"))],
+                            ("ai-usage", T("AI 사용량", "AI Usage")), ("charging-pinned", T("충전 중 상시 표시", "Charging (Live)")),
+                            ("calendar-pinned", T("일정 상시 표시", "Next Event (Live)"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
             testSection(T("상세로만 표시", "Detailed Only"),
