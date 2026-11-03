@@ -104,8 +104,8 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             center(window)
             settingsWindow = window
             #if DEV
-            // 개발용: DMN_DRAG="x,y1,y2"(창 왼쪽 위 기준 pt)면 열린 뒤 그 자리를 눌러 끄는 마우스 이벤트를 보낸다 (순서 끌기 시험)
-            if let spec = ProcessInfo.processInfo.environment["DMN_DRAG"]?.split(separator: ",").compactMap({ Double($0) }), spec.count == 3 {
+            // 개발용: DMN_DRAG="x,y1,y2[,hold]"(창 왼쪽 위 기준 pt, hold면 놓지 않음)면 열린 뒤 그 자리를 눌러 끄는 마우스 이벤트를 보낸다 (순서 끌기 시험)
+            if let spec = ProcessInfo.processInfo.environment["DMN_DRAG"]?.split(separator: ",").compactMap({ Double($0) }), spec.count >= 3 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
                     guard let window else { return }
                     let h = window.contentView?.bounds.height ?? 620
@@ -116,7 +116,7 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
                     }
                     send(.leftMouseDown, spec[1])
                     for i in 1...10 { send(.leftMouseDragged, spec[1] + (spec[2] - spec[1]) * Double(i) / 10) }
-                    send(.leftMouseUp, spec[2])
+                    if spec.count == 3 { send(.leftMouseUp, spec[2]) }
                 }
             }
             #endif
