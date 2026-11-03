@@ -298,17 +298,10 @@ struct SettingsView: View {
     private var priority: some View {
         Form {
             Section {
-                ForEach(Array(settings.persistentOrder.enumerated()), id: \.element) { index, key in
-                    HStack {
-                        Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 18)
-                        Label(Self.persistentName(key), systemImage: Self.persistentSymbol(key))
-                        Spacer()
-                        Button { move(index, by: -1) } label: { Image(systemName: "chevron.up") }
-                            .disabled(index == 0)
-                        Button { move(index, by: 1) } label: { Image(systemName: "chevron.down") }
-                            .disabled(index == settings.persistentOrder.count - 1)
-                    }
-                    .buttonStyle(.borderless)
+                ReorderList(items: settings.persistentOrder, onCommit: { settings.persistentOrder = $0 }) { key, index in
+                    Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 18)
+                    Label(Self.persistentName(key), systemImage: Self.persistentSymbol(key))
+                    Spacer()
                 }
             } header: {
                 Text(T("상시 표시 우선순위", "Live Activity Priority"))
@@ -318,14 +311,6 @@ struct SettingsView: View {
             }
         }
         .settingsForm()
-    }
-
-    private func move(_ index: Int, by delta: Int) {
-        var order = settings.persistentOrder
-        let target = index + delta
-        guard order.indices.contains(target) else { return }
-        order.swapAt(index, target)
-        withAnimation { settings.persistentOrder = order }
     }
 
     static func persistentName(_ key: String) -> String {
@@ -445,28 +430,21 @@ struct SettingsView: View {
     private var basics: some View {
         Form {
             Section {
-                ForEach(Array(settings.homeOrder.enumerated()), id: \.element) { index, key in
+                ReorderList(items: settings.homeOrder, onCommit: { settings.homeOrder = $0 }) { key, index in
                     if let option = HomeOption(key: key) {
-                        HStack(spacing: 10) {
-                            Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 18)
-                            Label(option.title, systemImage: option.symbol)
-                                .foregroundStyle(settings.isHomeFeatureOn(key) ? .primary : .secondary)
-                            Spacer()
-                            if option == .tray {
-                                Picker("", selection: $settings.trayMode) {
-                                    ForEach(TrayMode.allCases) { Text($0.label).tag($0) }
-                                }
-                                .labelsHidden()
-                                .fixedSize()
-                            } else {
-                                Toggle("", isOn: homeToggle(key)).labelsHidden().toggleStyle(.switch).controlSize(.small)
+                        Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 18)
+                        Label(option.title, systemImage: option.symbol)
+                            .foregroundStyle(settings.isHomeFeatureOn(key) ? .primary : .secondary)
+                        Spacer()
+                        if option == .tray {
+                            Picker("", selection: $settings.trayMode) {
+                                ForEach(TrayMode.allCases) { Text($0.label).tag($0) }
                             }
-                            Button { moveHome(index, by: -1) } label: { Image(systemName: "chevron.up") }
-                                .disabled(index == 0)
-                            Button { moveHome(index, by: 1) } label: { Image(systemName: "chevron.down") }
-                                .disabled(index == settings.homeOrder.count - 1)
+                            .labelsHidden()
+                            .fixedSize()
+                        } else {
+                            Toggle("", isOn: homeToggle(key)).labelsHidden().toggleStyle(.switch).controlSize(.small)
                         }
-                        .buttonStyle(.borderless)
                     }
                 }
             } header: {
@@ -486,14 +464,6 @@ struct SettingsView: View {
                     if !on { list.append(key) }
                     settings.homeDisabled = list
                 })
-    }
-
-    private func moveHome(_ index: Int, by delta: Int) {
-        var order = settings.homeOrder
-        let target = index + delta
-        guard order.indices.contains(target) else { return }
-        order.swapAt(index, target)
-        withAnimation { settings.homeOrder = order }
     }
 
     // MARK: 네트워크
@@ -531,7 +501,7 @@ struct SettingsView: View {
             } header: { showHeader }
             Section {
                 alertStylePicker($settings.btStyle)
-                Picker(T("배터리 표시", "Battery Display"), selection: $settings.btBattery) {
+                Picker(T("배터리 표시 (컴팩트, 상세는 백분율)", "Battery Display (Compact; Detailed shows %)"), selection: $settings.btBattery) {
                     ForEach(BatteryDisplay.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -1167,5 +1137,86 @@ private struct AgentSettingsPage: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+}
+
+/// 끌어서 순서를 바꾸는 목록. 왼쪽 손잡이(가로줄 3개)를 누른 채 위아래로 끌면 줄이 따라 움직이고,
+/// 한 칸 넘어갈 때마다 트랙패드 햅틱을 준다. 놓을 때 한 번만 저장한다(끄는 동안 설정을 계속 쓰지 않게).
+private struct ReorderList<Row: View>: View {
+    var items: [String]
+    var onCommit: ([String]) -> Void
+    @ViewBuilder var row: (String, Int) -> Row
+
+    private static var rowHeight: CGFloat { 34 }
+    private let draftState = State(initialValue: [String]?.none)
+    private let draggingState = State(initialValue: String?.none)
+    private let startState = State(initialValue: 0)
+    private var draft: [String]? {
+        get { draftState.wrappedValue }
+        nonmutating set { draftState.wrappedValue = newValue }
+    }
+    private var dragging: String? {
+        get { draggingState.wrappedValue }
+        nonmutating set { draggingState.wrappedValue = newValue }
+    }
+    private var startIndex: Int {
+        get { startState.wrappedValue }
+        nonmutating set { startState.wrappedValue = newValue }
+    }
+
+    var body: some View {
+        let list = draft ?? items
+        VStack(spacing: 0) {
+            ForEach(Array(list.enumerated()), id: \.element) { index, key in
+                HStack(spacing: 10) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(dragging == key ? Color.accentColor : .secondary)
+                        .frame(width: 24, height: Self.rowHeight)
+                        .contentShape(Rectangle())
+                        .onHover { inside in if dragging == nil { (inside ? NSCursor.openHand : NSCursor.arrow).set() } }
+                        .gesture(dragGesture(key))
+                        .help(T("끌어서 순서 바꾸기", "Drag to reorder"))
+                    row(key, index)
+                }
+                .frame(height: Self.rowHeight)
+                .padding(.horizontal, 4)
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(dragging == key ? Color.accentColor.opacity(0.12) : .clear))
+                .overlay(alignment: .bottom) {
+                    if index < list.count - 1 { Divider().opacity(dragging == nil ? 1 : 0.4) }
+                }
+                .zIndex(dragging == key ? 1 : 0)
+            }
+        }
+    }
+
+    private func dragGesture(_ key: String) -> some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                if dragging == nil {
+                    dragging = key
+                    draft = items
+                    startIndex = items.firstIndex(of: key) ?? 0
+                    NSCursor.closedHand.set()
+                }
+                guard var list = draft, let current = list.firstIndex(of: key) else { return }
+                let target = min(max(startIndex + Int((value.translation.height / Self.rowHeight).rounded()), 0), list.count - 1)
+                guard target != current else { return }
+                withAnimation(.snappy(duration: 0.18)) {
+                    list.move(fromOffsets: IndexSet(integer: current), toOffset: target > current ? target + 1 : target)
+                    draft = list
+                }
+                // 한 칸 넘어갈 때마다 트랙패드에 '딸깍'
+                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+            }
+            .onEnded { _ in
+                if let list = draft, list != items { onCommit(list) }
+                NSCursor.arrow.set()
+                withAnimation(.snappy(duration: 0.18)) {
+                    dragging = nil
+                    draft = nil
+                }
+            }
     }
 }

@@ -92,13 +92,27 @@ struct ActivityValueView: View {
             BarGauge(value: v, tint: tint)
                 .frame(width: large ? 120 : 44)
         case .ringPercent(let v):
-            HStack(spacing: 5) {
-                RingGauge(value: v, tint: tint, lineWidth: large ? 4 : 2.4)
-                    .frame(width: large ? 26 : 16, height: large ? 26 : 16)
-                RollingText(text: "\(Int((v * 100).rounded()))%")
-                    .font(large ? .system(size: 18, weight: .semibold, design: .rounded) : numberFont)
-                    .monospacedDigit()
-                    .foregroundStyle(textColor ?? .white)
+            if large {
+                HStack(spacing: 5) {
+                    RingGauge(value: v, tint: tint, lineWidth: 4)
+                        .frame(width: 26, height: 26)
+                    RollingText(text: "\(Int((v * 100).rounded()))%")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(textColor ?? .white)
+                }
+            } else {
+                // 컴팩트: 원형 안에 숫자만 (% 없이)
+                let n = Int((v * 100).rounded())
+                ZStack {
+                    RingGauge(value: v, tint: tint, lineWidth: 2.2)
+                    Text("\(n)")
+                        .font(.system(size: n >= 100 ? 8 : 9.5, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(textColor ?? .white)
+                        .minimumScaleFactor(0.7)
+                }
+                .frame(width: 23, height: 23)
             }
         case .recordingDot:
             RecordingDot()

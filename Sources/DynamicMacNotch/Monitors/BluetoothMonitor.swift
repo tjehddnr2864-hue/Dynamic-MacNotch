@@ -244,20 +244,11 @@ final class BluetoothMonitor: NSObject {
             value: value,
             title: name,
             subtitle: subtitle,
-            // 상세 카드도 설정의 배터리 표시 방식(백분율/원형/둘 다)을 따른다
-            detailValue: level.map { level -> ActivityValue in
-                switch settings.btBattery {
-                case .percent: return .percent(level)
-                case .ring: return .ring(level)
-                case .both: return .ringPercent(level)
-                }
-            } ?? value,
+            // 상세 카드는 배터리 표시 방식과 상관없이 백분율만 (원형·둘 다는 컴팩트에만)
+            detailValue: level.map { .percent($0) } ?? value,
             wing: {
-                switch value {
-                case .text(let t): return NetworkMonitor.wing(for: t)
-                case .ringPercent: return 70
-                default: return 56
-                }
+                if case .text(let t) = value { return NetworkMonitor.wing(for: t) }
+                return 56
             }(),
             swapSides: false,   // 좌: 기기 아이콘, 우: 배터리 잔량
             valueTint: level == nil ? .white : tint

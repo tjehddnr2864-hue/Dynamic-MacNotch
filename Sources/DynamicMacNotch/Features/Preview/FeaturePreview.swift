@@ -129,19 +129,14 @@ final class FeaturePreview {
                                       tint: .orange, value: .text(T("없음", "None")), title: T("연결된 네트워크 없음", "No Network Connection"),
                                       subtitle: T("Wi-Fi·셀룰러 연결이 끊겼습니다", "Wi-Fi and cellular are disconnected")))
         case .airpods:
-            let s = AppSettings.shared
-            let value: ActivityValue = switch s.btBattery {
-            case .percent: .percent(0.82)
-            case .ring: .ring(0.82)
-            case .both: .ringPercent(0.82)
-            }
-            center.post(NotchActivity(kind: .bluetooth, presentation: presentation(s.btStyle), symbol: "airpodspro", tint: .green,
-                                      value: value, title: "AirPods Pro",
+            center.post(NotchActivity(kind: .bluetooth, presentation: presentation(AppSettings.shared.btStyle), symbol: "airpodspro",
+                                      tint: .green, value: Self.btValue(0.82), title: "AirPods Pro",
                                       subtitle: T("왼쪽 82% · 오른쪽 84% · 케이스 60%", "Left 82% · Right 84% · Case 60%"),
-                                      detailValue: value, wing: s.btBattery == .both ? 70 : 56, valueTint: .green))
+                                      detailValue: .percent(0.82), wing: 56, valueTint: .green))
         case .btLow:
+            // 실제 연결 알림과 같이 배터리 표시 방식(백분율·원형·둘 다)을 따른다
             center.post(NotchActivity(kind: .bluetooth, presentation: presentation(AppSettings.shared.btStyle), symbol: "computermouse",
-                                      tint: .red, value: .percent(0.12), title: "Magic Mouse", subtitle: T("연결됨", "Connected"),
+                                      tint: .red, value: Self.btValue(0.12), title: "Magic Mouse", subtitle: T("연결됨", "Connected"),
                                       detailValue: .percent(0.12), wing: 56, valueTint: .red))
         case .btNoBattery:
             let text = T("연결됨", "Connected")
@@ -243,6 +238,15 @@ final class FeaturePreview {
     }
 
     // MARK: - 각 미리보기
+
+    /// 블루투스 배터리 표시 방식(백분율·원형·둘 다)에 맞춘 컴팩트 값
+    private static func btValue(_ level: Double) -> ActivityValue {
+        switch AppSettings.shared.btBattery {
+        case .percent: return .percent(level)
+        case .ring: return .ring(level)
+        case .both: return .ringPercent(level)
+        }
+    }
 
     /// HUD 수치 표시 방식(숫자·바·원형)에 맞춘 값
     private static func hudValue(_ v: Double) -> ActivityValue {
