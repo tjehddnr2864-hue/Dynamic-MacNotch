@@ -195,13 +195,15 @@ final class RecordingMonitor: ObservableObject {
     /// ⌘⇧5 녹화 동안 macOS 스크린샷 도구는 화면 전체 크기의 창(메뉴바 층)을 띄워 두고, 녹화 방식을 고르는
     /// 아래쪽 도구 막대는 녹화를 시작하면 사라진다. 그래서 '전체 화면 창 + 도구 막대 없음'이면 녹화 시작으로 보고,
     /// 녹화 중에는 ⌘⇧5로 도구 막대를 다시 띄워도 전체 화면 창이 남아 있는 동안 녹화가 이어진 것으로 본다.
+    /// 다만 Esc로 도구를 닫거나 녹화를 멈춘 뒤에도 전체 화면 창은 몇 초 더 남으므로, 창 모양만으로는 판단하지 않는다.
+    /// 실제로 화면을 캡처하는 중이고(SkyLight) 녹화 도구 프로세스가 살아 있을 때만 녹화로 본다.
     /// (화면을 늘 캡처하는 다른 앱이 있는 Mac도 있어 '캡처 중 + 도구 실행'만으로는 스크린샷 뒤에도 녹화로 오인한다)
     /// 명령줄 녹화(screencapture -v)는 창이 없으므로 그 프로세스의 실행 인자로 확인한다.
     static func systemIsRecording(alreadyRecording: Bool = false,
-                                  procs: (ui: Bool, cliVideo: Bool) = recorderProcesses()) -> Bool {
+                                  procs: (ui: Bool, tool: Bool, cliVideo: Bool) = recorderProcesses()) -> Bool {
         if procs.ui {
             let ui = captureUI()
-            if ui.fullScreenLayer && (!ui.toolbar || alreadyRecording) { return true }
+            if ui.fullScreenLayer, !ui.toolbar || alreadyRecording, procs.tool, screenWatcherPresent?() ?? true { return true }
             if ui.stopButton { return true }   // 예전 macOS: 메뉴바 정지 버튼
         }
         if procs.cliVideo, screenWatcherPresent?() ?? true { return true }
@@ -229,20 +231,20 @@ final class RecordingMonitor: ObservableObject {
         return (full, toolbar, stop)
     }
 
-    /// 녹화 도구 프로세스: (screencaptureui·QuickTime 실행 중, 동영상 옵션으로 실행된 screencapture)
+    /// 녹화 도구 프로세스: (screencaptureui·QuickTime 실행 중, screencapture·QuickTime 실행 중, 동영상 옵션으로 실행된 screencapture)
     /// 내 사용자 프로세스 목록을 sysctl 한 번으로 받아 이름만 본다 (프로세스마다 묻지 않아 가볍다).
     private static var procBuffer: [kinfo_proc] = []
 
-    static func recorderProcesses() -> (ui: Bool, cliVideo: Bool) {
+    static func recorderProcesses() -> (ui: Bool, tool: Bool, cliVideo: Bool) {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_UID, Int32(getuid())]
         var size = 0
-        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return (false, false) }
+        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return (false, false, false) }
         let stride = MemoryLayout<kinfo_proc>.stride
         // 1.5초마다 수백 KB를 새로 잡지 않도록 버퍼를 다시 쓴다 (메인 스레드에서만 호출)
         if procBuffer.count < size / stride + 8 { procBuffer = [kinfo_proc](repeating: kinfo_proc(), count: size / stride + 64) }
         size = procBuffer.count * stride
-        guard sysctl(&mib, 4, &procBuffer, &size, nil, 0) == 0 else { return (false, false) }
-        var ui = false, cli = false
+        guard sysctl(&mib, 4, &procBuffer, &size, nil, 0) == 0 else { return (false, false, false) }
+        var ui = false, tool = false, cli = false
         let s = CChar(UInt8(ascii: "s")), q = CChar(UInt8(ascii: "Q"))
         for i in 0..<(size / stride) {
             // 찾는 이름은 s·Q로 시작하므로 나머지는 이름을 만들지 않고 넘긴다
@@ -250,14 +252,18 @@ final class RecordingMonitor: ObservableObject {
             let p = procBuffer[i]
             let name = withUnsafeBytes(of: p.kp_proc.p_comm) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
             switch name {
-            case "screencaptureui", "QuickTime Player": ui = true
+            case "screencaptureui": ui = true
+            case "QuickTime Player":
+                ui = true
+                tool = true
             case "screencapture":
+                tool = true
                 let args = processArguments(p.kp_proc.p_pid)
                 if args.contains(where: { $0 == "-v" || $0 == "-V" || ($0.hasPrefix("-") && !$0.hasPrefix("--") && $0.contains("v")) }) { cli = true }
             default: break
             }
         }
-        return (ui, cli)
+        return (ui, tool, cli)
     }
 
     /// 다른 프로세스의 실행 인자 (같은 사용자 프로세스만 읽을 수 있음)
