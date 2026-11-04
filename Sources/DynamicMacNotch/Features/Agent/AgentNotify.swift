@@ -8,6 +8,8 @@ enum AgentSource: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var name: String { self == .claude ? "Claude Code" : "Codex" }
     var symbol: String { self == .claude ? "sparkle" : "chevron.left.forwardslash.chevron.right" }
+    /// 에이전트 자체 앱
+    var appBundleID: String { self == .claude ? "com.anthropic.claudefordesktop" : "com.openai.codex" }
     var tint: Color { self == .claude ? Color(red: 0.85, green: 0.47, blue: 0.34) : Color(red: 0.55, green: 0.62, blue: 1.0) }
 }
 
@@ -131,8 +133,19 @@ enum AgentNotify {
             let bundle = info["bundle"] as? String ?? ""
             let pid = info["pid"] as? Int ?? 0
             let task = info["task"] as? String ?? ""
+            // 그 에이전트가 돌던 앱을 지금 보고 있으면 알리지 않는다 (화면이 잠겨 있으면 보고 있는 것이 아님)
+            if isViewing(source, bundle: bundle, pid: pid) { return }
             center.post(activity(source, project: project, task: task, target: bundle.isEmpty ? nil : "\(bundle)|\(pid)"))
         }
+    }
+
+    /// 맨 앞 앱이 에이전트가 돌던 앱인지. 돌던 앱을 알 수 없으면 에이전트 자체 앱(Claude·Codex)으로 판단한다.
+    private static func isViewing(_ source: AgentSource, bundle: String, pid: Int) -> Bool {
+        if let session = CGSessionCopyCurrentDictionary() as? [String: Any], session["CGSSessionScreenIsLocked"] as? Bool == true { return false }
+        guard let front = NSWorkspace.shared.frontmostApplication else { return false }
+        if pid > 0, front.processIdentifier == pid_t(pid) { return true }
+        guard let id = front.bundleIdentifier else { return false }
+        return bundle.isEmpty ? id == source.appBundleID : id == bundle
     }
 
     /// 컴팩트: 왼쪽 에이전트 아이콘, 오른쪽 '완료'.

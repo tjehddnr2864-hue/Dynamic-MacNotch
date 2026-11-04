@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 import CoreWLAN
 import Network
 import SystemConfiguration
@@ -26,6 +27,7 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
     private var quietUntil = Date().addingTimeInterval(2)   // 시작 직후 초기 상태는 알리지 않는다
     private var pendingEvaluate: DispatchWorkItem?
     private var store: SCDynamicStore?
+    private var pinObservers = Set<AnyCancellable>()
     private var offlineCheck: DispatchWorkItem?
 
     init(center: ActivityCenter) {
@@ -56,6 +58,11 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
 
         state = readState()
         applyHotspotPin()
+        // 상시 표시 스위치는 바로 반영
+        settings.$vpnPinned.merge(with: settings.$hotspotPinned).dropFirst(2)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.applyHotspotPin() }
+            .store(in: &pinObservers)
     }
 
     private func observeDynamicStore() {
@@ -235,9 +242,9 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
 
         if new.vpnName != old.vpnName, settings.netVPN {
             if let name = new.vpnName {
-                post(symbol: "lock.shield.fill", tint: .green, short: T("연결됨", "Connected"), title: "VPN", detail: name)
+                post(symbol: "network", tint: .blue, short: T("연결됨", "Connected"), title: "VPN", detail: name)
             } else {
-                post(symbol: "lock.open", tint: .gray, short: T("해제됨", "Disconnected"), title: "VPN", detail: T("연결 해제됨", "Disconnected"))
+                post(symbol: "network", tint: .gray, short: T("해제됨", "Disconnected"), title: "VPN", detail: T("연결 해제됨", "Disconnected"))
             }
         }
     }
@@ -267,6 +274,14 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
 
     /// 핫스팟 '연결 중 상시 표시' 옵션.
     private func applyHotspotPin() {
+        // VPN 상시 표시도 같이: 연결 순간의 알림에만 '연결됨', 계속 표시하는 동안은 왼쪽 아이콘만
+        if settings.vpnPinned, let name = state.vpnName {
+            center.setPersistent(NotchActivity(
+                kind: .vpn, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .none,
+                title: "VPN", subtitle: name, detailValue: .text(T("연결됨", "Connected"))))
+        } else {
+            center.removePersistent(.vpn)
+        }
         if settings.hotspotPinned, state.hotspot {
             center.setPersistent(NotchActivity(
                 kind: .hotspot, priority: ActivityPriority.pinned,

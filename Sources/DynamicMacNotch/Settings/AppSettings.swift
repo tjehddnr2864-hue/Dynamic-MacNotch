@@ -139,6 +139,8 @@ final class AppSettings: ObservableObject {
     /// 0 = 일반 설정 따름
     @Published var netDuration: Double { didSet { save(netDuration, "netDuration") } }
     @Published var hotspotPinned: Bool { didSet { save(hotspotPinned, "hotspotPinned") } }
+    /// VPN 연결 중 상시 표시 (아이콘만)
+    @Published var vpnPinned: Bool { didSet { save(vpnPinned, "vpnPinned") } }
     /// 핫스팟으로 간주할 SSID (쉼표 구분)
     @Published var hotspotSSIDs: String { didSet { save(hotspotSSIDs, "hotspotSSIDs") } }
 
@@ -176,7 +178,7 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Published var persistentOrder: [String] { didSet { save(persistentOrder, "persistentOrder") } }
-    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "battery", "calendar", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
 
     // 미디어 (5.7)
     @Published var mediaSource: MediaSource { didSet { save(mediaSource.rawValue, "mediaSource") } }
@@ -312,6 +314,7 @@ final class AppSettings: ObservableObject {
         netHotspot = value("netHotspot", true)
         netDuration = value("netDuration", 0.0)
         hotspotPinned = value("hotspotPinned", false)
+        vpnPinned = value("vpnPinned", false)
         hotspotSSIDs = value("hotspotSSIDs", "")
 
         btEnabled = value("btEnabled", true)
@@ -431,6 +434,7 @@ final class AppSettings: ObservableObject {
         netHotspot = value("netHotspot", true)
         netDuration = value("netDuration", 0.0)
         hotspotPinned = value("hotspotPinned", false)
+        vpnPinned = value("vpnPinned", false)
         hotspotSSIDs = value("hotspotSSIDs", "")
 
         btEnabled = value("btEnabled", true)

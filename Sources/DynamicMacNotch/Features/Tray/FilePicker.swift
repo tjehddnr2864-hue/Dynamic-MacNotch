@@ -13,6 +13,9 @@ enum FilePicker {
     private static var running: Process?
     static var isRunning: Bool { running?.isRunning == true }
 
+    /// 파일 선택 창이 떠 있는 동안 (그 창을 눌러도 노치를 닫지 않는다)
+    static var isChoosing: Bool { running?.isRunning == true }
+
     /// 본 앱: 도우미를 띄우고, 고른 파일을 메인 스레드로 돌려준다 (취소하면 호출하지 않음).
     static func choose(_ purpose: Purpose, completion: @escaping ([URL]) -> Void) {
         // 이미 열려 있으면 새로 띄우지 않는다 (연타 방지)

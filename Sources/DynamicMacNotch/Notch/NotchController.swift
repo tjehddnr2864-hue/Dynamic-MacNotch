@@ -177,7 +177,8 @@ final class NotchController: NotchGestureDelegate {
         }
         // 바깥 클릭 → 확장 닫기
         if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
-            guard let self, self.vm.isExpanded else { return }
+            // 파일 선택 창을 쓰는 동안의 클릭은 '바깥 클릭'이 아니다
+            guard let self, self.vm.isExpanded, !FilePicker.isChoosing else { return }
             if !self.interactiveRect.contains(NSEvent.mouseLocation) { self.collapse() }
         }) {
             monitors.append(m)
@@ -340,9 +341,10 @@ final class NotchController: NotchGestureDelegate {
             }
             let fingerUp = natural ? -scrollAccum.height : scrollAccum.height
             let contentDX = natural ? scrollAccum.width : -scrollAccum.width
-            if abs(scrollAccum.height) > abs(scrollAccum.width), fingerUp > 40 {
+            if abs(scrollAccum.height) > abs(scrollAccum.width) {
                 vm.cancelDrag()
-                collapse()   // 두 손가락으로 위로 쓸어 올림 → 닫기
+                // 두 손가락으로 위로 쓸어 올림 → 닫기 (메모 본문처럼 포인터 아래 내용이 스크롤되는 중이면 스크롤로 본다)
+                if fingerUp > 40, !isOverScrollableContent(event) { collapse() }
             } else if abs(contentDX) > 50 {
                 vm.switchExpandedPage(forward: contentDX < 0)
             } else {
@@ -351,6 +353,16 @@ final class NotchController: NotchGestureDelegate {
         default:
             break
         }
+    }
+
+    /// 포인터 아래에 실제로 넘치는(스크롤되는) 내용이 있는지
+    private func isOverScrollableContent(_ event: NSEvent) -> Bool { isScrollable(atWindowPoint: event.locationInWindow) }
+
+    func isScrollable(atWindowPoint windowPoint: NSPoint) -> Bool {
+        guard let host = panel.contentView, let superview = host.superview else { return false }
+        let point = superview.convert(windowPoint, from: nil)
+        guard let scroll = host.hitTest(point)?.enclosingScrollView, let doc = scroll.documentView else { return false }
+        return doc.frame.height > scroll.contentView.bounds.height + 1
     }
 
     /// 확장되지 않은 노치 위 두 손가락 제스처 (가이드라인 추가 요구 7):

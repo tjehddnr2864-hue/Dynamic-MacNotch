@@ -14,6 +14,8 @@ final class Updater {
     private var timer: Timer?
     private var busy = false
     /// 상태를 노치에 알리는 처리기 (AppDelegate가 연결)
+    /// 업데이트 설치 후 다시 실행됐을 때 (AppDelegate가 완료 알림을 띄움)
+    var onUpdated: ((String) -> Void)?
     var notify: ((_ title: String, _ subtitle: String, _ success: Bool) -> Void)?
 
     static var currentVersion: String {
@@ -148,10 +150,25 @@ final class Updater {
         guard let v = UserDefaults.standard.string(forKey: "updateJustInstalled") else { return }
         UserDefaults.standard.removeObject(forKey: "updateJustInstalled")
         guard v == Self.currentVersion else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.notify?(T("업데이트 완료", "Updated"), "Dynamic MacNotch \(v)", true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.onUpdated?(v) }
+    }
+
+    /// 업데이트 완료 상세 알림. 오른쪽 문서 아이콘(카드 전체)을 누르면 업데이트 내용 화면이 열린다.
+    static func doneActivity(version: String) -> NotchActivity {
+        NotchActivity(kind: .update, priority: ActivityPriority.info, presentation: .detail, duration: 8,
+                      symbol: "arrow.down.circle.fill", tint: .blue, value: .icon("doc.text"),
+                      title: T("업데이트 완료", "Updated"), subtitle: "Dynamic MacNotch \(version)")
+    }
+
+    /// 이 버전의 릴리스 노트 원문 (화면을 열 때만 가져온다, 실패하면 nil)
+    func fetchReleaseNotes(completion: @escaping (String?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let body = self?.fetchJSON("https://api.github.com/repos/\(Self.repo)/releases/tags/v\(Self.currentVersion)")?["body"] as? String
+            DispatchQueue.main.async { completion(body) }
         }
     }
+
+    static var releasePageURL: URL { URL(string: "https://github.com/\(repo)/releases/tag/v\(currentVersion)")! }
 
     // MARK: - 도우미
 

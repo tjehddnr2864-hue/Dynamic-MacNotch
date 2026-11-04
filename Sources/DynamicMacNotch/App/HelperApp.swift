@@ -104,6 +104,21 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             center(window)
             settingsWindow = window
             #if DEV
+            // 개발용: DMN_SCROLL="x,y,dy"면 열린 뒤 그 자리에서 스크롤 (제목·창 버튼과 겹치는지 시험)
+            if let spec = ProcessInfo.processInfo.environment["DMN_SCROLL"]?.split(separator: ",").compactMap({ Double($0) }), spec.count == 3 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
+                    guard let window else { return }
+                    let origin = window.frame.origin, h = window.frame.height
+                    for _ in 0..<40 {
+                        guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(spec[2]), wheel2: 0, wheel3: 0) else { continue }
+                        let top = NSScreen.screens.first?.frame.maxY ?? 0
+                        cg.location = CGPoint(x: origin.x + spec[0], y: top - (origin.y + h) + spec[1])
+                        if let e = NSEvent(cgEvent: cg), let view = window.contentView?.hitTest(NSPoint(x: spec[0], y: h - spec[1])) {
+                            view.scrollWheel(with: e)
+                        }
+                    }
+                }
+            }
             // 개발용: DMN_DRAG="x,y1,y2[,hold]"(창 왼쪽 위 기준 pt, hold면 놓지 않음)면 열린 뒤 그 자리를 눌러 끄는 마우스 이벤트를 보낸다 (순서 끌기 시험)
             if let spec = ProcessInfo.processInfo.environment["DMN_DRAG"]?.split(separator: ",").compactMap({ Double($0) }), spec.count >= 3 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in

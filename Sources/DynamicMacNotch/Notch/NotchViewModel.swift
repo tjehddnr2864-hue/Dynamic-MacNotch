@@ -267,6 +267,9 @@ final class NotchViewModel: ObservableObject {
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 110)
         case .aiUsage:
             return usageSize
+        case .update:
+            // 업데이트 내용: AI 사용량과 같은 폭, 글이 들어가도록 더 높게
+            return CGSize(width: usageSize.width, height: n.height + 6 + 190 + 22)
         default:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 84)
         }

@@ -132,6 +132,10 @@ struct ActivityValueView: View {
                 .fixedSize()
         case .usage(let label, let percent, let ring):
             UsageGlyph(label: label, percent: percent, ring: ring, tint: tint, large: large)
+        case .icon(let symbol):
+            Image(systemName: symbol)
+                .font(.system(size: large ? 22 : 15, weight: .medium))
+                .foregroundStyle(textColor ?? .white.opacity(0.85))
         case .batteryLevel(let level):
             BatteryPercentGlyph(level: level, tint: tint, width: large ? 44 : 32)
         case .labeledText(let label, let text):
@@ -229,6 +233,9 @@ struct ActivityLeading: View {
                 .frame(width: size, height: size)
                 .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
         } else {
+            if activity.symbol == VPNGlyph.symbol {
+                VPNGlyph(size: size * 1.05).foregroundStyle(activity.tint)
+            } else {
             // 항목 종류·심볼이 바뀌면 다른 아이콘으로 취급해 새로 그린다
             // (음량 HUD가 집중 모드 아이콘을 이어받아 보이던 문제 방지)
             Image(systemName: activity.symbol)
@@ -236,6 +243,7 @@ struct ActivityLeading: View {
                 // 블루투스 기기 아이콘은 흰색, 배터리 색(초록/빨강)은 값에만
                 .foregroundStyle(activity.kind == .bluetooth ? Color.white : activity.tint)
                 .id("\(activity.kind.rawValue)-\(activity.symbol)")
+            }
         }
     }
 }
@@ -291,9 +299,13 @@ struct DetailActivityView: View {
                 } else {
                     ZStack {
                         Circle().fill(activity.tint.opacity(0.2))
-                        Image(systemName: activity.symbol)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(activity.tint)
+                        if activity.symbol == VPNGlyph.symbol {
+                            VPNGlyph(size: 22).foregroundStyle(activity.tint)
+                        } else {
+                            Image(systemName: activity.symbol)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(activity.tint)
+                        }
                     }
                     .frame(width: 36, height: 36)
                 }
@@ -395,6 +407,31 @@ extension Image {
 }
 
 /// 배터리 알림 아이콘 정보 (잔량 0~1, 충전 중이면 번개)
+/// VPN 아이콘 (시스템 설정의 VPN과 같은 모양): 지구본 아래 기둥, 작은 점, 가로선
+struct VPNGlyph: View {
+    /// 이 값을 심볼로 쓰는 알림은 이 아이콘으로 그린다
+    static let symbol = "network"
+    var size: CGFloat
+
+    var body: some View {
+        let line = max(1.2, size * 0.07)
+        VStack(spacing: 0) {
+            Image(systemName: Self.symbol)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .fontWeight(.medium)
+                .frame(width: size * 0.72, height: size * 0.72)
+            Rectangle().frame(width: line, height: size * 0.08)
+            ZStack {
+                Capsule().frame(width: size * 0.9, height: line)
+                Circle().frame(width: size * 0.2, height: size * 0.2)
+            }
+            .frame(height: size * 0.2)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 /// 배터리 아이콘 안에 퍼센트 숫자를 겹친 모양 (충전 중 상시 표시 왼쪽)
 struct BatteryPercentGlyph: View {
     var level: Double

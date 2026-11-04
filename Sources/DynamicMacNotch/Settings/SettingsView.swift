@@ -104,9 +104,11 @@ struct SettingsView: View {
                     .font(.title2.bold())
                     .padding(.horizontal, 20)
                     .padding(.top, 18)
-                    .padding(.bottom, 2)
+                    .padding(.bottom, 8)
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // 스크롤한 내용이 제목 줄 위로 올라와 겹치지 않게 이 경계에서 자른다
+                    .clipped()
             }
             .id(page)
         }
@@ -120,6 +122,9 @@ struct SettingsView: View {
     // MARK: - 사이드바
 
     private var sidebar: some View {
+        VStack(spacing: 0) {
+        // 창 버튼(빨강·노랑·초록) 자리: 메뉴는 이 아래에서만 스크롤되어 버튼과 겹치지 않는다
+        Color.clear.frame(height: 40)
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(SettingsPage.top) { item in
@@ -147,8 +152,10 @@ struct SettingsView: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.top, 42)   // 사이드바 위쪽에 놓인 창 버튼(빨강·노랑·초록) 자리
+            .padding(.top, 2)
             .padding(.bottom, 8)
+        }
+        .clipped()
         }
         .modifier(LiquidGlassPanel(cornerRadius: 18))
     }
@@ -164,6 +171,7 @@ struct SettingsView: View {
                 Text(item.title)
                     .font(.system(size: 13, weight: selected ? .semibold : .regular))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
                 if let trailing { trailing }
             }
@@ -322,6 +330,7 @@ struct SettingsView: View {
         case "download": return T("다운로드", "Download")
         case "media": return T("음악 재생", "Music")
         case "hotspot": return T("핫스팟 연결", "Hotspot")
+        case "vpn": return "VPN"
         case "focusPinned": return T("집중 모드", "Focus")
         case "aiUsage": return T("AI 사용량", "AI Usage")
         case "battery": return T("충전 중", "Charging")
@@ -339,6 +348,7 @@ struct SettingsView: View {
         case "download": return "arrow.down.circle"
         case "media": return "music.note"
         case "hotspot": return "personalhotspot"
+        case "vpn": return "network"
         case "focusPinned": return "moon"
         case "aiUsage": return "gauge.medium"
         case "battery": return "battery.100percent.bolt"
@@ -481,6 +491,7 @@ struct SettingsView: View {
                 durationPicker($settings.netDuration)
             } header: { styleHeader }
             Section {
+                Toggle(T("VPN 연결 중 상시 표시", "Keep showing while on a VPN"), isOn: $settings.vpnPinned)
                 Toggle(T("핫스팟 연결 중 상시 표시", "Keep showing while on a hotspot"), isOn: $settings.hotspotPinned)
                 TextField(T("핫스팟으로 볼 Wi-Fi 이름(쉼표 구분)", "Wi-Fi names to treat as hotspots (comma-separated)"), text: $settings.hotspotSSIDs)
             } header: { detailHeader } footer: {
@@ -880,13 +891,15 @@ struct SettingsView: View {
                             ("airdrop-send", T("에어드랍 보내기", "AirDrop Send")), ("recording", T("화면 녹화", "Screen Recording")),
                             ("call-active", T("통화 중", "On a Call")), ("lock", T("잠금화면 (5초)", "Lock Screen (5s)")),
                             ("ai-usage", T("AI 사용량", "AI Usage")), ("charging-pinned", T("충전 중 상시 표시", "Charging (Live)")),
+                            ("vpn-pinned", T("VPN 상시 표시", "VPN (Live)")),
                             ("calendar-pinned", T("일정 상시 표시", "Next Event (Live)"))],
                            note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                    "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))
             testSection(T("상세로만 표시", "Detailed Only"),
                            [("call-incoming", T("수신 전화", "Incoming Call")), ("offline", T("네트워크 끊김", "Network Lost")),
                             ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
-                            ("timer-done", T("타이머 종료", "Timer Done")), ("calendar", T("일정 알림", "Event Alert"))],
+                            ("timer-done", T("타이머 종료", "Timer Done")), ("calendar", T("일정 알림", "Event Alert")),
+                            ("update-done", T("업데이트 완료", "Update Finished"))],
                            note: T("수신 전화: 가짜 전화로 받기·거절을 눌러 볼 수 있고 30초 동안 조작이 없으면 끝납니다.",
                                    "Incoming Call: a fake call where you can try Accept and Decline; it ends after 30 seconds without interaction."))
         }

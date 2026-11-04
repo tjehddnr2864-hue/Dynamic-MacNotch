@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 enum PreviewID: String, CaseIterable {
     // 네트워크
     case wifiOn = "wifi-on", wifiOff = "wifi-off", wifiConnected = "wifi-connected", wifiDisconnected = "wifi-disconnected"
-    case vpnOn = "vpn-on", vpnOff = "vpn-off", hotspot, offline
+    case vpnOn = "vpn-on", vpnOff = "vpn-off", vpnPinned = "vpn-pinned", hotspot, offline
     // 블루투스
     case airpods = "bt-airpods", btLow = "bt-low", btNoBattery = "bt-nobattery"
     // 집중 모드
@@ -27,6 +27,8 @@ enum PreviewID: String, CaseIterable {
     case aiUsage = "ai-usage"
     // 상시 표시: 충전 중 · 다음 일정
     case chargingPinned = "charging-pinned", calendarPinned = "calendar-pinned"
+    // 자동 업데이트 완료
+    case updateDone = "update-done"
     // 코딩 에이전트
     case agentDone = "agent-done"
     // 모두 끝내기
@@ -49,9 +51,9 @@ extension PreviewID {
         case .wifiOn, .wifiOff, .wifiConnected, .wifiDisconnected, .vpnOn, .vpnOff, .hotspot,
              .airpods, .btLow, .btNoBattery, .focusOn, .focusOff, .charger, .low, .full, .agentDone:
             return .selectable
-        case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming:
+        case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -120,8 +122,12 @@ final class FeaturePreview {
         case .wifiOff: network("wifi.slash", .gray, T("꺼짐", "Off"), "Wi-Fi", T("Wi-Fi 꺼짐", "Wi-Fi Off"))
         case .wifiConnected: network("wifi", .blue, T("연결됨", "Connected"), "Wi-Fi", "Home_5G")
         case .wifiDisconnected: network("wifi.exclamationmark", .gray, T("해제됨", "Disconnected"), "Wi-Fi", T("연결 해제됨", "Disconnected"))
-        case .vpnOn: network("lock.shield.fill", .green, T("연결됨", "Connected"), "VPN", "NordVPN")
-        case .vpnOff: network("lock.open", .gray, T("해제됨", "Disconnected"), "VPN", T("연결 해제됨", "Disconnected"))
+        case .vpnOn: network("network", .blue, T("연결됨", "Connected"), "VPN", "NordVPN")
+        case .vpnOff: network("network", .gray, T("해제됨", "Disconnected"), "VPN", T("연결 해제됨", "Disconnected"))
+        case .vpnPinned:
+            showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .none,
+                                         title: "VPN", subtitle: "NordVPN", detailValue: .text(T("연결됨", "Connected"))), for: 6)
+        case .updateDone: center.post(Updater.doneActivity(version: Updater.currentVersion))
         case .hotspot:
             network("personalhotspot", .green, T("연결됨", "Connected"), T("개인용 핫스팟", "Personal Hotspot"), "iPhone")
         case .offline:

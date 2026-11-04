@@ -135,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         // 자동 업데이트: 상태는 노치 상세 알림으로
+        Updater.shared.onUpdated = { [weak self] version in self?.center.post(Updater.doneActivity(version: version)) }
         Updater.shared.notify = { [weak self] title, subtitle, success in
             self?.center.post(NotchActivity(
                 kind: .demo, presentation: .detail, duration: 4,
@@ -246,6 +247,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
                 }
+            case let c where c.hasPrefix("devover:"):   // 개발용: 화면 좌표(왼쪽 위 기준 "x,y") 아래 내용이 스크롤되는지 파일로
+                let xy = c.dropFirst(8).split(separator: ",").compactMap { Double($0) }
+                if xy.count == 3 - 1, let panel = self.notch?.panel, let screen = panel.screen {
+                    let p = NSPoint(x: xy[0] - panel.frame.minX, y: screen.frame.maxY - xy[1] - panel.frame.minY)
+                    let line = "\(self.notch?.isScrollable(atWindowPoint: p) ?? false)\n"
+                    try? line.write(toFile: NSTemporaryDirectory() + "dmn-over.txt", atomically: true, encoding: .utf8)
+                }
             case let c where c.hasPrefix("devswipe:"):   // 개발용: 노치 창에 두 손가락 좌우 스크롤 (예: devswipe:-120 = 다음 페이지)
                 if let dx = Double(c.dropFirst(9)), let panel = self.notch?.panel {
                     let center = CGPoint(x: panel.frame.midX, y: (NSScreen.screens.first?.frame.maxY ?? 0) - panel.frame.maxY + 120)
@@ -349,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (타이머·배터리·음악 화면은 알림이 없어도 내용이 있으므로 그대로 둔다)
     private func collapseIfActivityGone() {
         guard vm.isExpanded, case .activity(let kind) = vm.expandedPage,
-              ![.timer, .media].contains(kind) else { return }
+              ![.timer, .media, .update].contains(kind) else { return }
         let stillShown = center.transient?.kind == kind || center.persistentKinds.contains(kind)
             || (kind == .recording && (recording.startedAt != nil || recording.finished != nil))   // 녹화 중·완료 화면 유지
         if !stillShown { vm.collapse() }
@@ -378,6 +386,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let url = activity.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .screenshot:
             break   // 카드 안 버튼으로 조작
+        case .update:
+            // 업데이트 완료 알림(오른쪽 문서 아이콘)을 누르면 업데이트 내용
+            vm.expand(page: .activity(.update))
+            center.dismissTransient()
         case .agent:
             // Claude Code·Codex 작업 완료: 그 에이전트가 돌던 앱을 연다
             AgentNotify.open(activity.targetApp)

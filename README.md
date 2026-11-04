@@ -28,7 +28,7 @@ Live activities, media controls, HUDs, alerts, a file tray and more — all anim
 To verify the download, compare it with the `.sha256` file attached to the release: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`.
 
 ### Updating
-From 1.0.1 the app **updates itself**: it checks GitHub once a day, verifies the download (SHA-256, code signature, bundle ID, newer version), replaces itself and relaunches. Check manually from **right-click the notch → Check for Updates…**, or turn it off in Settings → General.
+After an update, click the document icon on the "Updated" alert to see what changed. From 1.0.1 the app **updates itself**: it checks GitHub once a day, verifies the download (SHA-256, code signature, bundle ID, newer version), replaces itself and relaunches. Check manually from **right-click the notch → Check for Updates…**, or turn it off in Settings → General.
 To update by hand, quit the app, replace it in Applications, and open it again.
 If Accessibility or Input Monitoring stop working after an update, remove Dynamic MacNotch from that list in System Settings (−) and allow it again.
 
@@ -114,7 +114,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
 
 ### Alerts
-- **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard), personal hotspot (can stay pinned), and a card when every network is lost.
+- **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard; can keep showing just the icon while connected), personal hotspot (can stay pinned), and a card when every network is lost.
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable). While actually charging, the notch can keep showing the battery % on the left and the time to full (from macOS) on the right. It isn't shown when fully charged, or when charging is paused and the Mac runs on the adapter (charge limit / Optimized Battery Charging).
@@ -129,7 +129,7 @@ Every alert can be **compact or detailed**, and durations are configurable. **Lo
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → Priority** is shown. Reorder with the arrows. Long-press it to open its popup, then use the dots or a two-finger swipe to page through the other live activities (on the music player, the swipe skips songs; use the dots instead). When it closes, the notch again shows the highest-priority one.
 
 ### Claude Code · Codex
-When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
+When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
 ### Lock screen
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
@@ -210,7 +210,7 @@ scripts/build.sh --install --run  # install to /Applications
 받은 파일은 릴리스에 함께 올린 `.sha256` 값과 비교해 확인할 수 있습니다: `shasum -a 256 Dynamic-MacNotch-x.y.z.zip`
 
 ### 업데이트
-1.0.1부터 **자동 업데이트**됩니다. 하루 한 번 GitHub에서 새 버전을 확인하고, 내려받은 파일을 검증(SHA-256, 코드 서명, 번들 ID, 더 높은 버전)한 뒤 스스로 교체하고 다시 실행합니다. **노치 우클릭 → 업데이트 확인…**으로 바로 확인할 수 있고, 설정 → 일반에서 끌 수 있습니다.
+업데이트 후 "업데이트 완료" 알림의 문서 아이콘을 누르면 바뀐 내용을 볼 수 있습니다. 1.0.1부터 **자동 업데이트**됩니다. 하루 한 번 GitHub에서 새 버전을 확인하고, 내려받은 파일을 검증(SHA-256, 코드 서명, 번들 ID, 더 높은 버전)한 뒤 스스로 교체하고 다시 실행합니다. **노치 우클릭 → 업데이트 확인…**으로 바로 확인할 수 있고, 설정 → 일반에서 끌 수 있습니다.
 직접 업데이트하려면 앱을 종료하고 응용 프로그램 폴더의 앱을 새 버전으로 바꾼 뒤 다시 실행합니다.
 업데이트 후 손쉬운 사용·입력 모니터링이 허용돼 있는데도 동작하지 않으면, 시스템 설정의 해당 목록에서 Dynamic MacNotch를 지우고(−) 다시 허용하세요.
 
@@ -296,7 +296,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
 
 ### 알림
-- **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
+- **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN, 연결 중 아이콘만 상시 표시 가능), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능). 실제로 충전 중일 때는 왼쪽에 배터리 %, 오른쪽에 완충까지 남은 시간(macOS 계산값)을 상시 표시할 수 있습니다. 완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 어댑터로만 동작할 때는 표시하지 않습니다.
@@ -311,7 +311,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 우선순위**에서 위에 있는 것이 표시됩니다. 화살표로 순서를 바꿉니다. 길게 눌러 팝업을 열면 아래 점이나 두 손가락 좌우로 다른 상시 항목을 넘겨 볼 수 있습니다(음악 팝업에서는 좌우가 곡 넘기기라 점을 누르세요). 닫으면 다시 우선순위가 가장 높은 항목이 표시됩니다.
 
 ### Claude Code · Codex
-Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
 
 ### 잠금화면
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.

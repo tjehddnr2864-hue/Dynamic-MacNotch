@@ -176,6 +176,8 @@ struct ExpandedView: View {
             CallPage(monitor: features.call)
         case .aiUsage:
             UsagePage(store: features.usage, openSettings: openSettings)
+        case .update:
+            UpdateNotesPage()
         case .download:
             if let a = vm.center.displayed, a.kind == .download {
                 DownloadPage(activity: a)
