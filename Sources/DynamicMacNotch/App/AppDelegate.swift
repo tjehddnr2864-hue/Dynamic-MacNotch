@@ -247,6 +247,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
                 }
+            case let c where c.hasPrefix("vpnsim:"):   // 개발용: VPN 연결 흉내 (vpnsim:이름, vpnsim: 는 해제)
+                NetworkMonitor.debugVPNName = String(c.dropFirst(7))
+                self.network.debugEvaluate()
+            case let c where c.hasPrefix("vpncountry:"):   // 개발용: 국가 조회 결과 지정 (신호는 보내지 않음, vpncountry: 는 조회 실패)
+                NetworkMonitor.debugCountry = String(c.dropFirst(11))
             case let c where c.hasPrefix("devover:"):   // 개발용: 화면 좌표(왼쪽 위 기준 "x,y") 아래 내용이 스크롤되는지 파일로
                 let xy = c.dropFirst(8).split(separator: ",").compactMap { Double($0) }
                 if xy.count == 3 - 1, let panel = self.notch?.panel, let screen = panel.screen {

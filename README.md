@@ -114,7 +114,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
 
 ### Alerts
-- **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard; can keep showing just the icon while connected), personal hotspot (can stay pinned), and a card when every network is lost.
+- **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard; can keep showing the icon and the connected country while connected), personal hotspot (can stay pinned), and a card when every network is lost.
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: left/right/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable). While actually charging, the notch can keep showing the battery % on the left and the time to full (from macOS) on the right. It isn't shown when fully charged, or when charging is paused and the Mac runs on the adapter (charge limit / Optimized Battery Charging).
@@ -153,6 +153,8 @@ Korean and English. Settings → General → Language (System default / 한국�
   - **Update checks** (once a day, can be turned off): GitHub's releases API.
   - **Live lyrics** (off by default): the song title, artist and album are sent to [LRCLIB](https://lrclib.net).
   - **Spotify artwork**: the cover image URL that Spotify provides (HTTPS only).
+  - **VPN country** (only with the VPN live display on, off by default): while a VPN is connected, your public IP goes to [country.is](https://country.is) (or ipinfo.io if that fails) when the network changes and once a minute.
+  - **AI Usage** (only for services you sign in to): reads your usage from claude.ai, chatgpt.com and gemini.google.com. Sign-in data stays in the app's own web storage.
 - Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist` and `~/Library/Application Support/Dynamic MacNotch/`. Delete both to reset.
 
 ## Memory
@@ -296,7 +298,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
 
 ### 알림
-- **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN, 연결 중 아이콘만 상시 표시 가능), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
+- **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN, 연결 중 아이콘과 연결 국가 상시 표시 가능), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: 왼쪽/오른쪽/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능). 실제로 충전 중일 때는 왼쪽에 배터리 %, 오른쪽에 완충까지 남은 시간(macOS 계산값)을 상시 표시할 수 있습니다. 완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 어댑터로만 동작할 때는 표시하지 않습니다.
@@ -335,6 +337,8 @@ Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면
   - **업데이트 확인**(하루 한 번, 끌 수 있음): GitHub 릴리스 API.
   - **실시간 가사**(기본 꺼짐): 곡 제목·아티스트·앨범을 [LRCLIB](https://lrclib.net)로 보냅니다.
   - **Spotify 앨범아트**: Spotify가 알려 주는 표지 이미지 주소(HTTPS만).
+  - **VPN 국가**(VPN 상시 표시를 켰을 때만, 기본 꺼짐): VPN이 연결된 동안, 네트워크가 바뀔 때와 1분마다 공인 IP를 [country.is](https://country.is)(실패 시 ipinfo.io)로 보냅니다.
+  - **AI 사용량**(로그인한 서비스만): claude.ai, chatgpt.com, gemini.google.com에서 사용량을 읽습니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다.
 - 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`. 둘 다 지우면 초기화됩니다.
 
 ## 메모리

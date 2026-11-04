@@ -491,11 +491,11 @@ struct SettingsView: View {
                 durationPicker($settings.netDuration)
             } header: { styleHeader }
             Section {
-                Toggle(T("VPN 연결 중 상시 표시", "Keep showing while on a VPN"), isOn: $settings.vpnPinned)
+                Toggle(T("VPN 연결 중 상시 표시 (왼쪽 아이콘, 오른쪽 연결 국가)", "Keep showing while on a VPN (left: icon, right: country)"), isOn: $settings.vpnPinned)
                 Toggle(T("핫스팟 연결 중 상시 표시", "Keep showing while on a hotspot"), isOn: $settings.hotspotPinned)
                 TextField(T("핫스팟으로 볼 Wi-Fi 이름(쉼표 구분)", "Wi-Fi names to treat as hotspots (comma-separated)"), text: $settings.hotspotSSIDs)
             } header: { detailHeader } footer: {
-                footnote(T("핫스팟은 '데이터 절약 네트워크' 여부로 추정합니다. 잘 안 잡히면 iPhone의 Wi-Fi 이름을 적어 주세요. Wi-Fi 이름 표시에는 위치 서비스 권한이 필요합니다.", "Hotspots are detected from the 'Low Data Mode' network flag. If yours isn't detected, enter your iPhone's Wi-Fi name. Showing Wi-Fi names requires Location Services permission."))
+                footnote(T("VPN 상시 표시를 켜면 연결된 국가를 알기 위해, VPN이 연결된 동안 네트워크가 바뀔 때와 1분마다 공인 IP를 국가 조회 서비스(country.is, 실패 시 ipinfo.io)에 보냅니다. 끄면 조회하지 않습니다. 핫스팟은 '데이터 절약 네트워크' 여부로 추정합니다. 잘 안 잡히면 iPhone의 Wi-Fi 이름을 적어 주세요. Wi-Fi 이름 표시에는 위치 서비스 권한이 필요합니다.", "With the VPN live display on, your public IP is sent to a country lookup service (country.is, or ipinfo.io if that fails) when the network changes and once a minute while a VPN is connected. When off, no lookup happens. Hotspots are detected from the 'Low Data Mode' network flag. If yours isn't detected, enter your iPhone's Wi-Fi name. Showing Wi-Fi names requires Location Services permission."))
             }
             previewSection([("wifi-connected", T("Wi-Fi 연결", "Wi-Fi Connected")), ("vpn-on", T("VPN 연결", "VPN Connected")),
                             ("hotspot", T("핫스팟", "Hotspot")), ("offline", T("네트워크 끊김", "Network Lost"))])

@@ -61,9 +61,124 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         // 상시 표시 스위치는 바로 반영
         settings.$vpnPinned.merge(with: settings.$hotspotPinned).dropFirst(2)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.applyHotspotPin() }
+            .sink { [weak self] _ in
+                self?.updateVPNCountry()
+                self?.applyHotspotPin()
+            }
             .store(in: &pinObservers)
+        updateVPNCountry()
     }
+
+    // MARK: - VPN 연결 국가 (상시 표시 오른쪽)
+    // VPN 앱마다 국가를 알려 주는 공통 방법이 없으므로 공인 IP로 조회한다. 조회도 VPN을 거쳐 나가므로 출구 국가가 나온다.
+    // 상시 표시가 켜져 있고 VPN이 연결된 동안에만 조회한다:
+    // ① 연결될 때와 네트워크 변경 신호(터널 주소·경로·DNS)가 올 때 곧바로
+    // ② 터널 주소가 그대로여서 신호 없이 서버가 바뀌는 VPN을 위해 1분마다.
+    // 조회가 실패하면 이전 국가를 그대로 둔다.
+
+    private var vpnCountry: String?
+    private var countryWork: DispatchWorkItem?
+    private var countryPoll: Timer?
+    private var countryToken = 0
+    private var lastCountryLookup = Date.distantPast
+    /// 신호가 연달아 와도 이 간격보다 자주 조회하지 않는다
+    private static let countryMinGap: TimeInterval = 5
+    private static let countryPollInterval: TimeInterval = 60
+
+    private func updateVPNCountry() {
+        guard settings.vpnPinned, state.vpnName != nil else {
+            countryWork?.cancel()
+            countryWork = nil
+            countryPoll?.invalidate()
+            countryPoll = nil
+            countryToken &+= 1      // 진행 중인 조회 결과는 버린다
+            vpnCountry = nil
+            lastCountryLookup = .distantPast
+            return
+        }
+        if countryPoll == nil {
+            let t = Timer(timeInterval: Self.countryPollInterval, repeats: true) { [weak self] _ in
+                guard let self, self.countryWork == nil else { return }
+                self.scheduleCountryLookup(after: 0, retries: [])
+            }
+            t.tolerance = 10
+            RunLoop.main.add(t, forMode: .common)
+            countryPoll = t
+        }
+        // 경로가 안정되도록 잠깐 모았다가 조회 (새 신호가 오면 다시 기다림)
+        countryWork?.cancel()
+        let wait = max(1.5, Self.countryMinGap - Date().timeIntervalSince(lastCountryLookup))
+        scheduleCountryLookup(after: wait, retries: [4, 10])
+    }
+
+    private func scheduleCountryLookup(after delay: TimeInterval, retries: [TimeInterval]) {
+        countryToken &+= 1
+        let token = countryToken
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.countryToken == token else { return }
+            self.lastCountryLookup = Date()
+            Self.fetchCountry { [weak self] code in
+                guard let self, self.countryToken == token else { return }
+                self.countryWork = nil
+                if let code {
+                    guard code != self.vpnCountry else { return }
+                    self.vpnCountry = code
+                    self.applyHotspotPin()
+                } else if let next = retries.first {
+                    self.scheduleCountryLookup(after: next, retries: Array(retries.dropFirst()))
+                }
+            }
+        }
+        countryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// 공인 IP의 국가 코드 (쿠키·캐시 없이, 첫 서비스가 실패하면 다음 서비스)
+    private static func fetchCountry(completion: @escaping (String?) -> Void) {
+        #if DEV
+        if let debugCountry {
+            DispatchQueue.main.async { completion(debugCountry.isEmpty ? nil : debugCountry) }
+            return
+        }
+        #endif
+        let services: [(URL, (Data) -> String?)] = [
+            (URL(string: "https://api.country.is/")!, { data in
+                (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["country"] as? String
+            }),
+            (URL(string: "https://ipinfo.io/country")!, { String(data: $0, encoding: .utf8) }),
+        ]
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 8
+        let session = URLSession(configuration: config)
+        func attempt(_ index: Int) {
+            guard index < services.count else {
+                session.finishTasksAndInvalidate()
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            session.dataTask(with: services[index].0) { data, response, _ in
+                let ok = (response as? HTTPURLResponse)?.statusCode == 200
+                let raw = ok ? data.flatMap(services[index].1) : nil
+                let code = raw?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                // 응답을 믿지 않고 형식을 확인한다 (영문 2~3글자만 노치에 표시)
+                if let code, (2...3).contains(code.count), code.allSatisfy({ $0.isASCII && $0.isLetter }) {
+                    session.finishTasksAndInvalidate()
+                    DispatchQueue.main.async { completion(code) }
+                } else {
+                    attempt(index + 1)
+                }
+            }.resume()
+        }
+        attempt(0)
+    }
+
+    #if DEV
+    /// 개발용: VPN 연결·해제를 흉내 낸다 (이름, nil이면 실제 상태)
+    static var debugVPNName: String?
+    /// 개발용: 국가 조회 결과를 정한다 (빈 문자열이면 조회 실패, nil이면 실제 조회)
+    static var debugCountry: String?
+    func debugEvaluate() { evaluate() }
+    #endif
 
     private func observeDynamicStore() {
         var ctx = SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
@@ -124,6 +239,9 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
 
     /// 연결된 VPN 이름. 시스템 설정의 VPN 서비스를 먼저 보고, 없으면 VPN 인터페이스 존재로 판단한다.
     static func activeVPNName() -> String? {
+        #if DEV
+        if let debugVPNName { return debugVPNName.isEmpty ? nil : debugVPNName }
+        #endif
         if let prefs = SCPreferencesCreate(nil, "DynamicMacNotch" as CFString, nil),
            let services = SCNetworkServiceCopyAll(prefs) as? [SCNetworkService] {
             for service in services where SCNetworkServiceGetEnabled(service) {
@@ -198,6 +316,9 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         let old = state
         let new = readState()
         state = new
+        // 네트워크 변경 신호마다: VPN이 바뀌면 이전 국가를 지우고, 연결된 채면 서버가 바뀌었을 수 있으니 다시 조회
+        if new.vpnName != old.vpnName { vpnCountry = nil }
+        updateVPNCountry()
         applyHotspotPin()
         guard new != old, Date() >= quietUntil else { return }
 
@@ -266,6 +387,11 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         ))
     }
 
+    /// 국가 코드 → 지역 언어의 국가 이름 (길게 눌러 여는 화면용)
+    private static func countryName(_ code: String) -> String {
+        Locale.current.localizedString(forRegionCode: code) ?? code
+    }
+
     /// 텍스트 길이에 맞춰 노치 옆 날개 폭을 늘린다 (60~130pt).
     static func wing(for text: String) -> CGFloat {
         let width = (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12.5, weight: .semibold)]).width
@@ -277,8 +403,10 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         // VPN 상시 표시도 같이: 연결 순간의 알림에만 '연결됨', 계속 표시하는 동안은 왼쪽 아이콘만
         if settings.vpnPinned, let name = state.vpnName {
             center.setPersistent(NotchActivity(
-                kind: .vpn, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .none,
-                title: "VPN", subtitle: name, detailValue: .text(T("연결됨", "Connected"))))
+                kind: .vpn, priority: ActivityPriority.pinned, symbol: "network", tint: .blue,
+                value: vpnCountry.map { .text($0) } ?? .none,     // 오른쪽: 연결된 국가 코드 (모르면 비움)
+                title: "VPN", subtitle: vpnCountry.map { "\(name) · \(Self.countryName($0))" } ?? name,
+                detailValue: .text(T("연결됨", "Connected")), wing: NotchActivity.compactWing))
         } else {
             center.removePersistent(.vpn)
         }

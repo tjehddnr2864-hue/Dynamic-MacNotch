@@ -125,7 +125,7 @@ final class FeaturePreview {
         case .vpnOn: network("network", .blue, T("연결됨", "Connected"), "VPN", "NordVPN")
         case .vpnOff: network("network", .gray, T("해제됨", "Disconnected"), "VPN", T("연결 해제됨", "Disconnected"))
         case .vpnPinned:
-            showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .none,
+            showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .text("JP"),
                                          title: "VPN", subtitle: "NordVPN", detailValue: .text(T("연결됨", "Connected"))), for: 6)
         case .updateDone: center.post(Updater.doneActivity(version: Updater.currentVersion))
         case .hotspot:
