@@ -387,9 +387,9 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         ))
     }
 
-    /// 국가 코드 → 지역 언어의 국가 이름 (길게 눌러 여는 화면용)
+    /// 국가 코드 → 앱 언어로 쓴 국가 이름 (길게 눌러 여는 화면용)
     private static func countryName(_ code: String) -> String {
-        Locale.current.localizedString(forRegionCode: code) ?? code
+        Locale(identifier: T("ko", "en")).localizedString(forRegionCode: code) ?? code
     }
 
     /// 텍스트 길이에 맞춰 노치 옆 날개 폭을 늘린다 (60~130pt).

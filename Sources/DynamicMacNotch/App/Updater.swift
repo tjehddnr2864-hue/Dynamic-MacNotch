@@ -95,6 +95,8 @@ final class Updater {
         // 압축 풀기
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch-update-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        var keepWork = false
+        defer { if !keepWork { try? FileManager.default.removeItem(at: work) } }   // 실패하면 내려받은 파일을 남기지 않는다
         let zipFile = work.appendingPathComponent("update.zip")
         guard (try? zip.write(to: zipFile)) != nil,
               run("/usr/bin/ditto", ["-x", "-k", zipFile.path, work.path]) == 0 else {
@@ -115,12 +117,13 @@ final class Updater {
             DispatchQueue.main.async { NSWorkspace.shared.open(URL(string: "https://github.com/\(Self.repo)/releases/latest")!) }
             return .failed(T("앱 폴더에 쓸 권한이 없어 릴리스 페이지를 열었습니다", "No permission to replace the app; opened the release page"))
         }
-        DispatchQueue.main.async { self.install(newApp: newApp, target: target, version: newVersion) }
+        keepWork = true
+        DispatchQueue.main.async { self.install(newApp: newApp, target: target, version: newVersion, work: work) }
         return .installed
     }
 
     /// 앱이 끝나면 교체하고 다시 연다. 경로는 모두 셸 인자로 넘긴다 (셸 주입 방지).
-    private func install(newApp: URL, target: URL, version: String) {
+    private func install(newApp: URL, target: URL, version: String, work: URL) {
         notify?(T("업데이트 설치 중", "Installing update"), "Dynamic MacNotch \(version)", true)
         UserDefaults.standard.set(version, forKey: "updateJustInstalled")
         let backup = target.deletingLastPathComponent().appendingPathComponent(".\(target.lastPathComponent).old")
@@ -130,12 +133,13 @@ final class Updater {
         if mv "$2" "$4"; then
           if mv "$3" "$2"; then rm -rf "$4"; else mv "$4" "$2"; fi
         fi
+        rm -rf "$5"
         open "$2"
         """
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
         task.arguments = ["-c", script, "sh", String(ProcessInfo.processInfo.processIdentifier),
-                          target.path, newApp.path, backup.path]
+                          target.path, newApp.path, backup.path, work.path]
         do {
             try task.run()
         } catch {

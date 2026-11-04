@@ -109,7 +109,7 @@ final class MemoStore: ObservableObject {
             try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
             if let data = try? JSONEncoder().encode(m) { try? data.write(to: Self.file(m.id), options: .atomic) }
         }
-        if showList { reloadList() }
+        updateListEntry(m)
     }
 
     // MARK: - 새 메모·불러오기·삭제
@@ -150,6 +150,14 @@ final class MemoStore: ObservableObject {
         summaries = Self.loadSummaries()
     }
 
+    /// 저장할 때마다 파일을 모두 다시 읽지 않고 방금 쓴 메모의 줄만 맨 위로 고친다
+    private func updateListEntry(_ m: Memo) {
+        guard showList, var list = summaries else { return }
+        list.removeAll { $0.id == m.id }
+        if !m.isEmpty { list.insert(Self.summary(of: m), at: 0) }
+        summaries = list
+    }
+
     // MARK: - 파일
 
     private static func newMemo() -> Memo {
@@ -166,9 +174,13 @@ final class MemoStore: ObservableObject {
         return files.filter { $0.pathExtension == "json" }
             .compactMap { url -> MemoSummary? in
                 guard let data = try? Data(contentsOf: url), let m = try? JSONDecoder().decode(Memo.self, from: data) else { return nil }
-                let firstLine = m.body.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
-                return MemoSummary(id: m.id, title: m.title, preview: String(firstLine.prefix(60)), updated: m.updated)
+                return summary(of: m)
             }
             .sorted { $0.updated > $1.updated }
+    }
+
+    private static func summary(of m: Memo) -> MemoSummary {
+        let firstLine = m.body.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+        return MemoSummary(id: m.id, title: m.title, preview: String(firstLine.prefix(60)), updated: m.updated)
     }
 }

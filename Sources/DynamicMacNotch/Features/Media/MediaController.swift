@@ -125,13 +125,16 @@ final class MediaController: ObservableObject {
         p.standardError = FileHandle.nullDevice
         out.fileHandleForReading.readabilityHandler = { [weak self] h in
             let data = h.availableData
-            guard !data.isEmpty else { return }
+            // 어댑터가 끝나면(EOF) 처리기가 빈 데이터로 계속 불리므로 떼어 낸다
+            guard !data.isEmpty else { h.readabilityHandler = nil; return }
             DispatchQueue.main.async { self?.consume(data) }
         }
         p.terminationHandler = { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.adapterRunning = false
+                self.adapterInput = nil
+                self.buffer = Data()   // 끊긴 줄의 조각을 다음 어댑터 출력에 잇지 않는다
                 self.fallbackActive = true
                 // 재시작 (최대 60초 간격)
                 DispatchQueue.main.asyncAfter(deadline: .now() + self.restartDelay) { self.startAdapter() }
@@ -151,6 +154,9 @@ final class MediaController: ObservableObject {
 
     private func consume(_ data: Data) {
         buffer.append(data)
+        // 앨범아트가 든 긴 줄은 여러 조각으로 오므로, 새 조각에 줄바꿈이 있을 때만 쌓인 데이터를 훑는다
+        guard data.contains(0x0A) else { return }
+        defer { if buffer.isEmpty { buffer = Data() } }   // 긴 줄을 받느라 커진 버퍼를 놓는다
         while let nl = buffer.firstIndex(of: 0x0A) {
             let line = buffer[buffer.startIndex..<nl]
             buffer.removeSubrange(buffer.startIndex...nl)
@@ -269,14 +275,28 @@ final class MediaController: ObservableObject {
         // Music은 Total Time(ms), Spotify는 Duration(ms)
         let durationMS = (info["Total Time"] as? Double) ?? (info["Duration"] as? Double) ?? 0
         let key = "\(title)|\(info["Artist"] as? String ?? "")|\(info["Album"] as? String ?? "")"
-        // 위치: 알림에 있으면 그 값, 같은 곡을 이미 보고 있으면 계산한 값, 그 밖에만 AppleScript로 묻는다
+        // 위치: 알림에 있으면 그 값, 같은 곡을 이미 보고 있으면 계산한 값, 그 밖에는 0으로 두고 AppleScript로 물어 맞춘다
         let known = nowPlaying.flatMap { $0.bundleID == bundle && $0.trackKey == key ? $0.position(at: Date()) : nil }
-        let position = (info["Playback Position"] as? Double) ?? known ?? Self.scriptNumber(bundle: bundle, "player position") ?? 0
+        let position = (info["Playback Position"] as? Double) ?? known
         let np = NowPlaying(title: title, artist: info["Artist"] as? String ?? "", album: info["Album"] as? String ?? "",
-                            duration: durationMS / 1000, elapsed: position, timestamp: Date(),
+                            duration: durationMS / 1000, elapsed: position ?? 0, timestamp: Date(),
                             rate: state == "Playing" ? 1 : 0, playing: state == "Playing", bundleID: bundle)
         receive(np, artwork: nil)
         if nowPlaying?.bundleID == bundle, lastArtworkTrack != np.trackKey { loadScriptArtwork(bundle: bundle, key: np.trackKey) }
+        if position == nil { syncScriptPosition(bundle: bundle, key: np.trackKey) }
+    }
+
+    /// 재생 위치를 백그라운드에서 물어 맞춘다 (앱이 바쁠 때 메인 스레드가 멈추지 않게)
+    private func syncScriptPosition(bundle: String, key: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let position = Self.scriptNumber(bundle: bundle, "player position") else { return }
+            DispatchQueue.main.async {
+                guard let self, var np = self.nowPlaying, np.bundleID == bundle, np.trackKey == key else { return }
+                np.elapsed = position
+                np.timestamp = Date()
+                self.nowPlaying = np
+            }
+        }
     }
 
     /// 앨범아트 내려받기: HTTPS만, 5초 제한, 10MB 이하만 (백그라운드에서 호출)

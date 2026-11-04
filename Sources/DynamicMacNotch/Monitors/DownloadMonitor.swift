@@ -84,7 +84,7 @@ final class DownloadMonitor {
             let fd = open(folder.path, O_EVTONLY)
             guard fd >= 0 else { continue }
             let src = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename], queue: .main)
-            src.setEventHandler { [weak self] in self?.scan() }
+            src.setEventHandler { [weak self] in self?.scheduleScan() }
             src.setCancelHandler { close(fd) }
             src.resume()
             sources.append(src)
@@ -103,19 +103,37 @@ final class DownloadMonitor {
 
     /// 다운로드 폴더에 있던 일반 파일 (새로 생긴 파일을 찾기 위해)
     private var knownFiles = Set<String>()
+    private var scanPending = false
     /// 에어드랍으로 받은 파일이 생기면 호출 (TrayStore가 상태 표시)
     var onAirDropReceived: (([URL]) -> Void)?
+
+    /// 압축 풀기처럼 폴더 변경이 연달아 와도 0.2초에 한 번만 훑는다
+    private func scheduleScan() {
+        guard !scanPending else { return }
+        scanPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.scanPending = false
+            self?.scan()
+        }
+    }
 
     private func scan(initial: Bool = false) {
         var present = Set<URL>()
         var received: [URL] = []
+        var listed = Set<String>()
+        var readAll = true
         for folder in folders {
-            guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { continue }
+            guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else {
+                readAll = false
+                continue
+            }
+            let base = folder.path
             for name in names {
                 let ext = (name as NSString).pathExtension
                 guard let browser = Self.tempExtensions[ext] else {
                     // 새 일반 파일: 에어드랍으로 받은 것인지 확인 (받은 파일에는 sharingd 격리 표시가 붙는다)
-                    let path = folder.appendingPathComponent(name).path
+                    let path = base + "/" + name
+                    listed.insert(path)
                     if !knownFiles.contains(path) {
                         knownFiles.insert(path)
                         if !initial, !name.hasPrefix(".") {
@@ -143,7 +161,8 @@ final class DownloadMonitor {
         for (url, item) in items where !present.contains(url) {
             finish(item)
         }
-        if knownFiles.count > 5000 { knownFiles.removeAll() }   // 아주 큰 폴더에서 집합이 끝없이 커지지 않게
+        // 지금 있는 파일만 기억한다 (폴더를 못 읽었으면 그 폴더 파일을 새 파일로 오인하지 않게 그대로 둔다)
+        if readAll { knownFiles = listed }
         updatePolling()
         if !received.isEmpty { onAirDropReceived?(received) }
     }

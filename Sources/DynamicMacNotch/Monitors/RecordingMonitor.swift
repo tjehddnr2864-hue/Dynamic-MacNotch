@@ -69,13 +69,21 @@ final class RecordingMonitor: ObservableObject {
     private var positiveStreak = 0
 
     private func poll() {
+        // 화면 녹화 알림을 끈 동안에는 프로세스 목록을 읽지 않는다
+        guard settings.recordingEnabled else {
+            schedule(interval: 1.5)
+            suppressedAfterScreenshot = false
+            positiveStreak = 0
+            if startedAt != nil { stopped() }
+            return
+        }
         let procs = Self.recorderProcesses()
         schedule(interval: procs.ui || procs.cliVideo || startedAt != nil ? 0.4 : 1.5)
         if suppressedAfterScreenshot {
             let ui = procs.ui ? Self.captureUI() : nil
             if ui == nil || ui?.fullScreenLayer == false || ui?.toolbar == true { suppressedAfterScreenshot = false }
         }
-        let recording = settings.recordingEnabled && !suppressedAfterScreenshot
+        let recording = !suppressedAfterScreenshot
             && Self.systemIsRecording(alreadyRecording: startedAt != nil, procs: procs)
         positiveStreak = recording ? positiveStreak + 1 : 0
         if recording, startedAt == nil, positiveStreak >= 2 {
@@ -223,16 +231,23 @@ final class RecordingMonitor: ObservableObject {
 
     /// 녹화 도구 프로세스: (screencaptureui·QuickTime 실행 중, 동영상 옵션으로 실행된 screencapture)
     /// 내 사용자 프로세스 목록을 sysctl 한 번으로 받아 이름만 본다 (프로세스마다 묻지 않아 가볍다).
+    private static var procBuffer: [kinfo_proc] = []
+
     static func recorderProcesses() -> (ui: Bool, cliVideo: Bool) {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_UID, Int32(getuid())]
         var size = 0
         guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return (false, false) }
         let stride = MemoryLayout<kinfo_proc>.stride
-        var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / stride + 8)
-        size = procs.count * stride
-        guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return (false, false) }
+        // 1.5초마다 수백 KB를 새로 잡지 않도록 버퍼를 다시 쓴다 (메인 스레드에서만 호출)
+        if procBuffer.count < size / stride + 8 { procBuffer = [kinfo_proc](repeating: kinfo_proc(), count: size / stride + 64) }
+        size = procBuffer.count * stride
+        guard sysctl(&mib, 4, &procBuffer, &size, nil, 0) == 0 else { return (false, false) }
         var ui = false, cli = false
-        for p in procs.prefix(size / stride) {
+        let s = CChar(UInt8(ascii: "s")), q = CChar(UInt8(ascii: "Q"))
+        for i in 0..<(size / stride) {
+            // 찾는 이름은 s·Q로 시작하므로 나머지는 이름을 만들지 않고 넘긴다
+            guard procBuffer[i].kp_proc.p_comm.0 == s || procBuffer[i].kp_proc.p_comm.0 == q else { continue }
+            let p = procBuffer[i]
             let name = withUnsafeBytes(of: p.kp_proc.p_comm) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
             switch name {
             case "screencaptureui", "QuickTime Player": ui = true

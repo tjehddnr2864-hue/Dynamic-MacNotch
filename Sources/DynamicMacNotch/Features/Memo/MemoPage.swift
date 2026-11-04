@@ -256,6 +256,13 @@ private struct MemoTitleField: NSViewRepresentable {
         if context.coordinator.shownID != memoID {
             context.coordinator.shownID = memoID
             f.stringValue = text
+            // 본문을 쓰다가 새 메모를 만들면 입력 칸이 그대로 남으므로 커서를 제목으로 옮긴다
+            if focus {
+                DispatchQueue.main.async { [weak f] in
+                    guard let f else { return }
+                    f.window?.makeFirstResponder(f)
+                }
+            }
         }
     }
 }

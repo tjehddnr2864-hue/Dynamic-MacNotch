@@ -313,7 +313,7 @@ struct SyncedLyricsView: View {
     var fontSize: CGFloat
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.1)) { ctx in
+        TimelineView(.animation(minimumInterval: 0.1, paused: media.nowPlaying?.playing != true)) { ctx in
             let position = media.nowPlaying?.position(at: ctx.date) ?? 0
             let current = LyricsProvider.currentIndex(lines, at: position)
             ScrollViewReader { proxy in

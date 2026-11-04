@@ -67,6 +67,8 @@ final class ScreenshotMonitor: ObservableObject {
         if source == .clipboard {
             query?.stop()
             query = nil
+            if let queryObserver { NotificationCenter.default.removeObserver(queryObserver) }
+            queryObserver = nil
         } else if query == nil {
             startFileQuery()
         }
@@ -96,20 +98,22 @@ final class ScreenshotMonitor: ObservableObject {
 
     // MARK: - 파일 감지
 
+    private var queryObserver: NSObjectProtocol?
+
     private func startFileQuery() {
         let q = NSMetadataQuery()
         q.predicate = NSPredicate(format: "kMDItemIsScreenCapture == 1")
         q.searchScopes = [Self.systemScreenshotFolder]
-        NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: q, queue: .main) { [weak self] n in
+        queryObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: q, queue: .main) { [weak self] n in
             guard let self, self.settings.screenshotEnabled, self.settings.screenshotSource != .clipboard else { return }
             let added = n.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem] ?? []
             for item in added {
                 guard let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
                 let url = URL(fileURLWithPath: path)
-                guard let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
-                      let data = try? Data(contentsOf: url) else { continue }
                 let date = (item.value(forAttribute: NSMetadataItemFSCreationDateKey) as? Date) ?? Date()
-                guard date > self.startedAt else { continue }
+                guard date > self.startedAt,
+                      let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
+                      let data = try? Data(contentsOf: url) else { continue }
                 self.present(Shot(data: data, date: date, fileURL: url, pasteboardCount: nil))
             }
         }
