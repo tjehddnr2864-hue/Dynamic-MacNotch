@@ -68,7 +68,12 @@ if [ "$INSTALL" = 1 ]; then
   pkill -x "$EXE" 2>/dev/null || true
   rm -rf "/Applications/$NAME.app"
   cp -R "$APP" /Applications/
+  # 같은 번들 ID의 복사본이 남아 있으면 macOS가 그쪽을 실행할 수 있다 / a leftover copy with the same bundle ID may get launched instead
+  LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  "$LSREGISTER" -u "$PWD/$APP" 2>/dev/null || true
+  rm -rf "$APP"
   APP="/Applications/$NAME.app"
+  "$LSREGISTER" -f "$APP" 2>/dev/null || true
   echo "설치 완료 / installed: $APP"
 fi
 

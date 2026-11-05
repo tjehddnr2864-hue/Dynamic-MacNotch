@@ -49,8 +49,61 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
         self.mode = mode
     }
 
+    /// 입력 칸의 ⌘C·⌘V 등은 메뉴의 단축키로 전달된다. 도우미는 메뉴 없이 시작하므로 직접 만든다.
+    private func installEditMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: T("닫기", "Close Window"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: T("끝내기", "Quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: T("편집", "Edit"))
+        edit.addItem(withTitle: T("실행 취소", "Undo"), action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: T("실행 복귀", "Redo"), action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: T("오려두기", "Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: T("복사하기", "Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: T("붙여넣기", "Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: T("전체 선택", "Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+        NSApp.mainMenu = main
+    }
+
+    #if DEV
+    /// 개발용: DMN_PASTE_TEST=<파일>이면 키 입력 칸에 메뉴 단축키 ⌘V를 보내고 들어간 글자 수만 기록한다 (내용은 남기지 않고, 저장하지 않음)
+    private func runPasteTest(_ path: String) {
+        func find(_ view: NSView) -> NSSecureTextField? {
+            if let field = view as? NSSecureTextField { return field }
+            for sub in view.subviews { if let f = find(sub) { return f } }
+            return nil
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            guard let window = NSApp.windows.first(where: { $0.contentView != nil && $0.isVisible }), let field = window.contentView.flatMap(find) else {
+                try? "no field\n".write(toFile: path, atomically: true, encoding: .utf8)
+                return
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(field)
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,
+                                         windowNumber: window.windowNumber, context: nil, characters: "v", charactersIgnoringModifiers: "v", isARepeat: false, keyCode: 9)
+            let handled = event.map { NSApp.mainMenu?.performKeyEquivalent(with: $0) == true } ?? false
+            let count = (field.currentEditor()?.string ?? field.stringValue).count
+            try? "handled=\(handled) count=\(count)\n".write(toFile: path, atomically: true, encoding: .utf8)
+        }
+    }
+    #endif
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        installEditMenu()
         open(mode)
+        #if DEV
+        if let path = ProcessInfo.processInfo.environment["DMN_PASTE_TEST"] { runPasteTest(path) }
+        #endif
         // 본 앱이 다시 '설정 열기'를 요청하면 새 프로세스를 띄우지 않고 이 창을 앞으로 가져온다.
         DistributedNotificationCenter.default().addObserver(forName: Helper.helperNotification, object: nil,
                                                             queue: .main) { [weak self] n in

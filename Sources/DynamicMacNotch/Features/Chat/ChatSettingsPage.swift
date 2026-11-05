@@ -42,6 +42,23 @@ struct ChatSettingsPage: View {
                            "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer. Web search uses each service's search tool and may cost extra with an API key."))
             }
             Section {
+                ZStack(alignment: .topLeading) {
+                    if settings.chatInstructions.isEmpty {
+                        Text(T("예: 항상 존댓말로 짧게 답해 줘. 코드는 Swift로 보여 줘.", "e.g. Keep answers short. Show code in Swift."))
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: $settings.chatInstructions)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: 84)
+                }
+            } header: { Text(T("답변 지침", "Answer Instructions")) } footer: {
+                let count = settings.chatInstructions.count
+                footnote(T("모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 앞의 \(AppSettings.chatInstructionsLimit)자까지 씁니다 (지금 \(count)자).",
+                           "Applies to answers from every service and is sent to the company you choose with each question. Only the first \(AppSettings.chatInstructionsLimit) characters are used (now \(count))."))
+            }
+            Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {
                     ForEach(ChatService.allCases) { Text($0.name).tag($0) }
                 }

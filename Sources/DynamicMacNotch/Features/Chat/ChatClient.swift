@@ -69,7 +69,7 @@ enum ChatAPI {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        return """
+        let base = """
         You are answering inside a small panel in a Mac's notch. Today's date is \(formatter.string(from: Date())). \
         Answer briefly and directly, in the language of the question.
 
@@ -83,6 +83,11 @@ enum ChatAPI {
         Don't write formulas in plain text or Unicode, and don't put math in code blocks. Write a literal dollar sign as \\$.
         The panel is narrow, about 40 characters wide, so keep displayed equations short and split long derivations across several $$...$$ blocks.
         """
+        // 백그라운드에서도 불리므로 설정 객체 대신 저장값을 읽는다
+        let custom = UserDefaults.standard.string(forKey: AppSettings.chatInstructionsKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !custom.isEmpty else { return base }
+        return base + "\n\nThe user's own instructions for your answers. Follow them; the formatting rules above still apply:\n"
+            + custom.prefix(AppSettings.chatInstructionsLimit)
     }
     static let maxOutputTokens = 8192
     /// 검색 결과를 이 횟수까지 쓴다 (비용 상한)

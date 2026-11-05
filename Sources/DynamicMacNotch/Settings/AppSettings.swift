@@ -259,6 +259,10 @@ final class AppSettings: ObservableObject {
     @Published var chatReopen: ChatReopen { didSet { save(chatReopen.rawValue, "chatReopen") } }
     /// 모르는 내용·최근 일은 웹 검색으로 답하게 한다 (서비스의 검색 도구, 별도 요금이 붙을 수 있음)
     @Published var chatWebSearch: Bool { didSet { save(chatWebSearch, "chatWebSearch") } }
+    /// 사용자가 적은 답변 지침 (모든 서비스의 공통 지시 뒤에 붙는다)
+    @Published var chatInstructions: String { didSet { save(chatInstructions, AppSettings.chatInstructionsKey) } }
+    static let chatInstructionsKey = "chatInstructions"
+    static let chatInstructionsLimit = 2000
     @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
     /// 서비스별 모델 (비어 있으면 그 서비스의 기본 모델)
     @Published var chatModelClaude: String { didSet { save(chatModelClaude, "chatModelClaude") } }
@@ -400,6 +404,7 @@ final class AppSettings: ObservableObject {
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
         chatWebSearch = value("chatWebSearch", true)
+        chatInstructions = value(AppSettings.chatInstructionsKey, "")
         chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
@@ -527,6 +532,7 @@ final class AppSettings: ObservableObject {
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
         chatWebSearch = value("chatWebSearch", true)
+        chatInstructions = value(AppSettings.chatInstructionsKey, "")
         chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
