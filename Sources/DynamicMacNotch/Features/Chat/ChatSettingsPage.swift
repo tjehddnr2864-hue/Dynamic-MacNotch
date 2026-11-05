@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// 설정 → AI 채팅: 서비스, 서비스별 모델과 API 키, 연결 테스트.
@@ -12,6 +13,8 @@ struct ChatSettingsPage: View {
     private let keyInputState = State(initialValue: "")
     /// 화면을 그릴 때마다 키체인을 읽지 않도록 기억해 둔다 (지침을 입력하면 글자마다 다시 그려진다)
     private let hasKeyState = State(initialValue: false)
+    private let usageState = State(initialValue: (count: 0, bytes: Int64(0)))
+    private let confirmClearState = State(initialValue: false)
     private let testState = State(initialValue: TestState.idle)
     private let saveFailedState = State(initialValue: false)
     /// 받아 온 모델 목록 (설정 창이 열린 동안만 기억한다)
@@ -33,13 +36,39 @@ struct ChatSettingsPage: View {
         Form {
             Section {
                 Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
-                Toggle(T("모르는 내용과 최근 소식은 웹 검색으로 답변", "Use web search for recent or unknown topics"), isOn: $settings.chatWebSearch)
+                Toggle(T("필요할 때만 웹 검색 (최근 소식, 확실하지 않은 내용)", "Use web search only when needed (recent or uncertain topics)"), isOn: $settings.chatWebSearch)
                 Picker(T("다시 열 때 보여 줄 화면", "When Reopened, Show"), selection: $settings.chatReopen) {
                     ForEach(ChatReopen.allCases) { Text($0.label).tag($0) }
                 }
             } header: { Text(T("표시", "Show")) } footer: {
                 footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않습니다. 채팅 내용은 메모처럼 이 Mac에 저장되며, 노치의 채팅 목록에서 삭제할 수 있습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다. 웹 검색은 각 서비스의 검색 도구를 쓰며 API 키 방식에서는 별도 요금이 붙을 수 있습니다.",
                            "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer. Web search uses each service's search tool and may cost extra with an API key."))
+            }
+            Section {
+                Label {
+                    Text(T("대화 내용은 내부 저장소에 저장됩니다.", "Conversations are saved to internal storage."))
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                }
+                LabeledContent(T("저장된 대화", "Saved Conversations")) {
+                    HStack(spacing: 8) {
+                        let usage = usageState.wrappedValue
+                        Text(T("\(usage.count)개 · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))",
+                               "\(usage.count) · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))"))
+                            .foregroundStyle(.secondary)
+                        Button(T("캐시 비우기", "Clear Cache")) { confirmClearState.wrappedValue = true }
+                            .disabled(usageState.wrappedValue.count == 0)
+                    }
+                }
+            } header: { Text(T("대화 저장", "Saved Conversations")) } footer: {
+                footnote(T("캐시 비우기는 저장된 모든 대화를 이 Mac에서 바로 삭제합니다. 메모·설정·API 키는 지우지 않습니다.",
+                           "Clear Cache deletes every saved conversation from this Mac right away. Memos, settings and API keys are kept."))
+            }
+            .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
+                Button(T("모두 삭제", "Delete All"), role: .destructive, action: clearStoredChats)
+                Button(T("취소", "Cancel"), role: .cancel) {}
+            } message: {
+                Text(T("대화 \(usageState.wrappedValue.count)개가 삭제되며 되돌릴 수 없습니다.", "\(usageState.wrappedValue.count) conversations will be deleted. This can't be undone."))
             }
             Section {
                 ZStack(alignment: .topLeading) {
@@ -145,7 +174,9 @@ struct ChatSettingsPage: View {
             refreshHasKey()
             loadModels()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refreshUsage() }
         .onAppear {
+            refreshUsage()
             refreshHasKey()
             loadModels()
         }
@@ -211,6 +242,25 @@ struct ChatSettingsPage: View {
     private var instructionsBinding: Binding<String> {
         Binding(get: { settings.chatInstructions },
                 set: { settings.chatInstructions = String($0.prefix(AppSettings.chatInstructionsLimit)) })
+    }
+
+    private func refreshUsage() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let usage = ChatStore.storedUsage()
+            DispatchQueue.main.async { usageState.wrappedValue = usage }
+        }
+    }
+
+    private func clearStoredChats() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            ChatStore.deleteAllStored()
+            DispatchQueue.main.async {
+                Helper.sendToMain("chatscleared")
+                refreshUsage()
+                // 그 순간 끝난 답변이 다시 저장되었으면 남은 개수가 보이도록 한 번 더 센다
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { refreshUsage() }
+            }
+        }
     }
 
     private func refreshHasKey() { hasKeyState.wrappedValue = ChatKeychain.has(for: service) }

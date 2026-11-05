@@ -197,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.featurePreview.run(id, style: parts.count > 1 ? AlertStyle(rawValue: parts[1]) : nil)
                 }
             case "restart": self.restart()
+            case "chatscleared": self.chat.storedChatsCleared()   // 파일이 실제로 지워졌을 때만 메모리에서 지운다
             default:
                 #if DEV
                 self.handleDevCommand(command)
@@ -318,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
                 }
+            case "chat": self.vm.openChat()   // 개발용: AI 채팅 페이지 열기
             case "devfocusanswer":   // 개발용: 첫 답변 본문을 전체 선택
                 func find(_ view: NSView) -> ChatAnswerTextView? {
                     if let tv = view as? ChatAnswerTextView { return tv }
@@ -369,7 +371,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
         return !vm.isExpanded && !vm.isHovering && !vm.isFileDragging
             && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
-            && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming
+            && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming && chat.draft.isEmpty
             && lockScreen?.isLocked != true && helperProcess?.isRunning != true && !FilePicker.isRunning
             && !media.testActive && !call.previewActive && screenshot.shot == nil
     }

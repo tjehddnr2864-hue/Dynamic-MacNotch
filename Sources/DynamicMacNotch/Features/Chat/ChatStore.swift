@@ -345,6 +345,39 @@ final class ChatStore: ObservableObject {
         summaries.removeAll { $0.id == id }
     }
 
+    /// 설정에서 저장된 대화를 모두 지운 뒤 불린다. 알림은 보낸 쪽을 확인할 수 없으므로,
+    /// 지금 채팅의 파일이 실제로 사라졌을 때만 메모리에서 지운다 (다른 프로그램이 알림만 보내서는 지워지지 않는다).
+    func storedChatsCleared() {
+        if showList { reloadList() }
+        guard !FileManager.default.fileExists(atPath: Self.file(currentID).path) else { return }
+        UserDefaults.standard.removeObject(forKey: Self.currentKey)
+        guard !entries.isEmpty || isStreaming else { return }
+        cancelRequest()
+        isStreaming = false
+        answer = ""
+        titleSaveWork?.cancel()
+        titleSaveWork = nil
+        opensAnswerNext = false
+        startEmpty()
+        setDraft("")
+        error = nil
+        truncated = false
+    }
+
+    /// 저장된 대화의 개수와 크기 (설정 화면용. 내용은 읽지 않는다)
+    static func storedUsage() -> (count: Int, bytes: Int64) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        let chats = files.filter { $0.pathExtension == "json" }
+        let bytes = chats.reduce(Int64(0)) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0) }
+        return (chats.count, bytes)
+    }
+
+    /// 저장된 대화 파일을 모두 지운다 (폴더 안의 .json만)
+    static func deleteAllStored() {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.pathExtension == "json" { try? FileManager.default.removeItem(at: file) }
+    }
+
     func toggleList() {
         showList.toggle()
         if showList { reloadList() } else { summaries = [] }
