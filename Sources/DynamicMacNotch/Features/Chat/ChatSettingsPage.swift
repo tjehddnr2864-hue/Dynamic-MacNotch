@@ -179,6 +179,16 @@ struct ChatSettingsPage: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refreshUsage() }
         .onAppear {
+            #if DEV
+            // 개발용: 시험 이벤트가 앱에 닿지 않으므로 확인 창과 삭제를 직접 실행한다
+            if ProcessInfo.processInfo.environment["DMN_CLEAR_TEST"] != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { confirmClearState.wrappedValue = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    confirmClearState.wrappedValue = false
+                    clearStoredChats()
+                }
+            }
+            #endif
             refreshUsage()
             refreshHasKey()
             loadModels()
