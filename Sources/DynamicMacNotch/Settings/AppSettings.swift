@@ -260,7 +260,13 @@ final class AppSettings: ObservableObject {
     /// 모르는 내용·최근 일은 웹 검색으로 답하게 한다 (서비스의 검색 도구, 별도 요금이 붙을 수 있음)
     @Published var chatWebSearch: Bool { didSet { save(chatWebSearch, "chatWebSearch") } }
     /// 사용자가 적은 답변 지침 (모든 서비스의 공통 지시 뒤에 붙는다)
-    @Published var chatInstructions: String { didSet { save(chatInstructions, AppSettings.chatInstructionsKey) } }
+    /// 질문할 때 저장값을 직접 읽으므로 본 앱에 알리지 않는다 (글자마다 본 앱의 설정을 다시 읽지 않게)
+    @Published var chatInstructions: String {
+        didSet {
+            guard !loading else { return }
+            defaults.set(chatInstructions, forKey: AppSettings.chatInstructionsKey)
+        }
+    }
     static let chatInstructionsKey = "chatInstructions"
     static let chatInstructionsLimit = 2000
     @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }

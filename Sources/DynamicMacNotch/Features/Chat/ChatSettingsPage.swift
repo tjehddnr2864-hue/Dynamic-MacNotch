@@ -10,7 +10,8 @@ struct ChatSettingsPage: View {
     }
 
     private let keyInputState = State(initialValue: "")
-    private let refreshState = State(initialValue: 0)
+    /// 화면을 그릴 때마다 키체인을 읽지 않도록 기억해 둔다 (지침을 입력하면 글자마다 다시 그려진다)
+    private let hasKeyState = State(initialValue: false)
     private let testState = State(initialValue: TestState.idle)
     private let saveFailedState = State(initialValue: false)
     /// 받아 온 모델 목록 (설정 창이 열린 동안만 기억한다)
@@ -28,8 +29,7 @@ struct ChatSettingsPage: View {
     private var model: String { settings.chatModel(for: service) }
 
     var body: some View {
-        let _ = refreshState.wrappedValue   // 키를 저장·삭제한 뒤 상태를 다시 읽는다
-        let hasKey = ChatKeychain.has(for: service)
+        let hasKey = hasKeyState.wrappedValue
         Form {
             Section {
                 Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
@@ -49,14 +49,14 @@ struct ChatSettingsPage: View {
                             .padding(.leading, 5)
                             .allowsHitTesting(false)
                     }
-                    TextEditor(text: $settings.chatInstructions)
+                    TextEditor(text: instructionsBinding)
                         .scrollContentBackground(.hidden)
                         .frame(height: 84)
                 }
             } header: { Text(T("답변 지침", "Answer Instructions")) } footer: {
                 let count = settings.chatInstructions.count
-                footnote(T("모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 앞의 \(AppSettings.chatInstructionsLimit)자까지 씁니다 (지금 \(count)자).",
-                           "Applies to answers from every service and is sent to the company you choose with each question. Only the first \(AppSettings.chatInstructionsLimit) characters are used (now \(count))."))
+                footnote(T("모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 최대 \(AppSettings.chatInstructionsLimit)자입니다 (지금 \(count)자).",
+                           "Applies to answers from every service and is sent to the company you choose with each question. Up to \(AppSettings.chatInstructionsLimit) characters (now \(count))."))
             }
             Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {
@@ -142,9 +142,13 @@ struct ChatSettingsPage: View {
             saveFailedState.wrappedValue = false
             test = .idle
             fetchErrorState.wrappedValue = nil
+            refreshHasKey()
             loadModels()
         }
-        .onAppear { loadModels() }
+        .onAppear {
+            refreshHasKey()
+            loadModels()
+        }
     }
 
     // MARK: - 모델 목록
@@ -204,6 +208,13 @@ struct ChatSettingsPage: View {
         }
     }
 
+    private var instructionsBinding: Binding<String> {
+        Binding(get: { settings.chatInstructions },
+                set: { settings.chatInstructions = String($0.prefix(AppSettings.chatInstructionsLimit)) })
+    }
+
+    private func refreshHasKey() { hasKeyState.wrappedValue = ChatKeychain.has(for: service) }
+
     private var modelBinding: Binding<String> {
         Binding(get: { settings.chatModel(for: service) },
                 set: {
@@ -233,7 +244,7 @@ struct ChatSettingsPage: View {
 
     private func keysChanged() {
         test = .idle
-        refreshState.wrappedValue += 1
+        refreshHasKey()
         // 키가 바뀌면 쓸 수 있는 모델도 달라진다
         fetchedState.wrappedValue[service] = nil
         fetchErrorState.wrappedValue = nil

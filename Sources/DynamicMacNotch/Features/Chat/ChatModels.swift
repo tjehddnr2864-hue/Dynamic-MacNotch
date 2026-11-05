@@ -54,7 +54,7 @@ enum ChatModels {
         config.timeoutIntervalForRequest = 20
         config.httpShouldSetCookies = false
         config.urlCache = nil
-        let session = URLSession(configuration: config)
+        let session = URLSession(configuration: config, delegate: ChatNoRedirect.shared, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
         var found: [ChatModelOption] = []
         var pageToken: String?

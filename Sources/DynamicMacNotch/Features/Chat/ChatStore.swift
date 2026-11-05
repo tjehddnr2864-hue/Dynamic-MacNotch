@@ -374,9 +374,12 @@ final class ChatStore: ObservableObject {
         let record = ChatRecord(id: currentID, title: title, named: named,
                                 messages: entries.map { .init(role: $0.role.rawValue, text: $0.text) }, updated: now)
         // 내 대화이므로 폴더를 나만 읽을 수 있게 만든다
-        try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true,
-                                                 attributes: [.posixPermissions: 0o700])
-        if let data = try? JSONEncoder().encode(record) { try? data.write(to: Self.file(currentID), options: .atomic) }
+        let manager = FileManager.default
+        try? manager.createDirectory(at: Self.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try? manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: Self.folder.path)   // 이미 있던 폴더도
+        if let data = try? JSONEncoder().encode(record), (try? data.write(to: Self.file(currentID), options: .atomic)) != nil {
+            try? manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.file(currentID).path)
+        }
         UserDefaults.standard.set(currentID.uuidString, forKey: Self.currentKey)
         if showList {
             summaries.removeAll { $0.id == currentID }

@@ -65,11 +65,26 @@ enum ChatError: Error, Equatable {
 /// 서비스별 요청 만들기
 enum ChatAPI {
     /// 모든 서비스에 공통으로 적용하는 지시. 날짜를 알려 줘야 모델이 자기 지식보다 최근 일인지 판단할 수 있다.
+    /// 기본 지침 + 사용자의 답변 지침
     static var systemPrompt: String {
+        guard let custom = customInstructions else { return basePrompt }
+        return basePrompt + "\n\n" + custom
+    }
+
+    /// 사용자의 답변 지침 (없으면 nil)
+    static var customInstructions: String? {
+        let custom = UserDefaults.standard.string(forKey: AppSettings.chatInstructionsKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !custom.isEmpty else { return nil }
+        return "The user's own instructions for your answers. Follow them; the formatting rules still apply:\n"
+            + custom.prefix(AppSettings.chatInstructionsLimit)
+    }
+
+    /// 개인 정보가 들어가지 않는 기본 지침
+    static var basePrompt: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        let base = """
+        return """
         You are answering inside a small panel in a Mac's notch. Today's date is \(formatter.string(from: Date())). \
         Answer briefly and directly, in the language of the question.
 
@@ -83,11 +98,6 @@ enum ChatAPI {
         Don't write formulas in plain text or Unicode, and don't put math in code blocks. Write a literal dollar sign as \\$.
         The panel is narrow, about 40 characters wide, so keep displayed equations short and split long derivations across several $$...$$ blocks.
         """
-        // 백그라운드에서도 불리므로 설정 객체 대신 저장값을 읽는다
-        let custom = UserDefaults.standard.string(forKey: AppSettings.chatInstructionsKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !custom.isEmpty else { return base }
-        return base + "\n\nThe user's own instructions for your answers. Follow them; the formatting rules above still apply:\n"
-            + custom.prefix(AppSettings.chatInstructionsLimit)
     }
     static let maxOutputTokens = 8192
     /// 검색 결과를 이 횟수까지 쓴다 (비용 상한)
@@ -250,7 +260,7 @@ enum ChatClient {
         config.timeoutIntervalForResource = 300
         config.httpShouldSetCookies = false
         config.urlCache = nil
-        return URLSession(configuration: config)
+        return URLSession(configuration: config, delegate: ChatNoRedirect.shared, delegateQueue: nil)
     }
 
     /// 답변을 받는다. onEvent는 백그라운드에서 불린다. 마지막 이벤트는 done 또는 failed이고,
@@ -381,5 +391,15 @@ enum ChatClient {
         } catch {
             return .network
         }
+    }
+}
+
+/// API 주소는 다른 곳으로 넘기지 않으므로, 리디렉션을 따라가 키가 담긴 헤더가 다른 서버로 가는 일을 막는다
+final class ChatNoRedirect: NSObject, URLSessionTaskDelegate {
+    static let shared = ChatNoRedirect()
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }
