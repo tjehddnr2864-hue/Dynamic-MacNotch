@@ -246,6 +246,27 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageStyle: UsageStyle { didSet { save(aiUsageStyle.rawValue, "aiUsageStyle") } }
     /// 상시 표시할 서비스 (AIService rawValue)
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
+    @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
+    /// 서비스별 모델 (비어 있으면 그 서비스의 기본 모델)
+    @Published var chatModelClaude: String { didSet { save(chatModelClaude, "chatModelClaude") } }
+    @Published var chatModelOpenAI: String { didSet { save(chatModelOpenAI, "chatModelOpenAI") } }
+    @Published var chatModelGemini: String { didSet { save(chatModelGemini, "chatModelGemini") } }
+
+    func chatModel(for service: ChatService) -> String {
+        switch service {
+        case .claude: return chatModelClaude.isEmpty ? service.defaultModel : chatModelClaude
+        case .openai: return chatModelOpenAI
+        case .gemini: return chatModelGemini
+        }
+    }
+
+    func setChatModel(_ model: String, for service: ChatService) {
+        switch service {
+        case .claude: chatModelClaude = model
+        case .openai: chatModelOpenAI = model
+        case .gemini: chatModelGemini = model
+        }
+    }
     /// 새로고침 간격 (분)
     @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
     /// 충전 중 상시 표시 (배터리 %·완충까지 남은 시간). 완충·충전 멈춤(어댑터로만 동작) 중에는 표시 안 함
@@ -356,6 +377,10 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
+        chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
+        chatModelClaude = value("chatModelClaude", "")
+        chatModelOpenAI = value("chatModelOpenAI", "")
+        chatModelGemini = value("chatModelGemini", "")
         // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")
@@ -476,6 +501,10 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
+        chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
+        chatModelClaude = value("chatModelClaude", "")
+        chatModelOpenAI = value("chatModelOpenAI", "")
+        chatModelGemini = value("chatModelGemini", "")
         // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
         aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
         aiConnected = value("aiConnected", "")

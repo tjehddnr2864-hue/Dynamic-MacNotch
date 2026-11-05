@@ -3,14 +3,14 @@ import SwiftUI
 /// 설정 창 페이지. '상호작용'은 기능별 페이지를 펼치는 묶음이다.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general, priority, interaction
-    case basics, network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage, agent
+    case basics, network, bluetooth, focus, call, media, download, airdrop, screenshot, recording, battery, hud, lock, aiUsage, chat, agent
     case test, permissions, about
 
     var id: String { rawValue }
 
     /// '상호작용' 아래에 펼쳐지는 기능별 페이지
     static let features: [SettingsPage] = [.basics, .network, .bluetooth, .focus, .call, .media, .download, .airdrop,
-                                           .screenshot, .recording, .battery, .hud, .lock, .aiUsage, .agent]
+                                           .screenshot, .recording, .battery, .hud, .lock, .aiUsage, .chat, .agent]
     static let top: [SettingsPage] = [.general, .priority, .interaction, .test, .permissions, .about]
 
     var title: String {
@@ -32,6 +32,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .hud: return "HUD"
         case .lock: return T("잠금화면", "Lock Screen")
         case .aiUsage: return T("AI 사용량", "AI Usage")
+        case .chat: return T("AI 채팅", "AI Chat")
         case .agent: return "Claude Code · Codex"
         case .test: return T("테스트", "Test")
         case .permissions: return T("권한 관리", "Permissions")
@@ -58,6 +59,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .hud: return "speaker.wave.2"
         case .lock: return "lock"
         case .aiUsage: return "gauge.medium"
+        case .chat: return "bubble.left.and.text.bubble.right"
         case .agent: return "terminal"
         case .test: return "play.rectangle"
         case .permissions: return "hand.raised"
@@ -206,6 +208,7 @@ struct SettingsView: View {
         case .hud: hudPage
         case .lock: lockPage
         case .aiUsage: aiUsagePage
+        case .chat: ChatSettingsPage(settings: settings)
         case .agent: AgentSettingsPage(settings: settings, preview: preview)
         case .test: testTab
         case .permissions: PermissionsView(onboarding: false, embedded: true) {}
@@ -979,7 +982,7 @@ private struct LiquidGlassPanel: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
     /// 유리 배경이 비치도록 폼 자체 배경을 지운다.
     func settingsForm() -> some View {
         formStyle(.grouped).scrollContentBackground(.hidden)
