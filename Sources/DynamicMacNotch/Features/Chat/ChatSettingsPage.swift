@@ -56,19 +56,16 @@ struct ChatSettingsPage: View {
                         Text(T("\(usage.count)개 · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))",
                                "\(usage.count) · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))"))
                             .foregroundStyle(.secondary)
-                        Button(T("캐시 비우기", "Clear Cache")) { confirmClearState.wrappedValue = true }
+                        Button(T("캐시 비우기", "Clear Cache")) {
+                            refreshUsage()   // 노치에서 대화하는 동안 설정 창은 활성 상태 그대로라 개수가 낡을 수 있다
+                            confirmClearState.wrappedValue = true
+                        }
                             .disabled(usageState.wrappedValue.count == 0)
                     }
                 }
             } header: { Text(T("대화 저장", "Saved Conversations")) } footer: {
                 footnote(T("캐시 비우기는 저장된 모든 대화를 이 Mac에서 바로 삭제합니다. 메모·설정·API 키는 지우지 않습니다.",
                            "Clear Cache deletes every saved conversation from this Mac right away. Memos, settings and API keys are kept."))
-            }
-            .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
-                Button(T("모두 삭제", "Delete All"), role: .destructive, action: clearStoredChats)
-                Button(T("취소", "Cancel"), role: .cancel) {}
-            } message: {
-                Text(T("대화 \(usageState.wrappedValue.count)개가 삭제되며 되돌릴 수 없습니다.", "\(usageState.wrappedValue.count) conversations will be deleted. This can't be undone."))
             }
             Section {
                 ZStack(alignment: .topLeading) {
@@ -166,6 +163,12 @@ struct ChatSettingsPage: View {
             }
         }
         .settingsForm()
+        .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
+            Button(T("모두 삭제", "Delete All"), role: .destructive, action: clearStoredChats)
+            Button(T("취소", "Cancel"), role: .cancel) {}
+        } message: {
+            Text(T("대화 \(usageState.wrappedValue.count)개가 삭제되며 되돌릴 수 없습니다.", "\(usageState.wrappedValue.count) conversations will be deleted. This can't be undone."))
+        }
         .onChange(of: settings.chatService) { _, _ in
             keyInput.wrappedValue = ""
             saveFailedState.wrappedValue = false
