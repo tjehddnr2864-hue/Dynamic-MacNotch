@@ -476,7 +476,16 @@ enum MathTypesetter {
         }
     }
 
-    private static func mathFont(_ size: CGFloat) -> CTFont { CTFontCreateWithName("STIXTwoMath-Regular" as CFString, size, nil) }
+    /// 수식마다 글꼴을 새로 만들지 않고 크기별로 재사용한다 (시스템의 글자 캐시가 덜 늘어난다)
+    private static let mathFonts = NSCache<NSNumber, CTFont>()
+
+    private static func mathFont(_ size: CGFloat) -> CTFont {
+        let key = NSNumber(value: Double(size))
+        if let font = mathFonts.object(forKey: key) { return font }
+        let font = CTFontCreateWithName("STIXTwoMath-Regular" as CFString, size, nil)
+        mathFonts.setObject(font, forKey: key)
+        return font
+    }
 
     private static func glyphs(_ text: String, font: CTFont) -> Box {
         let attributes: [NSAttributedString.Key: Any] = [.font: font, NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true]
