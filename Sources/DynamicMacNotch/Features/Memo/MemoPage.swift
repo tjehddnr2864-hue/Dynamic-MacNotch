@@ -188,7 +188,7 @@ private struct MemoListView: View {
 }
 
 /// 제목 칸 (한 줄). Enter를 누르면 본문으로 넘어간다.
-private struct MemoTitleField: NSViewRepresentable {
+struct MemoTitleField: NSViewRepresentable {
     var text: String
     var memoID: UUID?
     /// 나타나자마자 커서를 둔다 (제목을 눌러 쓰기 시작)

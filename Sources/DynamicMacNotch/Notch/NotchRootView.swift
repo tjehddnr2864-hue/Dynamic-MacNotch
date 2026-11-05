@@ -140,7 +140,8 @@ struct ExpandedView: View {
             tray: AnyView(TrayPage(store: features.tray, vm: vm)),
             chat: AnyView(ChatPage(store: features.chat,
                                    active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .chat,
-                                   collapse: { vm.collapse() }, openSettings: openSettings))
+                                   collapse: { vm.collapse() }, openSettings: openSettings,
+                                   setInputExtra: { vm.chatInputExtra = $0 }))
         )
     }
 

@@ -29,6 +29,7 @@ enum PreviewID: String, CaseIterable {
     case chargingPinned = "charging-pinned", calendarPinned = "calendar-pinned"
     // 자동 업데이트 완료
     case updateDone = "update-done"
+    case chatDone = "chat-done"
     // 코딩 에이전트
     case agentDone = "agent-done"
     // 모두 끝내기
@@ -51,7 +52,7 @@ extension PreviewID {
         case .wifiOn, .wifiOff, .wifiConnected, .wifiDisconnected, .vpnOn, .vpnOff, .hotspot,
              .airpods, .btLow, .btNoBattery, .focusOn, .focusOff, .charger, .low, .full, .agentDone:
             return .selectable
-        case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone:
+        case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone, .chatDone:
             return .detailOnly
         case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned,
              .mediaStart, .mediaStop, .stopAll:
@@ -128,6 +129,7 @@ final class FeaturePreview {
             showPersistent(NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "network", tint: .blue, value: .text("JP"),
                                          title: "VPN", subtitle: "NordVPN", detailValue: .text(T("연결됨", "Connected"))), for: 6)
         case .updateDone: center.post(Updater.doneActivity(version: Updater.currentVersion))
+        case .chatDone: center.post(ChatStore.finishedActivity(failure: nil, title: T("미리보기 채팅", "Preview Chat")))
         case .hotspot:
             network("personalhotspot", .green, T("연결됨", "Connected"), T("개인용 핫스팟", "Personal Hotspot"), "iPhone")
         case .offline:

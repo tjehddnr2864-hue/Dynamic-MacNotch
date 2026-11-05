@@ -30,8 +30,8 @@ struct ChatSettingsPage: View {
             Section {
                 Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
             } header: { Text(T("표시", "Show")) } footer: {
-                footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않으며, 대화는 저장하지 않고 페이지를 떠난 뒤 10분이 지나면 지웁니다.",
-                           "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats aren't saved and are cleared 10 minutes after you leave the page."))
+                footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않습니다. 채팅 내용은 메모처럼 이 Mac에 저장되며, 노치의 채팅 목록에서 삭제할 수 있습니다.",
+                           "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch."))
             }
             Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {

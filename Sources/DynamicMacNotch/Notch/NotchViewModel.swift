@@ -243,7 +243,7 @@ final class NotchViewModel: ObservableObject {
             switch expandedPage {
             case .home:
                 if homeOption == .usage || homeOption == .memo { return usageSize }   // 메모도 AI 사용량과 같은 크기
-                if homeOption == .chat { return chatSize }
+                if homeOption == .chat { return chatLarge ? chatSize : chatCompactSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)
@@ -293,9 +293,30 @@ final class NotchViewModel: ObservableObject {
         CGSize(width: 300 + 2 * (topRadius + 22), height: notchSize.height + 6 + 124 + 22)
     }
 
-    /// AI 채팅: 답변을 읽을 수 있도록 AI 사용량보다 좌우·아래로 더 크게
+    /// AI 채팅: 대화를 보여 주는 중인지 (입력만 있거나 생각 중이면 작은 노치)
+    @Published var chatLarge = false
+    /// 입력 칸이 여러 줄로 늘어난 높이
+    @Published var chatInputExtra: CGFloat = 0
+
+    /// AI 채팅(대화): 답변을 읽을 수 있도록 AI 사용량보다 좌우·아래로 더 크게
     var chatSize: CGSize {
         CGSize(width: 340 + 2 * (topRadius + 22), height: notchSize.height + 6 + 200 + 22)
+    }
+
+    /// AI 채팅(입력·생각 중): 제목 줄 20 + 입력 줄 26 + 간격
+    var chatCompactSize: CGSize {
+        CGSize(width: chatSize.width, height: notchSize.height + 6 + 2 + 20 + 6 + 26 + chatInputExtra + 22)
+    }
+
+    /// 답변 완료 알림을 눌렀을 때: 채팅 페이지를 연다
+    func openChat() {
+        if isExpanded {
+            selectHomeOption(.chat)
+        } else {
+            homeOption = .chat
+            saveHomeOption()
+            expand(page: .home)
+        }
     }
 
     var expandedBaseSize: CGSize {

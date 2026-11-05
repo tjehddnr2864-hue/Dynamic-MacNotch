@@ -903,7 +903,7 @@ struct SettingsView: View {
                            [("call-incoming", T("수신 전화", "Incoming Call")), ("offline", T("네트워크 끊김", "Network Lost")),
                             ("airdrop-receive", T("에어드랍 받기", "AirDrop Receive")), ("screenshot", T("스크린샷", "Screenshot")),
                             ("timer-done", T("타이머 종료", "Timer Done")), ("calendar", T("일정 알림", "Event Alert")),
-                            ("update-done", T("업데이트 완료", "Update Finished"))],
+                            ("update-done", T("업데이트 완료", "Update Finished")), ("chat-done", T("AI 채팅 답변 완료", "AI Chat Answer Ready"))],
                            note: T("수신 전화: 가짜 전화로 받기·거절을 눌러 볼 수 있고 30초 동안 조작이 없으면 끝납니다.",
                                    "Incoming Call: a fake call where you can try Accept and Decline; it ends after 30 seconds without interaction."))
         }

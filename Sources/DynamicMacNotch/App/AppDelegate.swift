@@ -162,6 +162,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.media.noteTestInteraction() }
             .store(in: &previewObservers)
         Updater.shared.start()
+        // AI 채팅: 대화가 있으면 큰 노치, 입력·생각 중이면 작은 노치. 페이지를 닫은 동안 답변이 끝나면 알린다.
+        chat.objectWillChange
+            .receive(on: RunLoop.main)
+            .compactMap { [weak self] in self?.chat.isLarge }
+            .removeDuplicates()
+            .sink { [weak self] large in self?.vm.chatLarge = large }
+            .store(in: &cancellables)
+        chat.onFinishedInBackground = { [weak self] failure, title in
+            self?.center.post(ChatStore.finishedActivity(failure: failure, title: title))
+        }
 
         if !settings.onboardingDone {
             showPermissions(onboarding: true)
@@ -416,6 +426,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let url = activity.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .screenshot:
             break   // 카드 안 버튼으로 조작
+        case .chat:
+            // 답변 완료 알림을 누르면 그 채팅으로
+            vm.openChat()
+            center.dismissTransient()
         case .update:
             // 업데이트 완료 알림(오른쪽 문서 아이콘)을 누르면 업데이트 내용
             vm.expand(page: .activity(.update))

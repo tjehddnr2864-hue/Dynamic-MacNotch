@@ -1,82 +1,93 @@
 import AppKit
 import SwiftUI
 
-/// 홈의 AI 채팅 페이지: 위 대화, 아래 입력 칸.
+/// 홈의 AI 채팅 페이지.
+/// 처음에는 입력 칸만 있는 작은 노치 → 보내면 입력 칸 대신 '생각 중…' → 답변이 다 오면 커져서 대화와 입력 칸을 보여 준다.
+/// 다시 질문하면 작은 노치의 '생각 중…'으로 돌아가며 이를 반복한다.
 struct ChatPage: View {
     @ObservedObject var store: ChatStore
     /// 노치가 다 열려 이 페이지가 떠 있는 상태
     var active: Bool
     var collapse: () -> Void
     var openSettings: () -> Void
+    /// 입력 칸이 여러 줄로 늘어난 만큼 작은 노치를 키운다
+    var setInputExtra: (CGFloat) -> Void
 
     @ObservedObject private var settings = AppSettings.shared
 
     /// 평소에는 가벼운 글자로 보여 주고, 누를 때만 실제 입력 칸(AppKit)을 띄운다 (메모와 같음)
-    private let editingState = State(initialValue: false)
+    private enum Field { case title, input }
+    private let editingState = State(initialValue: Field?.none)
     private let inputHeightState = State(initialValue: ChatInputView.lineHeight)
-    /// 맨 아래를 보고 있는지 (위로 올려 읽는 중이면 자동으로 내리지 않는다)
-    private let followState = State(initialValue: true)
 
-    private var editing: Bool {
+    private var editing: Field? {
         get { editingState.wrappedValue }
         nonmutating set { editingState.wrappedValue = newValue }
     }
-    private var follow: Bool {
-        get { followState.wrappedValue }
-        nonmutating set { followState.wrappedValue = newValue }
-    }
 
-    private static let scrollSpace = "chatScroll"
-    private static let bottomID = "chatBottom"
-    /// 맨 아래에서 이만큼 이내면 '맨 아래를 보는 중'으로 본다 (글이 늘어나는 만큼의 여유)
-    private static let followMargin: CGFloat = 60
+    private var live: Bool { active && editing != nil && !store.isStreaming }
 
     var body: some View {
         VStack(spacing: 6) {
             header
-            conversation
-            input
+            if store.isLarge { content }
+            bottom
         }
         .padding(.top, 2)
-        .onAppear { store.setVisible(true) }
+        .onAppear { store.pageAppeared() }
         .onChange(of: active) { _, isActive in
             if !isActive { stopEditing() }
         }
         .onDisappear {
             stopEditing()
-            store.setVisible(false)
+            store.pageDisappeared()
         }
     }
 
     // MARK: - 머리글
 
     private var header: some View {
-        let service = settings.chatService
-        return HStack(spacing: 6) {
-            Text("\(service.name) · \(settings.chatModel(for: service))")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.45))
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 0)
-            iconButton("doc.on.doc", help: T("답변 복사", "Copy Answer")) { store.copyLastAnswer() }
-                .disabled(store.lastAnswer == nil)
-                .opacity(store.lastAnswer == nil ? 0.35 : 1)
-            iconButton("square.and.pencil", help: T("새 대화", "New Chat")) {
-                store.newChat()
-                follow = true
-                startEditing()
+        HStack(spacing: 6) {
+            Group {
+                if live {
+                    MemoTitleField(text: store.title, memoID: store.currentID, focus: editing == .title) { store.setTitle($0) }
+                        .padding(.leading, 2)
+                } else {
+                    Text(store.title.isEmpty ? T("새 채팅", "New Chat") : store.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(store.title.isEmpty ? 0.35 : 1))
+                        .lineLimit(1)
+                        .padding(.leading, 2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if !store.isStreaming { startEditing(.title) } }
+                }
+            }
+            .frame(height: 20)
+            .help("\(settings.chatService.name) · \(settings.chatModel(for: settings.chatService))")
+            // 답변을 기다리는 동안에는 이 채팅에 머문다 (중지만 가능)
+            if !store.isStreaming {
+                if store.lastAnswer != nil {
+                    iconButton("doc.on.doc", help: T("답변 복사", "Copy Answer")) { store.copyLastAnswer() }
+                }
+                iconButton("square.and.pencil", help: T("새 채팅", "New Chat")) {
+                    store.newChat()
+                    startEditing(.input)
+                }
+                iconButton(store.showList ? "sidebar.trailing" : "list.bullet", help: T("채팅 목록", "Chat List"), active: store.showList) {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) { store.toggleList() }
+                }
             }
         }
-        .frame(height: 18)
     }
 
-    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ symbol: String, help: String, active: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-                .frame(width: 22, height: 18)
+                .foregroundStyle(.white.opacity(active ? 1 : 0.7))
+                .frame(width: 22, height: 20)
+                .background(Color.white.opacity(active ? 0.18 : 0), in: RoundedRectangle(cornerRadius: 5))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -85,59 +96,39 @@ struct ChatPage: View {
 
     // MARK: - 대화
 
-    private var conversation: some View {
-        GeometryReader { box in
-            ScrollViewReader { proxy in
-                ScrollView(.vertical) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if store.entries.isEmpty && store.partial.isEmpty && !store.isStreaming && store.error == nil {
-                            Text(T("무엇이든 물어보세요", "Ask anything"))
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.35))
-                                .frame(maxWidth: .infinity, minHeight: box.size.height)
-                        }
-                        ForEach(store.entries) { entry in
-                            bubble(entry)
-                        }
-                        if !store.partial.isEmpty {
-                            answerText(Text(store.partial))
-                        } else if store.isStreaming {
-                            Text(T("생각 중…", "Thinking…"))
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.45))
-                        }
-                        status
-                        Color.clear
-                            .frame(height: 1)
-                            .id(Self.bottomID)
-                            .background(GeometryReader { marker in
-                                Color.clear.preference(key: ChatBottomKey.self,
-                                                       value: marker.frame(in: .named(Self.scrollSpace)).maxY)
-                            })
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.trailing, 10)   // 겹쳐 뜨는 스크롤 막대가 글자를 가리지 않게
-                }
-                .coordinateSpace(name: Self.scrollSpace)
-                .scrollIndicators(.automatic)
-                .onPreferenceChange(ChatBottomKey.self) { bottom in
-                    let atBottom = bottom <= box.size.height + Self.followMargin
-                    if atBottom != follow { follow = atBottom }
-                }
-                .onAppear {
-                    // 다시 열면 마지막 답변부터 보이게 (레이아웃이 끝난 뒤 내린다)
-                    DispatchQueue.main.async { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
-                }
-                .onChange(of: store.partial) { _, _ in
-                    if follow { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
-                }
-                .onChange(of: store.entries) { _, _ in
-                    // 새 질문을 보내면 언제나 맨 아래로
-                    if store.entries.last?.role == .user { follow = true }
-                    if follow { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+    private var content: some View {
+        GeometryReader { geo in
+            HStack(spacing: 8) {
+                conversation
+                if store.showList {
+                    ChatListView(store: store)
+                        .frame(width: (geo.size.width - 8) / 3)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
         }
+    }
+
+    private var conversation: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(store.entries) { entry in
+                        bubble(entry).id(entry.id)
+                    }
+                    status
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, 10)   // 겹쳐 뜨는 스크롤 막대가 글자를 가리지 않게
+            }
+            .scrollIndicators(.automatic)
+            .onAppear {
+                // 마지막 질문이 맨 위에 오도록 내린다 (긴 답변을 처음부터 읽게). 레이아웃이 끝난 뒤에 한다.
+                guard let id = store.entries.last(where: { $0.role == .user })?.id else { return }
+                DispatchQueue.main.async { proxy.scrollTo(id, anchor: .top) }
+            }
+        }
+        .id(store.currentID)   // 다른 채팅을 불러오면 그 채팅의 마지막 질문부터
     }
 
     @ViewBuilder
@@ -153,16 +144,12 @@ struct ChatPage: View {
                     .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         } else {
-            answerText(Text(entry.rendered ?? AttributedString(entry.text)))
+            Text(entry.rendered ?? AttributedString(entry.text))
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.92))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private func answerText(_ text: Text) -> some View {
-        text
-            .font(.system(size: 12))
-            .foregroundStyle(.white.opacity(0.92))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder
@@ -186,32 +173,37 @@ struct ChatPage: View {
         }
     }
 
-    // MARK: - 입력
+    // MARK: - 아래 줄 (입력 칸 또는 생각 중)
 
-    private var input: some View {
+    private var bottom: some View {
         HStack(alignment: .bottom, spacing: 6) {
             Group {
-                if active && editing {
-                    ChatInputView(text: store.draft, revision: store.draftRevision,
+                if store.isStreaming {
+                    Text(T("생각 중…", "Thinking…"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                } else if live {
+                    ChatInputView(text: store.draft, revision: store.draftRevision, focus: editing == .input,
                                   onChange: { store.draft = $0 },
-                                  onHeightChange: { inputHeightState.wrappedValue = $0 },
-                                  onSend: send,
-                                  onEscape: escape)
+                                  onHeightChange: inputHeightChanged,
+                                  onSend: store.send,
+                                  onEscape: collapse)
                 } else {
-                    Text(store.draft.isEmpty ? T("질문 입력", "Ask a question") : store.draft)
+                    Text(store.draft.isEmpty ? T("무엇이든 물어보세요", "Ask anything") : store.draft)
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(store.draft.isEmpty ? 0.35 : 0.92))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
-                        .onTapGesture { startEditing() }
+                        .onTapGesture { startEditing(.input) }
                 }
             }
-            .frame(height: inputHeightState.wrappedValue)
+            .frame(height: store.isStreaming ? ChatInputView.lineHeight : inputHeightState.wrappedValue)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-            Button(action: store.isStreaming ? store.stop : send) {
+            .background(Color.white.opacity(store.isStreaming ? 0 : 0.1), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            Button(action: store.isStreaming ? store.stop : store.send) {
                 Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.black)
@@ -222,46 +214,80 @@ struct ChatPage: View {
             .buttonStyle(.plain)
             .help(store.isStreaming ? T("중지", "Stop") : T("보내기", "Send"))
         }
-    }
-
-    private func send() {
-        follow = true
-        store.send()
-    }
-
-    private func escape() {
-        if store.isStreaming {
-            store.stop()
-        } else {
-            collapse()
+        .onChange(of: store.isStreaming) { _, streaming in
+            // 생각 중에는 입력 칸이 없으므로 한 줄 높이로 돌아간다
+            if streaming { inputHeightChanged(ChatInputView.lineHeight) }
         }
     }
 
-    private func startEditing() {
+    private func inputHeightChanged(_ height: CGFloat) {
+        inputHeightState.wrappedValue = height
+        setInputExtra(height - ChatInputView.lineHeight)
+    }
+
+    private func startEditing(_ field: Field) {
         guard active else { return }
-        editing = true
+        editing = field
     }
 
     private func stopEditing() {
-        guard editing else { return }
-        editing = false
-        inputHeightState.wrappedValue = ChatInputView.lineHeight
+        guard editing != nil else { return }
+        editing = nil
+        inputHeightChanged(ChatInputView.lineHeight)
         NSApp.keyWindow?.makeFirstResponder(nil)
     }
 }
 
-private struct ChatBottomKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+/// 채팅 목록 (오른쪽 1/3). 누르면 불러오고, 우클릭으로 삭제.
+private struct ChatListView: View {
+    @ObservedObject var store: ChatStore
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: 3) {
+                ForEach(store.summaries) { chat in
+                    Button { store.open(chat.id) } label: {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(chat.title.isEmpty ? T("제목 없음", "Untitled") : chat.title)
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundStyle(.white.opacity(chat.title.isEmpty ? 0.5 : 0.95))
+                            Text(chat.updated.formatted(date: .abbreviated, time: .shortened))
+                                .font(.system(size: 9))
+                                .foregroundStyle(.white.opacity(0.45))
+                        }
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(chat.id == store.currentID ? 0.16 : 0.05),
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(T("삭제", "Delete"), role: .destructive) { store.delete(chat.id) }
+                    }
+                }
+                if store.summaries.isEmpty {
+                    Text(T("저장된 채팅이 없습니다", "No saved chats"))
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.top, 8)
+                }
+            }
+        }
+    }
 }
 
-/// 입력 칸. Enter 보내기, ⇧Enter 줄바꿈, Esc 중지·닫기. 세 줄까지 늘어난다.
+/// 입력 칸. Enter 보내기, ⇧Enter 줄바꿈, Esc 닫기. 세 줄까지 늘어난다.
 struct ChatInputView: NSViewRepresentable {
     static let lineHeight: CGFloat = 16
     private static let maxLines: CGFloat = 3
 
     var text: String
     var revision: Int
+    /// 나타나자마자 커서를 둔다
+    var focus: Bool
     var onChange: (String) -> Void
     var onHeightChange: (CGFloat) -> Void
     var onSend: () -> Void
@@ -343,13 +369,15 @@ struct ChatInputView: NSViewRepresentable {
         tv.string = text
         tv.delegate = context.coordinator
         scroll.documentView = tv
-        let coordinator = context.coordinator
-        tv.onWindow = { [weak tv] in
-            guard let tv else { return }
-            tv.window?.makeKey()
-            tv.window?.makeFirstResponder(tv)
-            tv.setSelectedRange(NSRange(location: (tv.string as NSString).length, length: 0))
-            coordinator.reportHeight(tv)
+        if focus {
+            let coordinator = context.coordinator
+            tv.onWindow = { [weak tv] in
+                guard let tv else { return }
+                tv.window?.makeKey()
+                tv.window?.makeFirstResponder(tv)
+                tv.setSelectedRange(NSRange(location: (tv.string as NSString).length, length: 0))
+                coordinator.reportHeight(tv)
+            }
         }
         return scroll
     }
@@ -361,5 +389,7 @@ struct ChatInputView: NSViewRepresentable {
         context.coordinator.revision = revision
         tv.string = text
         context.coordinator.reportHeight(tv)
+        // 제목을 쓰다가 새 채팅을 눌러도 커서가 입력 칸으로 오게 한다
+        if focus { DispatchQueue.main.async { [weak tv] in tv?.window?.makeFirstResponder(tv) } }
     }
 }

@@ -1,60 +1,138 @@
 import AppKit
 
-/// 노치 채팅의 대화. 디스크에 저장하지 않고 메모리에만 둔다.
-/// 페이지를 떠나고 일정 시간이 지나면 지운다 (잠깐 다른 페이지를 봐도 대화가 사라지지 않게).
-/// 질문 중에는 노치를 닫아도 답변을 계속 받는다. 대기 중에는 타이머·네트워크가 돌지 않는다.
+/// 저장되는 채팅 한 개 (파일 하나)
+struct ChatRecord: Codable {
+    struct Message: Codable {
+        var role: String
+        var text: String
+    }
+    var id: UUID
+    var title: String
+    /// 사용자가 직접 지은 이름인지 (아니면 첫 질문으로 자동으로 붙인다)
+    var named: Bool
+    var messages: [Message]
+    var updated: Date
+}
+
+/// 목록에 보일 요약 (대화 내용은 읽어 두지 않는다)
+struct ChatSummary: Identifiable, Equatable {
+    var id: UUID
+    var title: String
+    var updated: Date
+}
+
+/// 노치 채팅. 메모처럼 채팅마다 파일 하나로 저장하고, 페이지가 보이는 동안(또는 답변을 기다리는 동안)만 메모리에 올린다.
+/// 답변은 다 받은 뒤 한 번에 보여 준다. 질문 중에는 노치를 닫아도 계속 받고, 끝나면 알림으로 알린다.
+/// 대기 중에는 타이머·네트워크가 돌지 않는다.
 final class ChatStore: ObservableObject {
     struct Entry: Identifiable, Equatable {
         let id: Int
         let role: ChatTurn.Role
         let text: String
-        /// 완성된 답변의 표시용 글자 (질문은 nil)
+        /// 답변의 표시용 글자 (질문은 nil)
         let rendered: AttributedString?
     }
 
+    @Published private(set) var currentID = UUID()
+    @Published private(set) var title = ""
     @Published private(set) var entries: [Entry] = []
-    /// 받고 있는 답변
-    @Published private(set) var partial = ""
     @Published private(set) var isStreaming = false
     @Published private(set) var error: ChatError?
     /// 마지막 답변이 출력 한도에 걸려 잘렸는지
     @Published private(set) var truncated = false
+    @Published private(set) var showList = false
+    @Published private(set) var summaries: [ChatSummary] = []
     /// 입력 중인 글. 글자마다 화면을 다시 계산하지 않도록 @Published가 아니다.
     var draft = ""
     /// 입력 칸 바깥에서 글을 바꿀 때마다 늘어난다 (입력 칸이 이때만 내용을 다시 맞춘다)
     @Published private(set) var draftRevision = 0
+    /// 페이지가 안 보일 때 답변이 끝나면 불린다 (실패면 그 오류, 채팅 이름)
+    var onFinishedInBackground: ((ChatError?, String) -> Void)?
+
+    /// 대화·오류·목록을 보여 줄 큰 노치인지. 입력만 있거나 생각 중이면 작은 노치다.
+    var isLarge: Bool { !isStreaming && (!entries.isEmpty || error != nil || showList) }
 
     private let settings = AppSettings.shared
-    private var nextID = 0
+    private var named = false
+    private var loaded = false
+    private var nextEntryID = 0
     private var task: Task<Void, Never>?
     /// 취소한 요청의 뒤늦은 이벤트를 무시하기 위한 번호
     private var generation = 0
-    private var buffer = ""
-    private var flushWork: DispatchWorkItem?
+    private var answer = ""
     private var visible = false
-    private var clearWork: DispatchWorkItem?
+    private var unloadWork: DispatchWorkItem?
+    private var titleSaveWork: DispatchWorkItem?
 
-    /// 화면 갱신 간격: 글자 조각마다 다시 그리지 않고 모아서 그린다
-    private static let flushInterval: TimeInterval = 0.08
     private static let maxContextTurns = 12
     private static let maxContextCharacters = 20_000
-    /// 페이지를 떠난 뒤 대화를 지우기까지
-    private static let clearDelay: TimeInterval = 600
+    /// 페이지가 닫힌 뒤 메모리에서 내리기까지
+    private static let unloadDelay: TimeInterval = 5
+    private static let currentKey = "chatCurrentID"
 
-    // MARK: - 페이지 표시
-
-    func setVisible(_ isVisible: Bool) {
-        visible = isVisible
-        clearWork?.cancel()
-        clearWork = nil
-        if !isVisible { scheduleClear() }
+    static var folder: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("DynamicMacNotch/Chats", isDirectory: true)
     }
 
-    private func scheduleClear() {
-        guard !visible, !isStreaming, !(entries.isEmpty && draft.isEmpty) else { return }
-        let work = DispatchWorkItem { [weak self] in self?.newChat() }
-        clearWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.clearDelay, execute: work)
+    private static func file(_ id: UUID) -> URL { folder.appendingPathComponent(id.uuidString + ".json") }
+
+    // MARK: - 페이지 열림·닫힘
+
+    func pageAppeared() {
+        visible = true
+        unloadWork?.cancel()
+        unloadWork = nil
+        if !loaded { loadCurrent() }
+        if showList { reloadList() }
+    }
+
+    func pageDisappeared() {
+        visible = false
+        saveTitleNow()
+        scheduleUnload()
+    }
+
+    private func scheduleUnload() {
+        unloadWork?.cancel()
+        unloadWork = nil
+        guard !visible, !isStreaming, loaded else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.visible, !self.isStreaming else { return }
+            self.loaded = false
+            self.entries = []
+            self.summaries = []
+            self.unloadWork = nil
+        }
+        unloadWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.unloadDelay, execute: work)
+    }
+
+    private func loadCurrent() {
+        loaded = true
+        let saved = UserDefaults.standard.string(forKey: Self.currentKey).flatMap(UUID.init)
+        if let record = saved.flatMap(Self.read) {
+            apply(record)
+        } else if !entries.isEmpty || saved != currentID {
+            startEmpty()
+        }
+    }
+
+    private func apply(_ record: ChatRecord) {
+        currentID = record.id
+        title = record.title
+        named = record.named
+        entries = []
+        for message in record.messages {
+            append(message.role == "user" ? .user : .assistant, message.text)
+        }
+    }
+
+    private func startEmpty() {
+        currentID = UUID()
+        title = ""
+        named = false
+        entries = []
     }
 
     // MARK: - 보내기·중지
@@ -70,9 +148,12 @@ final class ChatStore: ObservableObject {
         }
         setDraft("")
         append(.user, question)
+        if !named, title.isEmpty { title = Self.automaticTitle(question) }
         let turns = contextTurns()
+        save()
         error = nil
         truncated = false
+        answer = ""
         isStreaming = true
         generation &+= 1
         let current = generation
@@ -99,97 +180,63 @@ final class ChatStore: ObservableObject {
         return ChatKeychain.read(for: service)
     }
 
-    /// 지금까지 받은 답변은 남기고 멈춘다
+    private static func automaticTitle(_ question: String) -> String {
+        let line = question.split(whereSeparator: \.isNewline).first.map(String.init) ?? question
+        return String(line.prefix(30))
+    }
+
+    /// 지금까지 받은 답변이 있으면 남기고 멈춘다
     func stop() {
         guard isStreaming else { return }
         cancelRequest()
-        flush()
         isStreaming = false
-        keepPartial()
-        scheduleClear()
+        keepAnswer()
+        save()
+        scheduleUnload()
     }
-
-    func newChat() {
-        cancelRequest()
-        buffer = ""
-        partial = ""
-        isStreaming = false
-        entries = []
-        error = nil
-        truncated = false
-        setDraft("")
-        clearWork?.cancel()
-        clearWork = nil
-    }
-
-    func copyLastAnswer() {
-        guard let text = lastAnswer else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    var lastAnswer: String? { entries.last { $0.role == .assistant }?.text }
 
     private func cancelRequest() {
         generation &+= 1
         task?.cancel()
         task = nil
-        flushWork?.cancel()
-        flushWork = nil
     }
-
-    // MARK: - 스트림
 
     private func handle(_ event: ChatEvent, generation: Int) {
         guard generation == self.generation else { return }
         switch event {
         case .delta(let text):
-            buffer += text
-            scheduleFlush()
+            answer += text
         case .done(let wasTruncated):
-            flush()
             truncated = wasTruncated
-            finish()
+            task = nil
+            isStreaming = false
+            keepAnswer()
+            save()
+            finished(nil)
         case .failed(let failure):
-            flush()
             fail(failure)
         }
-    }
-
-    private func scheduleFlush() {
-        guard flushWork == nil else { return }
-        let work = DispatchWorkItem { [weak self] in self?.flush() }
-        flushWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.flushInterval, execute: work)
-    }
-
-    private func flush() {
-        flushWork?.cancel()
-        flushWork = nil
-        guard !buffer.isEmpty else { return }
-        partial += buffer
-        buffer = ""
-    }
-
-    private func finish() {
-        task = nil
-        isStreaming = false
-        keepPartial()
-        scheduleClear()
     }
 
     private func fail(_ failure: ChatError) {
         task = nil
         isStreaming = false
-        if partial.isEmpty, let last = entries.last, last.role == .user {
+        if answer.isEmpty, let last = entries.last, last.role == .user {
             // 답변이 하나도 오지 않았으면 질문을 입력 칸으로 되돌려 다시 보낼 수 있게 한다
             entries.removeLast()
             if draft.isEmpty { setDraft(last.text) }
+            if entries.isEmpty, !named { title = "" }
         } else {
-            keepPartial()
+            keepAnswer()
         }
         error = failure
-        scheduleClear()
+        save()
+        finished(failure)
+    }
+
+    private func finished(_ failure: ChatError?) {
+        if !visible { onFinishedInBackground?(failure, title) }
+        scheduleUnload()
     }
 
     private func setDraft(_ text: String) {
@@ -197,18 +244,18 @@ final class ChatStore: ObservableObject {
         draftRevision &+= 1
     }
 
-    private func keepPartial() {
-        guard !partial.isEmpty else { return }
-        append(.assistant, partial)
-        partial = ""
+    private func keepAnswer() {
+        guard !answer.isEmpty else { return }
+        append(.assistant, answer)
+        answer = ""
     }
 
     private func append(_ role: ChatTurn.Role, _ text: String) {
-        nextID += 1
-        entries.append(Entry(id: nextID, role: role, text: text, rendered: role == .assistant ? Self.render(text) : nil))
+        nextEntryID += 1
+        entries.append(Entry(id: nextEntryID, role: role, text: text, rendered: role == .assistant ? Self.render(text) : nil))
     }
 
-    /// 최근 대화만 보낸다 (비용과 메모리를 함께 줄인다). 질문으로 시작해야 한다.
+    /// 최근 대화만 보낸다 (비용을 줄인다). 질문으로 시작해야 한다.
     private func contextTurns() -> [ChatTurn] {
         var turns: [ChatTurn] = []
         var characters = 0
@@ -228,5 +275,131 @@ final class ChatStore: ObservableObject {
         guard var attributed = try? AttributedString(markdown: text, options: options) else { return AttributedString(text) }
         for run in attributed.runs where run.link != nil { attributed[run.range].link = nil }
         return attributed
+    }
+
+    // MARK: - 이름·새 채팅·불러오기·삭제
+
+    func setTitle(_ newTitle: String) {
+        guard newTitle != title else { return }
+        title = newTitle
+        named = !newTitle.trimmingCharacters(in: .whitespaces).isEmpty
+        titleSaveWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.saveTitleNow() }
+        titleSaveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+    }
+
+    private func saveTitleNow() {
+        guard titleSaveWork != nil else { return }
+        titleSaveWork?.cancel()
+        titleSaveWork = nil
+        save()
+    }
+
+    func newChat() {
+        guard !isStreaming else { return }
+        saveTitleNow()
+        startEmpty()
+        error = nil
+        truncated = false
+        setDraft("")
+        UserDefaults.standard.removeObject(forKey: Self.currentKey)
+    }
+
+    func open(_ id: UUID) {
+        guard !isStreaming, id != currentID else { return }
+        saveTitleNow()
+        guard let record = Self.read(id) else {
+            reloadList()
+            return
+        }
+        apply(record)
+        error = nil
+        truncated = false
+        UserDefaults.standard.set(id.uuidString, forKey: Self.currentKey)
+    }
+
+    func delete(_ id: UUID) {
+        try? FileManager.default.removeItem(at: Self.file(id))
+        if id == currentID, !isStreaming {
+            titleSaveWork?.cancel()
+            titleSaveWork = nil
+            newChat()
+        }
+        summaries.removeAll { $0.id == id }
+    }
+
+    func toggleList() {
+        showList.toggle()
+        if showList { reloadList() } else { summaries = [] }
+    }
+
+    /// 파일을 모두 읽어야 하므로 메인 스레드 밖에서 한다
+    private func reloadList() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let list = Self.loadSummaries()
+            DispatchQueue.main.async {
+                guard let self, self.showList else { return }
+                self.summaries = list
+            }
+        }
+    }
+
+    func copyLastAnswer() {
+        guard let text = lastAnswer else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    var lastAnswer: String? { entries.last { $0.role == .assistant }?.text }
+
+    // MARK: - 파일
+
+    private func save() {
+        // 질문이 없는 채팅은 남기지 않는다 (답을 못 받고 첫 질문을 되돌린 경우 포함)
+        guard !entries.isEmpty else {
+            try? FileManager.default.removeItem(at: Self.file(currentID))
+            summaries.removeAll { $0.id == currentID }
+            return
+        }
+        let now = Date()
+        let record = ChatRecord(id: currentID, title: title, named: named,
+                                messages: entries.map { .init(role: $0.role.rawValue, text: $0.text) }, updated: now)
+        // 내 대화이므로 폴더를 나만 읽을 수 있게 만든다
+        try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true,
+                                                 attributes: [.posixPermissions: 0o700])
+        if let data = try? JSONEncoder().encode(record) { try? data.write(to: Self.file(currentID), options: .atomic) }
+        UserDefaults.standard.set(currentID.uuidString, forKey: Self.currentKey)
+        if showList {
+            summaries.removeAll { $0.id == currentID }
+            summaries.insert(ChatSummary(id: currentID, title: title, updated: now), at: 0)
+        }
+    }
+
+    private static func read(_ id: UUID) -> ChatRecord? {
+        guard let data = try? Data(contentsOf: file(id)) else { return nil }
+        return try? JSONDecoder().decode(ChatRecord.self, from: data)
+    }
+
+    private static func loadSummaries() -> [ChatSummary] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { $0.pathExtension == "json" }
+            .compactMap { url -> ChatSummary? in
+                guard let data = try? Data(contentsOf: url), let r = try? JSONDecoder().decode(ChatRecord.self, from: data) else { return nil }
+                return ChatSummary(id: r.id, title: r.title, updated: r.updated)
+            }
+            .sorted { $0.updated > $1.updated }
+    }
+
+    // MARK: - 알림
+
+    /// 답변 완료 알림. 누르면 그 채팅이 열린다.
+    static func finishedActivity(failure: ChatError?, title: String) -> NotchActivity {
+        NotchActivity(kind: .chat, priority: ActivityPriority.info, presentation: .detail, duration: 8,
+                      symbol: failure == nil ? "bubble.left.and.text.bubble.right.fill" : "exclamationmark.bubble.fill",
+                      tint: failure == nil ? .blue : .orange,
+                      value: failure == nil ? .check : .none,
+                      title: failure == nil ? T("답변 완료", "Answer Ready") : T("답변 실패", "Answer Failed"),
+                      subtitle: failure?.message ?? (title.isEmpty ? T("AI 채팅", "AI Chat") : title))
     }
 }
