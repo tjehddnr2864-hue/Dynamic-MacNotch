@@ -51,6 +51,8 @@ struct HomePager: View {
             if let pages { pages.calendar } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .tray:
             if let pages { pages.tray } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
+        case .chat:
+            if let pages { pages.chat } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         }
     }
 }
@@ -62,6 +64,7 @@ struct HomePages {
     var memo: AnyView
     var calendar: AnyView
     var tray: AnyView
+    var chat: AnyView
 }
 
 /// 상시 표시 항목 팝업의 페이지 점 (홈 점과 같은 모양, 우선순위 순)

@@ -246,6 +246,8 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageStyle: UsageStyle { didSet { save(aiUsageStyle.rawValue, "aiUsageStyle") } }
     /// 상시 표시할 서비스 (AIService rawValue)
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
+    /// 노치 홈의 AI 채팅 페이지 (외부로 질문을 보내는 기능이라 기본 꺼짐)
+    @Published var chatEnabled: Bool { didSet { save(chatEnabled, "chatEnabled") } }
     @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
     /// 서비스별 모델 (비어 있으면 그 서비스의 기본 모델)
     @Published var chatModelClaude: String { didSet { save(chatModelClaude, "chatModelClaude") } }
@@ -278,15 +280,23 @@ final class AppSettings: ObservableObject {
     @Published var homeOrder: [String] { didSet { save(homeOrder, "homeOrder") } }
     @Published var homeDisabled: [String] { didSet { save(homeDisabled, "homeDisabled") } }
     @Published var trayMode: TrayMode { didSet { save(trayMode.rawValue, "trayMode") } }
-    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray"]
+    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray", "chat"]
 
     func isHomeFeatureOn(_ key: String) -> Bool {
-        key == "tray" ? trayMode != .off : !homeDisabled.contains(key)
+        switch key {
+        case "tray": return trayMode != .off
+        case "chat": return chatEnabled
+        default: return !homeDisabled.contains(key)
+        }
     }
 
     /// 홈에 페이지로 보이는지 (트레이는 '노치에서 가림'이면 페이지만 숨김)
     func homeEnabled(_ option: HomeOption) -> Bool {
-        option == .tray ? trayMode == .on : !homeDisabled.contains(option.key)
+        switch option {
+        case .tray: return trayMode == .on
+        case .chat: return chatEnabled
+        default: return !homeDisabled.contains(option.key)
+        }
     }
 
     /// Claude Code·Codex 작업 완료 알림
@@ -377,6 +387,7 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
+        chatEnabled = value("chatEnabled", false)
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")
@@ -501,6 +512,7 @@ final class AppSettings: ObservableObject {
         aiUsagePinned = value("aiUsagePinned", false)
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
+        chatEnabled = value("chatEnabled", false)
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")

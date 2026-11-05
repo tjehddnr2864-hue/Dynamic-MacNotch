@@ -12,6 +12,7 @@ struct NotchFeatures {
     let call: CallMonitor
     let usage: UsageStore
     let memo: MemoStore
+    let chat: ChatStore
 }
 
 struct NotchRootView: View {
@@ -136,7 +137,10 @@ struct ExpandedView: View {
             memo: AnyView(MemoPage(store: features.memo,
                                    active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .memo)),
             calendar: AnyView(CalendarPage(calendar: features.calendar)),
-            tray: AnyView(TrayPage(store: features.tray, vm: vm))
+            tray: AnyView(TrayPage(store: features.tray, vm: vm)),
+            chat: AnyView(ChatPage(store: features.chat,
+                                   active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .chat,
+                                   collapse: { vm.collapse() }, openSettings: openSettings))
         )
     }
 

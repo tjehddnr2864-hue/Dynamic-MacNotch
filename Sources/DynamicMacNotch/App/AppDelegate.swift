@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var call = CallMonitor(center: center)
     private lazy var usage = UsageStore(center: center)
     private let memo = MemoStore()
+    private let chat = ChatStore()
     private var agentObserver: NSObjectProtocol?
     private lazy var featurePreview = FeaturePreview(
         center: center, battery: battery, media: media, call: call, focus: focus, timer: timer, screenshot: screenshot,
@@ -34,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar,
-                                     call: call, usage: usage, memo: memo)
+                                     call: call, usage: usage, memo: memo, chat: chat)
         let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
         vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
@@ -274,12 +275,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             case let c where c.hasPrefix("devtype:"):   // 개발용: 이 앱에만 글자 입력
+                if let tv = NSApp.keyWindow?.firstResponder as? NSTextView {
+                    tv.insertText(String(c.dropFirst(8)), replacementRange: tv.selectedRange())
+                    break
+                }
                 for ch in String(c.dropFirst(8)) {
                     for down in [true, false] {
                         let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down)
                         var u = Array(String(ch).utf16)
                         e?.keyboardSetUnicodeString(stringLength: u.count, unicodeString: &u)
                         e?.postToPid(getpid())
+                    }
+                }
+            case let c where c.hasPrefix("devscroll:"):   // 개발용: 노치 창 안 스크롤 (화면 좌표 "x,y,픽셀", 픽셀이 양수면 위 내용 보기)
+                let v = c.dropFirst(10).split(separator: ",").compactMap { Double($0) }
+                if v.count == 3, let panel = self.notch?.panel, let screen = panel.screen {
+                    let p = NSPoint(x: v[0] - panel.frame.minX, y: screen.frame.maxY - v[1] - panel.frame.minY)
+                    guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(v[2]), wheel2: 0, wheel3: 0) else { break }
+                    cg.location = CGPoint(x: v[0], y: v[1])
+                    if let e = NSEvent(cgEvent: cg) { panel.contentView?.hitTest(p)?.scrollWheel(with: e) }
+                }
+            case let c where c.hasPrefix("devkey:"):   // 개발용: 이 앱에 키 입력 (가상 키 코드, 끝에 :shift, 예: devkey:36 = Enter, devkey:53 = Esc)
+                let parts = c.dropFirst(7).split(separator: ":")
+                if let first = parts.first, let code = UInt16(first), let window = NSApp.keyWindow {
+                    let chars = code == 53 ? "\u{1b}" : "\r"
+                    for type in [NSEvent.EventType.keyDown, .keyUp] {
+                        if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: parts.count > 1 ? .shift : [],
+                                                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                                                    characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code) {
+                            NSApp.postEvent(e, atStart: false)
+                        }
                     }
                 }
             case let c where c.hasPrefix("devcmd:"):   // 개발용: 이 앱에만 ⌘+키 (가상 키 코드, 예: devcmd:0 = ⌘A)
@@ -321,7 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
         return !vm.isExpanded && !vm.isHovering && !vm.isFileDragging
             && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
-            && recording.startedAt == nil && call.state == .idle && !timer.isActive
+            && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming
             && lockScreen?.isLocked != true && helperProcess?.isRunning != true && !FilePicker.isRunning
             && !media.testActive && !call.previewActive && screenshot.shot == nil
     }

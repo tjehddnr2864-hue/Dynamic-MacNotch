@@ -471,7 +471,8 @@ struct SettingsView: View {
     }
 
     private func homeToggle(_ key: String) -> Binding<Bool> {
-        Binding(get: { !settings.homeDisabled.contains(key) },
+        if key == "chat" { return $settings.chatEnabled }
+        return Binding(get: { !settings.homeDisabled.contains(key) },
                 set: { on in
                     var list = settings.homeDisabled.filter { $0 != key }
                     if !on { list.append(key) }

@@ -15,13 +15,15 @@ enum ChatEvent: Equatable {
 
 /// 화면에 보여 줄 오류 종류. 키나 서버 응답 원문은 담지 않는다.
 enum ChatError: Equatable {
-    case unauthorized, forbidden, modelNotFound, noCredit, rateLimited, overloaded, tooLong, refused, badRequest
+    case missingKey, noModel, unauthorized, forbidden, modelNotFound, noCredit, rateLimited, overloaded, tooLong, refused, badRequest
     case server(Int)
     case network
     case unexpectedEnd
 
     var message: String {
         switch self {
+        case .missingKey: return T("설정에서 API 키를 저장해 주세요", "Save an API key in Settings")
+        case .noModel: return T("설정에서 모델을 지정해 주세요", "Choose a model in Settings")
         case .unauthorized: return T("API 키가 올바르지 않습니다", "The API key isn't valid")
         case .forbidden: return T("이 키로는 사용할 수 없습니다", "This key doesn't have access")
         case .modelNotFound: return T("모델을 찾을 수 없습니다. 모델 ID를 확인해 주세요", "Model not found. Check the model ID")

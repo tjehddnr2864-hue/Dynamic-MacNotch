@@ -28,6 +28,12 @@ struct ChatSettingsPage: View {
         let hasKey = ChatKeychain.has(for: service)
         Form {
             Section {
+                Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
+            } header: { Text(T("표시", "Show")) } footer: {
+                footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않으며, 대화는 저장하지 않고 페이지를 떠난 뒤 10분이 지나면 지웁니다.",
+                           "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats aren't saved and are cleared 10 minutes after you leave the page."))
+            }
+            Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {
                     ForEach(ChatService.allCases) { Text($0.name).tag($0) }
                 }
@@ -53,8 +59,8 @@ struct ChatSettingsPage: View {
                 }
             } header: { Text(T("\(service.name) 모델", "\(service.name) Model")) } footer: {
                 footnote(service == .claude
-                         ? T("서비스마다 모델을 따로 기억합니다. 답변 속도와 요금은 모델마다 다르며, 가장 빠르고 저렴한 것은 Haiku입니다.",
-                             "Each service remembers its own model. Speed and price vary by model; Haiku is the fastest and cheapest.")
+                         ? T("서비스마다 모델을 따로 기억합니다. 답변 속도와 요금은 모델마다 다르며, 기본값인 Haiku가 가장 빠르고 저렴합니다.",
+                             "Each service remembers its own model. Speed and price vary by model; the default, Haiku, is the fastest and cheapest.")
                          : T("서비스마다 모델을 따로 기억합니다. \(service.company) 문서의 모델 ID를 입력해 주세요.",
                              "Each service remembers its own model. Enter a model ID from \(service.company)'s documentation."))
             }

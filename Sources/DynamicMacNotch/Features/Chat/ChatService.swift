@@ -24,14 +24,14 @@ enum ChatService: String, CaseIterable, Identifiable {
     }
 
     /// 모델을 고르지 않았을 때 쓸 값. GPT·Gemini는 모델이 자주 바뀌므로 코드에 박지 않고 사용자가 입력한다.
-    var defaultModel: String { self == .claude ? "claude-opus-5-5" : "" }
+    var defaultModel: String { self == .claude ? "claude-haiku-5-5" : "" }
 
     /// 모델 칸 옆 메뉴 (이름, 모델 ID)
     var modelPresets: [(label: String, id: String)] {
         guard self == .claude else { return [] }
-        return [(T("고성능 · Opus 5.5", "Most capable · Opus 5.5"), "claude-opus-5-5"),
+        return [(T("빠름 · Haiku 5.5", "Fastest · Haiku 5.5"), "claude-haiku-5-5"),
                 (T("균형 · Sonnet 5.5", "Balanced · Sonnet 5.5"), "claude-sonnet-5-5"),
-                (T("빠름 · Haiku 5.5", "Fastest · Haiku 5.5"), "claude-haiku-5-5")]
+                (T("고성능 · Opus 5.5", "Most capable · Opus 5.5"), "claude-opus-5-5")]
     }
 
     var keysURL: URL {

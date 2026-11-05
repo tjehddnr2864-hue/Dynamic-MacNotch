@@ -7,7 +7,7 @@ enum NotchState: Int, Equatable {
 
 /// 홈의 네 가지 옵션. 한 번에 하나씩 표시하고 점·스와이프로 넘긴다.
 enum HomeOption: Int, CaseIterable {
-    case camera, timer, usage, memo, calendar, tray
+    case camera, timer, usage, memo, calendar, tray, chat
 
     /// 설정·저장에 쓰는 이름 (순서를 바꿔도 변하지 않음)
     var key: String {
@@ -18,6 +18,7 @@ enum HomeOption: Int, CaseIterable {
         case .memo: return "memo"
         case .calendar: return "calendar"
         case .tray: return "tray"
+        case .chat: return "chat"
         }
     }
 
@@ -34,6 +35,7 @@ enum HomeOption: Int, CaseIterable {
         case .memo: return T("메모", "Memo")
         case .calendar: return T("오늘 일정", "Today")
         case .tray: return T("에어드랍 · 트레이", "AirDrop · Tray")
+        case .chat: return T("AI 채팅", "AI Chat")
         }
     }
 
@@ -45,6 +47,7 @@ enum HomeOption: Int, CaseIterable {
         case .memo: return "note.text"
         case .calendar: return "calendar"
         case .tray: return "tray.and.arrow.down.fill"
+        case .chat: return "bubble.left.and.text.bubble.right.fill"
         }
     }
 }
@@ -142,7 +145,7 @@ final class NotchViewModel: ObservableObject {
             .store(in: &cancellables)
         // 홈 기능을 끄거나 순서를 바꾸면 지금 페이지가 남아 있는지 확인
         settings.$homeOrder.map { _ in () }
-            .merge(with: settings.$homeDisabled.map { _ in () }, settings.$trayMode.map { _ in () })
+            .merge(with: settings.$homeDisabled.map { _ in () }, settings.$trayMode.map { _ in () }, settings.$chatEnabled.map { _ in () })
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.ensureValidHome() }
             .store(in: &cancellables)
@@ -240,6 +243,7 @@ final class NotchViewModel: ObservableObject {
             switch expandedPage {
             case .home:
                 if homeOption == .usage || homeOption == .memo { return usageSize }   // 메모도 AI 사용량과 같은 크기
+                if homeOption == .chat { return chatSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)
@@ -287,6 +291,11 @@ final class NotchViewModel: ObservableObject {
     /// AI 사용량: 서비스 세 줄(이름 · 5시간 · 주간)이 들어가도록 좌우·아래로 조금 더 넓게
     var usageSize: CGSize {
         CGSize(width: 300 + 2 * (topRadius + 22), height: notchSize.height + 6 + 124 + 22)
+    }
+
+    /// AI 채팅: 답변을 읽을 수 있도록 AI 사용량보다 좌우·아래로 더 크게
+    var chatSize: CGSize {
+        CGSize(width: 340 + 2 * (topRadius + 22), height: notchSize.height + 6 + 200 + 22)
     }
 
     var expandedBaseSize: CGSize {
