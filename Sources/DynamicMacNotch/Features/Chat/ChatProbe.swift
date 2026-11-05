@@ -20,6 +20,18 @@ enum ChatProbe {
         case "delkey":
             ChatKeychain.delete(for: service)
             print("has=\(ChatKeychain.has(for: service))")
+        case "models":
+            let k = key()
+            Task.detached {
+                switch await ChatModels.fetch(service: service, key: k) {
+                case .success(let list): list.forEach { print($0.id, $0.tier?.label ?? "-") }
+                case .failure(let error): print("failed: \(error)")
+                }
+                done.signal()
+            }
+            done.wait()
+        case "tier":
+            print(parts.dropFirst(2).joined(), ChatModelTier.of(model)?.label ?? "-")
         case "test":
             let k = key()
             Task.detached {

@@ -202,10 +202,7 @@ final class ChatStore: ObservableObject {
     }
 
     private static func apiKey(for service: ChatService) -> String? {
-        #if DEV
-        if let key = ProcessInfo.processInfo.environment["DMN_CHAT_KEY"] { return key }   // 개발용: 키체인 없이 가짜 서버로 시험
-        #endif
-        return ChatKeychain.read(for: service)
+        ChatKeychain.read(for: service)
     }
 
     private static func automaticTitle(_ question: String) -> String {

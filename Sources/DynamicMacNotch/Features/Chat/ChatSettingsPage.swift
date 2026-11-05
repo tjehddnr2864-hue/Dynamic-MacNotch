@@ -13,6 +13,10 @@ struct ChatSettingsPage: View {
     private let refreshState = State(initialValue: 0)
     private let testState = State(initialValue: TestState.idle)
     private let saveFailedState = State(initialValue: false)
+    /// 받아 온 모델 목록 (설정 창이 열린 동안만 기억한다)
+    private let fetchedState = State(initialValue: [ChatService: [ChatModelOption]]())
+    private let fetchingState = State(initialValue: false)
+    private let fetchErrorState = State(initialValue: ChatError?.none)
 
     private var keyInput: Binding<String> { keyInputState.projectedValue }
     private var test: TestState {
@@ -51,22 +55,29 @@ struct ChatSettingsPage: View {
                             .textFieldStyle(.roundedBorder)
                             .multilineTextAlignment(.leading)
                             .labelsHidden()
-                        if !service.modelPresets.isEmpty {
-                            Menu(T("선택", "Choose")) {
-                                ForEach(service.modelPresets, id: \.id) { preset in
-                                    Button(preset.label) { settings.setChatModel(preset.id, for: service) }
-                                }
-                            }
-                            .fixedSize()
+                        if let tier = options.first(where: { $0.id == model })?.tier ?? ChatModelTier.of(model) {
+                            Text(tier.label).font(.caption).foregroundStyle(.secondary).fixedSize()
+                        }
+                        if !options.isEmpty || ChatModels.canFetch(service) { modelMenu.fixedSize() }
+                    }
+                }
+                if fetchingState.wrappedValue || fetchErrorState.wrappedValue != nil {
+                    HStack(spacing: 6) {
+                        if fetchingState.wrappedValue {
+                            ProgressView().controlSize(.small)
+                            Text(T("모델 목록을 불러오는 중", "Loading models")).foregroundStyle(.secondary)
+                        } else if let error = fetchErrorState.wrappedValue {
+                            Text(T("모델 목록을 불러오지 못했습니다: \(error.message)", "Couldn't load models: \(error.message)")).foregroundStyle(.red)
                         }
                     }
+                    .font(.caption)
                 }
             } header: { Text(T("\(service.name) 모델", "\(service.name) Model")) } footer: {
                 footnote(service == .claude
                          ? T("서비스마다 모델을 따로 기억합니다. 답변 속도와 요금은 모델마다 다르며, 기본값인 Haiku가 가장 빠르고 저렴합니다.",
                              "Each service remembers its own model. Speed and price vary by model; the default, Haiku, is the fastest and cheapest.")
-                         : T("서비스마다 모델을 따로 기억합니다. \(service.company) 문서의 모델 ID를 입력해 주세요.",
-                             "Each service remembers its own model. Enter a model ID from \(service.company)'s documentation."))
+                         : T("서비스마다 모델을 따로 기억합니다. 저장한 키로 쓸 수 있는 모델을 불러오며, 직접 입력해도 됩니다. 빠름·균형·고성능은 모델 이름과 설명으로 판단한 참고용이고, 판단할 수 없는 모델은 '기타'에 넣습니다.",
+                             "Each service remembers its own model. Models available to your saved key are loaded here, or you can type an ID. Fast, Balanced and Most Capable are estimated from model names and descriptions; models that can't be judged are under Other."))
             }
 
             Section {
@@ -113,6 +124,66 @@ struct ChatSettingsPage: View {
             keyInput.wrappedValue = ""
             saveFailedState.wrappedValue = false
             test = .idle
+            fetchErrorState.wrappedValue = nil
+            loadModels()
+        }
+        .onAppear { loadModels() }
+    }
+
+    // MARK: - 모델 목록
+
+    private var options: [ChatModelOption] { fetchedState.wrappedValue[service] ?? ChatModels.presets(service) }
+
+    private var modelMenu: some View {
+        Menu(T("선택", "Choose")) {
+            ForEach(ChatModelTier.allCases) { tier in
+                let group = options.filter { $0.tier == tier }
+                if !group.isEmpty {
+                    Section(tier.label) { modelButtons(group) }
+                }
+            }
+            let others = options.filter { $0.tier == nil }
+            if !others.isEmpty {
+                Section(T("기타", "Other")) { modelButtons(others) }
+            }
+            if ChatModels.canFetch(service) {
+                Divider()
+                Button(T("목록 새로고침", "Reload List")) { loadModels(force: true) }
+            }
+        }
+    }
+
+    private func modelButtons(_ group: [ChatModelOption]) -> some View {
+        ForEach(group) { option in
+            Button(option.id) {
+                settings.setChatModel(option.id, for: service)
+                test = .idle
+            }
+        }
+    }
+
+    /// 키가 있으면 쓸 수 있는 모델을 받아 온다 (토큰을 쓰지 않음)
+    private func loadModels(force: Bool = false) {
+        let service = service
+        guard ChatModels.canFetch(service), force || fetchedState.wrappedValue[service] == nil, ChatKeychain.has(for: service) else { return }
+        fetchingState.wrappedValue = true
+        fetchErrorState.wrappedValue = nil
+        Task.detached(priority: .userInitiated) {
+            let result: Result<[ChatModelOption], ChatError>
+            if let key = ChatKeychain.read(for: service) {
+                result = await ChatModels.fetch(service: service, key: key)
+            } else {
+                result = .failure(.missingKey)
+            }
+            await MainActor.run {
+                fetchingState.wrappedValue = false
+                switch result {
+                case .success(let list): fetchedState.wrappedValue[service] = list
+                case .failure(let error):
+                    // 그사이 서비스를 바꿨으면 다른 서비스의 오류를 보여 주지 않는다
+                    if settings.chatService == service { fetchErrorState.wrappedValue = error }
+                }
+            }
         }
     }
 
@@ -146,6 +217,10 @@ struct ChatSettingsPage: View {
     private func keysChanged() {
         test = .idle
         refreshState.wrappedValue += 1
+        // 키가 바뀌면 쓸 수 있는 모델도 달라진다
+        fetchedState.wrappedValue[service] = nil
+        fetchErrorState.wrappedValue = nil
+        loadModels()
     }
 
     private func runTest() {

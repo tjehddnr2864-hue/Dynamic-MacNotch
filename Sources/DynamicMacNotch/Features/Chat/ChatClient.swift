@@ -14,7 +14,7 @@ enum ChatEvent: Equatable {
 }
 
 /// 화면에 보여 줄 오류 종류. 키나 서버 응답 원문은 담지 않는다.
-enum ChatError: Equatable {
+enum ChatError: Error, Equatable {
     case missingKey, noModel, unauthorized, forbidden, modelNotFound, noCredit, rateLimited, overloaded, tooLong, refused, badRequest
     case server(Int)
     case network
@@ -165,6 +165,16 @@ enum ChatAPI {
         request.httpBody = data
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let beta { request.setValue(beta, forHTTPHeaderField: "anthropic-beta") }
+        authorize(&request, service, key: key)
+        return request
+    }
+
+    /// 이 키로 쓸 수 있는 모델 목록 (토큰을 쓰지 않는다)
+    static func modelListRequest(service: ChatService, key: String, pageToken: String?) -> URLRequest? {
+        var path = service == .gemini ? "/v1beta/models?pageSize=1000" : "/v1/models"
+        if let pageToken, let encodedToken = pageToken.addingPercentEncoding(withAllowedCharacters: .alphanumerics) { path += "&pageToken=\(encodedToken)" }
+        guard let url = URL(string: baseURL(service) + path) else { return nil }
+        var request = URLRequest(url: url)
         authorize(&request, service, key: key)
         return request
     }
