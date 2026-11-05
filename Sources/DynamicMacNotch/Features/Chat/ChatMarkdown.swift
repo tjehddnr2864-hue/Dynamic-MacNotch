@@ -183,7 +183,9 @@ enum ChatMarkdown {
                 continue
             }
             var attrs = attributes(for: run, components: components)
-            if let link = run.link, ["http", "https"].contains(link.scheme?.lowercased() ?? "") {
+            // 글자 그대로 쓴 주소는 파서가 뒤에 붙은 한글까지 주소로 넣으므로 detectLinks에 맡긴다
+            let runText = String(parsed[run.range].characters)
+            if let link = run.link, ["http", "https"].contains(link.scheme?.lowercased() ?? ""), !runText.lowercased().hasPrefix("http") {
                 attrs[.link] = link
                 attrs[.toolTip] = link.absoluteString   // 표시 글자와 실제 주소가 다를 수 있으니 올리면 보여 준다
             }
