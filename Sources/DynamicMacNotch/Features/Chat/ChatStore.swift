@@ -61,6 +61,7 @@ final class ChatStore: ObservableObject {
     private var generation = 0
     private var answer = ""
     private var visible = false
+    private var opensAnswerNext = false
     private var unloadWork: DispatchWorkItem?
     private var titleSaveWork: DispatchWorkItem?
 
@@ -94,9 +95,25 @@ final class ChatStore: ObservableObject {
         visible = true
         unloadWork?.cancel()
         unloadWork = nil
+        let keepAnswer = opensAnswerNext
+        opensAnswerNext = false
+        if settings.chatReopen == .fresh, !keepAnswer, !isStreaming {
+            // 처음 화면: 입력 칸만. 지난 채팅은 파일에 남아 있어 목록에서 열 수 있다 (쓰던 글은 그대로 둔다)
+            saveTitleNow()
+            startEmpty()
+            loaded = true
+            showList = false
+            summaries = []
+            error = nil
+            truncated = false
+            return
+        }
         if !loaded { loadCurrent() }
         if showList { reloadList() }
     }
+
+    /// 답변 완료 알림을 눌러 페이지를 열 때: 설정과 상관없이 그 답변을 보여 준다
+    func openAnswerNext() { opensAnswerNext = true }
 
     func pageDisappeared() {
         visible = false

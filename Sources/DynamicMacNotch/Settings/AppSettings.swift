@@ -92,6 +92,13 @@ enum TrayMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// AI 채팅 페이지로 돌아왔을 때: 마지막 답변 / 처음 화면(입력 칸만, 목록 닫힘)
+enum ChatReopen: String, CaseIterable, Identifiable {
+    case lastAnswer, fresh
+    var id: String { rawValue }
+    var label: String { self == .lastAnswer ? T("마지막 답변", "Last Answer") : T("처음 화면", "New Chat Screen") }
+}
+
 /// AI 사용량 표시 형태
 enum UsageStyle: String, CaseIterable, Identifiable {
     case text, ring
@@ -248,6 +255,8 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
     /// 노치 홈의 AI 채팅 페이지 (외부로 질문을 보내는 기능이라 기본 꺼짐)
     @Published var chatEnabled: Bool { didSet { save(chatEnabled, "chatEnabled") } }
+    /// 노치를 나갔다가 채팅 페이지로 돌아왔을 때 보여 줄 화면
+    @Published var chatReopen: ChatReopen { didSet { save(chatReopen.rawValue, "chatReopen") } }
     /// 모르는 내용·최근 일은 웹 검색으로 답하게 한다 (서비스의 검색 도구, 별도 요금이 붙을 수 있음)
     @Published var chatWebSearch: Bool { didSet { save(chatWebSearch, "chatWebSearch") } }
     @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
@@ -391,6 +400,7 @@ final class AppSettings: ObservableObject {
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
         chatWebSearch = value("chatWebSearch", true)
+        chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")
@@ -517,6 +527,7 @@ final class AppSettings: ObservableObject {
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
         chatWebSearch = value("chatWebSearch", true)
+        chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")

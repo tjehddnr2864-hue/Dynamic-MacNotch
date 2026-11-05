@@ -328,11 +328,12 @@ enum ChatMarkdown {
                                 startsLine: Bool, endsLine: Bool) -> NSAttributedString {
         let fontSize = ((attributes[.font] as? NSFont)?.pointSize ?? bodySize) + (math.display ? 1.5 : 0.5)
         guard let rendered = MathTypesetter.render(math.latex, display: math.display, fontSize: fontSize, color: textColor, maxWidth: maxWidth) else {
-            // 그릴 수 없는 수식은 원문을 그대로 보여 준다
+            // 괄호 짝이 틀려 그릴 수 없는 수식은 원문을 한 덩어리로 보여 준다
             var attrs = attributes
             attrs[.font] = NSFont.monospacedSystemFont(ofSize: bodySize - 1, weight: .regular)
             attrs[codeKey] = true
-            return NSAttributedString(string: (math.display && !startsLine ? "\n" : "") + math.source + (math.display && !endsLine ? "\n" : ""), attributes: attrs)
+            let compact = math.latex.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            return NSAttributedString(string: (math.display && !startsLine ? "\n" : "") + compact + (math.display && !endsLine ? "\n" : ""), attributes: attrs)
         }
         let attachment = MathAttachment()
         attachment.source = math.source

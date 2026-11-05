@@ -2,7 +2,7 @@ import AppKit
 import CoreText
 
 /// AI 채팅의 LaTeX 수식을 그린다. macOS 내장 수학 글꼴(STIX Two Math)과 CoreText만 쓴다 (WebKit·외부 라이브러리 없음).
-/// 자주 쓰는 문법만 지원하고, 모르는 명령이 있으면 nil을 돌려준다 (호출한 쪽이 원문을 그대로 보여 준다).
+/// 모르는 명령은 그 이름을 글자로 두고 나머지를 그린다. 괄호 짝이 틀린 수식만 nil을 돌려준다 (호출한 쪽이 원문을 보여 준다).
 enum MathTypesetter {
     struct Rendered {
         let image: NSImage
@@ -14,7 +14,8 @@ enum MathTypesetter {
     static func render(_ latex: String, display: Bool, fontSize: CGFloat, color: NSColor, maxWidth: CGFloat) -> Rendered? {
         var parser = Parser(latex)
         guard let atoms = try? parser.parseAll() else { return nil }
-        let box = layout(atoms, Style(size: fontSize, display: display, base: fontSize))
+        let style = Style(size: fontSize, display: display, base: fontSize)
+        let box = display ? wrapped(atoms, style, maxWidth: maxWidth) : layout(atoms, style)
         guard box.width > 0 else { return nil }
         let scale = min(1, maxWidth / box.width)
         let pad: CGFloat = 1
@@ -47,6 +48,9 @@ enum MathTypesetter {
         case sqrt([Atom], index: [Atom]?)
         case accent(String, [Atom])
         case overline([Atom])
+        case underline([Atom])
+        case boxed([Atom])
+        case over(base: [Atom], top: [Atom]?, bottom: [Atom]?)
         case delimited(String, [Atom], String)
         case bigDelim(String, CGFloat)
         case grid([[[Atom]]], alignment: GridAlignment, left: String, right: String)
@@ -240,8 +244,56 @@ enum MathTypesetter {
                 return Symbols.styled(try parseRawGroup(), upper: 0x1D49C, lower: 0x1D4B6)
             case "overline":
                 return .overline(try parseArgument())
-            case "displaystyle", "textstyle", "limits", "nolimits", "nonumber", "notag":
+            case "underline":
+                return .underline(try parseArgument())
+            case "boxed", "fbox":
+                return .boxed(try parseArgument())
+            case "overset", "stackrel":
+                let top = try parseArgument()
+                return .over(base: try parseArgument(), top: top, bottom: nil)
+            case "underset":
+                let bottom = try parseArgument()
+                return .over(base: try parseArgument(), top: nil, bottom: bottom)
+            case "underbrace", "overbrace", "cancel", "bcancel", "xcancel", "mathsf", "mathtt", "mathfrak", "mathscr", "mathnormal", "pmb", "ensuremath":
+                return .group(try parseArgument())
+            case "displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle", "limits", "nolimits", "nonumber", "notag", "hline", "centering", "allowbreak", "nobreak":
                 return .group([])
+            case "color":
+                _ = try parseRawGroup()
+                return .group([])
+            case "textcolor":
+                _ = try parseRawGroup()
+                return .group(try parseArgument())
+            case "hspace", "vspace", "phantom", "hphantom", "vphantom":
+                _ = try parseRawGroup()
+                return .space(name == "hspace" ? 0.5 : 0)
+            case "tag":
+                return .group([.space(1), .text("(" + (try parseRawGroup()) + ")")])
+            case "pmod":
+                let inner = try parseArgument()
+                return .group([.space(0.5), .symbol("(", .open), .function("mod", limits: false), .space(0.17), .group(inner), .symbol(")", .close)])
+            case "substack":
+                skipSpaces()
+                guard peek == "{" else { throw Unsupported() }
+                pos += 1
+                var rows: [[[Atom]]] = []
+                while true {
+                    rows.append([try parseList(stopAtBrace: true, stopCommands: ["\\"])])
+                    guard peekCommand() == "\\" else { break }
+                    _ = readCommand()
+                }
+                pos += 1
+                return .grid(rows, alignment: .center, left: "", right: "")
+            case "not":
+                skipSpaces()
+                if peek == "=" {
+                    pos += 1
+                    return .symbol("≠", .rel)
+                }
+                if case .symbol(let text, let kind) = try parseAtom() { return .symbol(text + "\u{0338}", kind) }
+                return .group([])
+            case "\\":   // 환경 밖의 줄바꿈은 넓은 띄어쓰기로
+                return .space(1)
             case "left":
                 let open = try parseDelimiter()
                 let inner = try parseList(stopAtBrace: false, stopCommands: ["right"])
@@ -255,21 +307,27 @@ enum MathTypesetter {
             case "begin":
                 return try parseEnvironment(try parseRawGroup())
             default:
-                throw Unsupported()
+                // 모르는 명령 하나 때문에 수식 전체가 풀어지지 않게, 이름만 글자로 둔다
+                return .text(name)
             }
         }
 
         private mutating func parseEnvironment(_ name: String) throws -> Atom {
             let style: (GridAlignment, String, String)
-            switch name.replacingOccurrences(of: "*", with: "") {
-            case "matrix": style = (.center, "", "")
+            let base = name.replacingOccurrences(of: "*", with: "")
+            // {cc} 같은 열 지정은 건너뛴다
+            if base == "array" || base == "alignedat" || base == "alignat" { _ = try parseRawGroup() }
+            switch base {
+            case "matrix", "smallmatrix", "array": style = (.center, "", "")
+            case "rcases": style = (.left, "", "}")
             case "pmatrix": style = (.center, "(", ")")
             case "bmatrix": style = (.center, "[", "]")
             case "Bmatrix": style = (.center, "{", "}")
             case "vmatrix": style = (.center, "|", "|")
             case "Vmatrix": style = (.center, "‖", "‖")
-            case "cases": style = (.left, "{", "")
-            case "aligned", "align", "split", "gathered", "gather": style = (.rightLeft, "", "")
+            case "cases", "dcases": style = (.left, "{", "")
+            case "gathered", "gather", "multline": style = (.center, "", "")
+            case "aligned", "align", "split", "alignedat", "alignat", "eqnarray", "flalign": style = (.rightLeft, "", "")
             default: throw Unsupported()
             }
             var rows: [[[Atom]]] = [[]]
@@ -316,6 +374,19 @@ enum MathTypesetter {
             let bin = ["times": "×", "cdot": "⋅", "div": "÷", "pm": "±", "mp": "∓", "cup": "∪", "cap": "∩", "setminus": "∖", "wedge": "∧", "land": "∧",
                        "vee": "∨", "lor": "∨", "oplus": "⊕", "otimes": "⊗", "ast": "∗"]
             for (k, v) in bin { t[k] = (v, .bin) }
+            let more = ["therefore": "∴", "because": "∵", "top": "⊤", "bot": "⊥", "dotsc": "…", "dotsb": "⋯", "dotsm": "⋯", "dotsi": "⋯", "ldotp": ".", "cdotp": "⋅",
+                        "wp": "℘", "mho": "℧", "complement": "∁", "square": "□", "Box": "□", "blacksquare": "■", "diamond": "⋄", "lozenge": "◊", "sharp": "♯", "flat": "♭",
+                        "S": "§", "P": "¶", "pounds": "£", "textbackslash": "\\", "backslash": "\\", "colon": ":", "lvert": "|", "rvert": "|", "lVert": "‖", "rVert": "‖", "vert": "|", "Vert": "‖"]
+            for (k, v) in more { t[k] = (v, .ord) }
+            let moreBin = ["bmod": "mod", "uplus": "⊎", "sqcup": "⊔", "sqcap": "⊓", "odot": "⊙", "ominus": "⊖", "oslash": "⊘", "dotplus": "∔", "ltimes": "⋉", "rtimes": "⋊", "bigcirc": "◯", "amalg": "⨿"]
+            for (k, v) in moreBin { t[k] = (v, .bin) }
+            let moreRel = ["Longrightarrow": "⟹", "Longleftarrow": "⟸", "Longleftrightarrow": "⟺", "longrightarrow": "⟶", "longleftarrow": "⟵", "longleftrightarrow": "⟷",
+                           "longmapsto": "⟼", "hookrightarrow": "↪", "hookleftarrow": "↩", "rightharpoonup": "⇀", "leftharpoonup": "↼", "rightleftharpoons": "⇌", "nearrow": "↗", "searrow": "↘",
+                           "swarrow": "↙", "nwarrow": "↖", "Uparrow": "⇑", "Downarrow": "⇓", "updownarrow": "↕", "nrightarrow": "↛", "nleftarrow": "↚", "nRightarrow": "⇏", "rightsquigarrow": "⇝",
+                           "leqslant": "⩽", "geqslant": "⩾", "nleq": "≰", "ngeq": "≱", "nless": "≮", "ngtr": "≯", "lesssim": "≲", "gtrsim": "≳", "prec": "≺", "succ": "≻", "preceq": "⪯", "succeq": "⪰",
+                           "doteq": "≐", "triangleq": "≜", "coloneqq": "≔", "eqqcolon": "≕", "asymp": "≍", "nsim": "≁", "ncong": "≇", "models": "⊨", "vdash": "⊢", "dashv": "⊣", "nmid": "∤", "nparallel": "∦",
+                           "subsetneq": "⊊", "supsetneq": "⊋", "nsubseteq": "⊈", "nsupseteq": "⊉", "sqsubseteq": "⊑", "sqsupseteq": "⊒", "bowtie": "⋈", "approxeq": "≊"]
+            for (k, v) in moreRel { t[k] = (v, .rel) }
             let rel = ["leq": "≤", "le": "≤", "geq": "≥", "ge": "≥", "neq": "≠", "ne": "≠", "approx": "≈", "sim": "∼", "simeq": "≃", "cong": "≅", "equiv": "≡",
                        "propto": "∝", "ll": "≪", "gg": "≫", "in": "∈", "notin": "∉", "ni": "∋", "subset": "⊂", "subseteq": "⊆", "supset": "⊃", "supseteq": "⊇",
                        "to": "→", "rightarrow": "→", "leftarrow": "←", "gets": "←", "leftrightarrow": "↔", "Rightarrow": "⇒", "Leftarrow": "⇐",
@@ -434,6 +505,45 @@ enum MathTypesetter {
 
     private static func spacer(_ width: CGFloat) -> Box { Box(width: width, ascent: 0, descent: 0) { _, _ in } }
 
+    /// 별도 줄 수식이 칸보다 넓으면 관계 기호(=, ⇒ 등) 앞에서 줄을 바꾼다. 그래도 넓은 줄은 호출한 쪽이 줄인다.
+    private static func wrapped(_ atoms: [Atom], _ style: Style, maxWidth: CGFloat) -> Box {
+        let whole = layout(atoms, style)
+        guard whole.width > maxWidth else { return whole }
+        var pieces: [[Atom]] = [[]]
+        for atom in atoms {
+            if case .symbol(_, .rel) = atom, !pieces[pieces.count - 1].isEmpty { pieces.append([]) }
+            pieces[pieces.count - 1].append(atom)
+        }
+        guard pieces.count > 1 else { return whole }
+        var lines: [[Atom]] = []
+        for piece in pieces {
+            if let last = lines.last, layout(last + piece, style).width <= maxWidth {
+                lines[lines.count - 1] += piece
+            } else {
+                lines.append(piece)
+            }
+        }
+        // 줄 앞뒤의 띄어쓰기(\\quad 등)는 뺀다
+        let boxes = lines.map { line -> Box in
+            var line = line
+            while case .space = line.first { line.removeFirst() }
+            while case .space = line.last { line.removeLast() }
+            return layout(line, style)
+        }
+        let gap = style.size * 0.3
+        let width = boxes.map(\.width).max() ?? 0
+        let height = boxes.reduce(0) { $0 + $1.ascent + $1.descent } + gap * CGFloat(boxes.count - 1)
+        let ascent = boxes.first?.ascent ?? 0
+        return Box(width: width, ascent: ascent, descent: height - ascent) { ctx, origin in
+            var y = origin.y
+            for box in boxes {
+                box.draw(ctx, CGPoint(x: origin.x, y: y))
+                y -= box.descent + gap
+                if let next = boxes.dropFirst(boxes.firstIndex { $0 === box }! + 1).first { y -= next.ascent }
+            }
+        }
+    }
+
     private static func layout(_ atoms: [Atom], _ style: Style) -> Box {
         var boxes: [Box] = []
         var previous: Kind?
@@ -490,6 +600,24 @@ enum MathTypesetter {
             return radical(inner, index: index, style)
         case .accent(let mark, let inner):
             return accent(mark, inner, style)
+        case .underline(let inner):
+            let box = layout(inner, style)
+            let gap = style.size * 0.1, thickness = max(style.size * 0.05, 0.6)
+            return Box(width: box.width, ascent: box.ascent, descent: box.descent + gap + thickness) { ctx, origin in
+                box.draw(ctx, origin)
+                ctx.fill(CGRect(x: origin.x, y: origin.y - box.descent - gap - thickness, width: box.width, height: thickness))
+            }
+        case .boxed(let inner):
+            let box = layout(inner, style)
+            let pad = style.size * 0.25, thickness = max(style.size * 0.05, 0.6)
+            return Box(width: box.width + (pad + thickness) * 2, ascent: box.ascent + pad + thickness, descent: box.descent + pad + thickness) { ctx, origin in
+                box.draw(ctx, CGPoint(x: origin.x + pad + thickness, y: origin.y))
+                ctx.setLineWidth(thickness)
+                ctx.stroke(CGRect(x: origin.x + thickness / 2, y: origin.y - box.descent - pad - thickness / 2,
+                                  width: box.width + pad * 2 + thickness, height: box.ascent + box.descent + pad * 2 + thickness))
+            }
+        case .over(let base, let top, let bottom):
+            return scripts(base: .group(base), sup: top, sub: bottom, style, forceLimits: true)
         case .overline(let inner):
             let box = layout(inner, style)
             let gap = style.size * 0.12, thickness = max(style.size * 0.05, 0.6)
@@ -521,13 +649,13 @@ enum MathTypesetter {
         }
     }
 
-    private static func scripts(base: Atom, sup: [Atom]?, sub: [Atom]?, _ style: Style) -> Box {
+    private static func scripts(base: Atom, sup: [Atom]?, sub: [Atom]?, _ style: Style, forceLimits: Bool = false) -> Box {
         let baseBox = layout(base, style)
         let script = style.script
         let supBox = sup.map { layout($0, script) }
         let subBox = sub.map { layout($0, script) }
         // 합·극한 등은 가운데 위아래에 놓는다 (본문 수식에서는 옆에)
-        var limits = false
+        var limits = forceLimits
         if style.display {
             if case .bigOp(_, let l) = base { limits = l }
             if case .function(_, let l) = base { limits = l }

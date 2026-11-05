@@ -81,6 +81,7 @@ enum ChatAPI {
         Write every link as [title](https://full-url), and link the sources you used from web search.
         Write all mathematics in LaTeX, using $...$ inline and $$...$$ for displayed equations. \
         Don't write formulas in plain text or Unicode, and don't put math in code blocks. Write a literal dollar sign as \\$.
+        The panel is narrow, about 40 characters wide, so keep displayed equations short and split long derivations across several $$...$$ blocks.
         """
     }
     static let maxOutputTokens = 8192

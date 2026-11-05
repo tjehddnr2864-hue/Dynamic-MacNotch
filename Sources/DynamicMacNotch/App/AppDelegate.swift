@@ -441,6 +441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             break   // 카드 안 버튼으로 조작
         case .chat:
             // 답변 완료 알림을 누르면 그 채팅으로
+            chat.openAnswerNext()
             vm.openChat()
             center.dismissTransient()
         case .update:
