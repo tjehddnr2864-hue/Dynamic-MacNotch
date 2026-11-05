@@ -248,6 +248,8 @@ final class AppSettings: ObservableObject {
     @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
     /// 노치 홈의 AI 채팅 페이지 (외부로 질문을 보내는 기능이라 기본 꺼짐)
     @Published var chatEnabled: Bool { didSet { save(chatEnabled, "chatEnabled") } }
+    /// 모르는 내용·최근 일은 웹 검색으로 답하게 한다 (서비스의 검색 도구, 별도 요금이 붙을 수 있음)
+    @Published var chatWebSearch: Bool { didSet { save(chatWebSearch, "chatWebSearch") } }
     @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
     /// 서비스별 모델 (비어 있으면 그 서비스의 기본 모델)
     @Published var chatModelClaude: String { didSet { save(chatModelClaude, "chatModelClaude") } }
@@ -388,6 +390,7 @@ final class AppSettings: ObservableObject {
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
+        chatWebSearch = value("chatWebSearch", true)
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")
@@ -513,6 +516,7 @@ final class AppSettings: ObservableObject {
         aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
         aiUsageService = value("aiUsageService", "claude")
         chatEnabled = value("chatEnabled", false)
+        chatWebSearch = value("chatWebSearch", true)
         chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
         chatModelClaude = value("chatModelClaude", "")
         chatModelOpenAI = value("chatModelOpenAI", "")

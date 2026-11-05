@@ -305,18 +305,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     cg.location = CGPoint(x: v[0], y: v[1])
                     if let e = NSEvent(cgEvent: cg) { panel.contentView?.hitTest(p)?.scrollWheel(with: e) }
                 }
-            case let c where c.hasPrefix("devkey:"):   // 개발용: 이 앱에 키 입력 (가상 키 코드, 끝에 :shift, 예: devkey:36 = Enter, devkey:53 = Esc)
+            case let c where c.hasPrefix("devkey:"):   // 개발용: 이 앱에 키 입력 (가상 키 코드, 끝에 :shift 또는 :cmd, 예: devkey:36 = Enter, devkey:8:cmd = ⌘C)
                 let parts = c.dropFirst(7).split(separator: ":")
                 if let first = parts.first, let code = UInt16(first), let window = NSApp.keyWindow {
-                    let chars = code == 53 ? "\u{1b}" : "\r"
+                    let chars = [UInt16(53): "\u{1b}", 8: "c", 9: "v", 0: "a"][code] ?? "\r"
+                    let flags: NSEvent.ModifierFlags = parts.count < 2 ? [] : (parts[1] == "cmd" ? .command : .shift)
                     for type in [NSEvent.EventType.keyDown, .keyUp] {
-                        if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: parts.count > 1 ? .shift : [],
+                        if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
                                                     timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
                                                     characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code) {
                             NSApp.postEvent(e, atStart: false)
                         }
                     }
                 }
+            case "devfocusanswer":   // 개발용: 첫 답변 본문을 전체 선택
+                func find(_ view: NSView) -> ChatAnswerTextView? {
+                    if let tv = view as? ChatAnswerTextView { return tv }
+                    for sub in view.subviews { if let f = find(sub) { return f } }
+                    return nil
+                }
+                if let tv = self.notch?.panel.contentView.flatMap(find) {
+                    tv.window?.makeFirstResponder(tv)
+                    tv.selectAll(nil)
+                }
+            case "devdraftcount":   // 개발용: 입력 칸 글자 수만 기록 (내용은 남기지 않음)
+                try? "\(self.chat.draft.count)\n".write(toFile: NSTemporaryDirectory() + "dmn-draft.txt", atomically: true, encoding: .utf8)
             case let c where c.hasPrefix("devcmd:"):   // 개발용: 이 앱에만 ⌘+키 (가상 키 코드, 예: devcmd:0 = ⌘A)
                 if let code = CGKeyCode(c.dropFirst(7)) {
                     for down in [true, false] {

@@ -29,9 +29,10 @@ struct ChatSettingsPage: View {
         Form {
             Section {
                 Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
+                Toggle(T("모르는 내용과 최근 소식은 웹 검색으로 답변", "Use web search for recent or unknown topics"), isOn: $settings.chatWebSearch)
             } header: { Text(T("표시", "Show")) } footer: {
-                footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않습니다. 채팅 내용은 메모처럼 이 Mac에 저장되며, 노치의 채팅 목록에서 삭제할 수 있습니다.",
-                           "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch."))
+                footnote(T("입력한 질문과 최근 대화가 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일은 보내지 않습니다. 채팅 내용은 메모처럼 이 Mac에 저장되며, 노치의 채팅 목록에서 삭제할 수 있습니다. 웹 검색은 각 서비스의 검색 도구를 쓰며 API 키 방식에서는 별도 요금이 붙을 수 있습니다.",
+                           "Your questions and recent messages are sent to the company you choose below. The clipboard, screen and files are never sent. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch. Web search uses each service's search tool and may cost extra with an API key."))
             }
             Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {

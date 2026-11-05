@@ -216,7 +216,7 @@ struct MemoTitleField: NSViewRepresentable {
 
         private static func findTextView(in view: NSView?) -> NSTextView? {
             guard let view else { return nil }
-            if let t = view as? MemoNSTextView { return t }
+            if let t = view as? MemoNSTextView, t.isEditable { return t }
             for sub in view.subviews { if let t = findTextView(in: sub) { return t } }
             return nil
         }
@@ -351,7 +351,7 @@ private struct MemoTextView: NSViewRepresentable {
 }
 
 /// 누르면 노치 창이 키보드를 받도록 한다 (평소에는 다른 앱의 포커스를 가져오지 않음)
-final class MemoNSTextView: NSTextView {
+class MemoNSTextView: NSTextView {
     /// 창에 붙은 직후 한 번 (커서 놓기)
     var onWindow: (() -> Void)?
 

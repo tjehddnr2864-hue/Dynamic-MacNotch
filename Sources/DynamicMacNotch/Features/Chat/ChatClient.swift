@@ -64,11 +64,28 @@ enum ChatError: Equatable {
 
 /// 서비스별 요청 만들기
 enum ChatAPI {
-    static let systemPrompt = """
-        You are answering inside a small panel in a Mac's notch. Answer briefly and directly, in the language of the question. \
+    /// 모든 서비스에 공통으로 적용하는 지시. 날짜를 알려 줘야 모델이 자기 지식보다 최근 일인지 판단할 수 있다.
+    static var systemPrompt: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return """
+        You are answering inside a small panel in a Mac's notch. Today's date is \(formatter.string(from: Date())). \
+        Answer briefly and directly, in the language of the question.
+
+        If the question is about something recent, likely after your knowledge cutoff, or that you aren't sure of, \
+        use web search when it's available instead of guessing. If you can't search and don't know, say so. Never invent facts or URLs.
+
+        Format answers in Markdown: **bold**, *italic*, <u>underline</u>, `code`, lists and fenced code blocks. \
         Prefer short paragraphs over headings and tables.
+        Write every link as [title](https://full-url), and link the sources you used from web search.
+        Write all mathematics in LaTeX, using $...$ inline and $$...$$ for displayed equations. \
+        Don't write formulas in plain text or Unicode, and don't put math in code blocks. Write a literal dollar sign as \\$.
         """
-    static let maxOutputTokens = 4096
+    }
+    static let maxOutputTokens = 8192
+    /// 검색 결과를 이 횟수까지 쓴다 (비용 상한)
+    private static let maxSearches = 5
 
     /// 빠른 답변이 중요한 화면이므로 지원하는 모델은 effort를 낮춘다
     private static let lowEffortModels: Set<String> = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
@@ -104,32 +121,41 @@ enum ChatAPI {
         }
     }
 
-    static func streamRequest(service: ChatService, model: String, key: String, turns: [ChatTurn]) -> URLRequest? {
-        let path: String, body: [String: Any]
+    private static let dynamicSearchModels: Set<String> = ["claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+                                                           "claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6"]
+
+    /// paused: Claude가 검색 도중 턴을 멈췄을 때 이어 보낼 응답 내용
+    static func request(service: ChatService, model: String, key: String, turns: [ChatTurn], search: Bool, paused: [Any]? = nil) -> URLRequest? {
+        let path: String
+        var body: [String: Any]
         var beta: String?
         switch service {
         case .claude:
             path = "/v1/messages"
-            var b: [String: Any] = [
-                "model": model, "max_tokens": maxOutputTokens, "stream": true, "system": systemPrompt,
-                "messages": turns.map { ["role": $0.role.rawValue, "content": $0.text] },
-            ]
-            if lowEffortModels.contains(model) { b["output_config"] = ["effort": "low"] }
+            var messages: [[String: Any]] = turns.map { ["role": $0.role.rawValue, "content": $0.text] }
+            if let paused { messages.append(["role": "assistant", "content": paused]) }
+            body = ["model": model, "max_tokens": maxOutputTokens, "system": systemPrompt, "messages": messages]
+            if search {
+                body["tools"] = [["type": dynamicSearchModels.contains(model) ? "web_search_20260209" : "web_search_20250305",
+                                  "name": "web_search", "max_uses": maxSearches]]
+            }
+            if lowEffortModels.contains(model) { body["output_config"] = ["effort": "low"] }
             if fallbackModels.contains(model) {
-                b["fallbacks"] = "default"
+                body["fallbacks"] = "default"
                 beta = "server-side-fallback-2026-07-01"
             }
-            body = b
         case .openai:
             path = "/v1/responses"
             body = ["model": model, "stream": true, "store": false, "instructions": systemPrompt,
                     "max_output_tokens": maxOutputTokens,
                     "input": turns.map { ["role": $0.role.rawValue, "content": $0.text] }]
+            if search { body["tools"] = [["type": "web_search"]] }
         case .gemini:
             path = "/v1beta/models/\(encoded(model)):streamGenerateContent?alt=sse"
             body = ["systemInstruction": ["parts": [["text": systemPrompt]]],
                     "generationConfig": ["maxOutputTokens": maxOutputTokens],
                     "contents": turns.map { ["role": $0.role == .user ? "user" : "model", "parts": [["text": $0.text]]] }]
+            if search { body["tools"] = [["googleSearch": [String: Any]()]] }
         }
         guard let url = URL(string: baseURL(service) + path),
               let data = try? JSONSerialization.data(withJSONObject: body) else { return nil }
@@ -155,41 +181,17 @@ enum ChatAPI {
 /// 스트림의 `data:` 한 줄(JSON)을 이벤트로 바꾼다. 세 서비스 모두 한 이벤트가 한 줄에 들어온다.
 struct ChatStreamParser {
     let service: ChatService
-    private var stopReason: String?
 
     init(service: ChatService) { self.service = service }
 
-    mutating func feed(_ line: String) -> [ChatEvent] {
+    func feed(_ line: String) -> [ChatEvent] {
         guard line.hasPrefix("data:") else { return [] }
         let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
         guard let json = (try? JSONSerialization.jsonObject(with: Data(payload.utf8))) as? [String: Any] else { return [] }
         switch service {
-        case .claude: return feedClaude(json)
+        case .claude: return []   // Claude는 스트리밍하지 않는다 (ChatClient.runClaude)
         case .openai: return feedOpenAI(json)
         case .gemini: return feedGemini(json)
-        }
-    }
-
-    private mutating func feedClaude(_ json: [String: Any]) -> [ChatEvent] {
-        switch json["type"] as? String {
-        case "content_block_delta":
-            // 생각 블록의 델타는 보여 주지 않는다
-            guard let delta = json["delta"] as? [String: Any], delta["type"] as? String == "text_delta",
-                  let text = delta["text"] as? String else { return [] }
-            return [.delta(text)]
-        case "message_delta":
-            stopReason = (json["delta"] as? [String: Any])?["stop_reason"] as? String
-            return []
-        case "message_stop":
-            return [stopReason == "refusal" ? .failed(.refused) : .done(truncated: stopReason == "max_tokens")]
-        case "error":
-            switch (json["error"] as? [String: Any])?["type"] as? String {
-            case "overloaded_error": return [.failed(.overloaded)]
-            case "rate_limit_error": return [.failed(.rateLimited)]
-            default: return [.failed(.server(500))]
-            }
-        default:
-            return []
         }
     }
 
@@ -228,38 +230,84 @@ enum ChatClient {
 
     private static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 60    // 데이터가 이만큼 오지 않으면 실패
+        config.timeoutIntervalForRequest = 180   // 데이터가 이만큼 오지 않으면 실패 (검색하는 답변은 첫 응답까지 오래 걸린다)
         config.timeoutIntervalForResource = 300
         config.httpShouldSetCookies = false
         config.urlCache = nil
         return URLSession(configuration: config)
     }
 
-    /// 답변을 스트리밍한다. onEvent는 백그라운드에서 불린다. 마지막 이벤트는 done 또는 failed이고,
+    /// 답변을 받는다. onEvent는 백그라운드에서 불린다. 마지막 이벤트는 done 또는 failed이고,
     /// 돌려받은 Task를 취소하면 이벤트 없이 끝난다.
     @discardableResult
-    static func stream(service: ChatService, model: String, key: String, turns: [ChatTurn],
+    static func stream(service: ChatService, model: String, key: String, turns: [ChatTurn], search: Bool,
                        onEvent: @escaping (ChatEvent) -> Void) -> Task<Void, Never> {
         Task.detached(priority: .userInitiated) {
-            guard let request = ChatAPI.streamRequest(service: service, model: model, key: key, turns: turns) else {
-                onEvent(.failed(.badRequest))
-                return
-            }
             let session = makeSession()
             defer { session.invalidateAndCancel() }
-            for attempt in 0...retryDelays.count {
-                let error = await run(request, service: service, session: session, onEvent: onEvent)
-                guard !Task.isCancelled else { return }
-                guard let error else { return }
+            var useSearch = search
+            var attempt = 0
+            while true {
+                let error: (failure: ChatError, gotOutput: Bool)?
+                if service == .claude {
+                    error = await runClaude(model: model, key: key, turns: turns, search: useSearch, session: session, onEvent: onEvent)
+                } else {
+                    guard let request = ChatAPI.request(service: service, model: model, key: key, turns: turns, search: useSearch) else {
+                        onEvent(.failed(.badRequest))
+                        return
+                    }
+                    error = await run(request, service: service, session: session, onEvent: onEvent)
+                }
+                guard !Task.isCancelled, let error else { return }
+                // 직접 입력한 모델이 검색 도구를 지원하지 않으면 검색 없이 다시 묻는다
+                if error.failure == .badRequest, useSearch, !error.gotOutput {
+                    useSearch = false
+                    continue
+                }
                 // 글자가 나오기 전의 일시적 오류만 다시 시도한다
                 guard error.failure.isRetryable, !error.gotOutput, attempt < retryDelays.count else {
                     onEvent(.failed(error.failure))
                     return
                 }
                 try? await Task.sleep(nanoseconds: retryDelays[attempt] * 1_000_000_000)
+                attempt += 1
                 guard !Task.isCancelled else { return }
             }
         }
+    }
+
+    /// Claude: 답변을 한 번에 받는다. 검색이 길어 pause_turn으로 멈추면 받은 내용을 그대로 붙여 이어 보낸다.
+    private static func runClaude(model: String, key: String, turns: [ChatTurn], search: Bool, session: URLSession,
+                                  onEvent: (ChatEvent) -> Void) async -> (failure: ChatError, gotOutput: Bool)? {
+        var paused: [Any]?
+        for _ in 0..<4 {
+            guard let request = ChatAPI.request(service: .claude, model: model, key: key, turns: turns, search: search, paused: paused) else {
+                return (.badRequest, false)
+            }
+            do {
+                let (data, response) = try await session.data(for: request)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                guard status == 200 else {
+                    return (ChatError.from(status: status, body: String(decoding: data.prefix(4096), as: UTF8.self)), false)
+                }
+                guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                      let content = json["content"] as? [[String: Any]] else { return (.unexpectedEnd, false) }
+                let stop = json["stop_reason"] as? String
+                if stop == "pause_turn" {
+                    paused = content
+                    continue
+                }
+                if stop == "refusal" { return (.refused, false) }
+                let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined()
+                guard !text.isEmpty else { return (.unexpectedEnd, false) }
+                onEvent(.delta(text))
+                onEvent(.done(truncated: stop == "max_tokens"))
+                return nil
+            } catch {
+                return (.network, false)
+            }
+        }
+        return (.unexpectedEnd, false)
     }
 
     /// 한 번 요청한다. 끝까지 정상이면 nil, 실패했으면 그 오류.
@@ -272,7 +320,7 @@ enum ChatClient {
             guard status == 200 else {
                 return (ChatError.from(status: status, body: await head(of: bytes)), false)
             }
-            var parser = ChatStreamParser(service: service)
+            let parser = ChatStreamParser(service: service)
             for try await line in bytes.lines {
                 for event in parser.feed(line) {
                     switch event {

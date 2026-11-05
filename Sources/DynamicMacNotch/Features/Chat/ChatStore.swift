@@ -25,12 +25,12 @@ struct ChatSummary: Identifiable, Equatable {
 /// 답변은 다 받은 뒤 한 번에 보여 준다. 질문 중에는 노치를 닫아도 계속 받고, 끝나면 알림으로 알린다.
 /// 대기 중에는 타이머·네트워크가 돌지 않는다.
 final class ChatStore: ObservableObject {
-    struct Entry: Identifiable, Equatable {
+    struct Entry: Identifiable {
         let id: Int
         let role: ChatTurn.Role
         let text: String
         /// 답변의 표시용 글자 (질문은 nil)
-        let rendered: AttributedString?
+        let rendered: NSAttributedString?
     }
 
     @Published private(set) var currentID = UUID()
@@ -64,13 +64,24 @@ final class ChatStore: ObservableObject {
     private var unloadWork: DispatchWorkItem?
     private var titleSaveWork: DispatchWorkItem?
 
+    /// 답변 칸의 폭 (수식을 이보다 넓게 그리지 않는다)
+    private static let answerWidth: CGFloat = 330
     private static let maxContextTurns = 12
     private static let maxContextCharacters = 20_000
     /// 페이지가 닫힌 뒤 메모리에서 내리기까지
     private static let unloadDelay: TimeInterval = 5
-    private static let currentKey = "chatCurrentID"
+    private static let currentKey: String = {
+        #if DEV
+        if ProcessInfo.processInfo.environment["DMN_CHAT_FOLDER"] != nil { return "chatCurrentID.test" }
+        #endif
+        return "chatCurrentID"
+    }()
 
     static var folder: URL {
+        #if DEV
+        // 개발용: 시험 채팅이 실제 채팅에 섞이지 않게 다른 폴더를 쓴다
+        if let path = ProcessInfo.processInfo.environment["DMN_CHAT_FOLDER"] { return URL(fileURLWithPath: path, isDirectory: true) }
+        #endif
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("DynamicMacNotch/Chats", isDirectory: true)
     }
@@ -166,7 +177,7 @@ final class ChatStore: ObservableObject {
                     self.fail(.missingKey)
                     return
                 }
-                self.task = ChatClient.stream(service: service, model: model, key: key, turns: turns) { [weak self] event in
+                self.task = ChatClient.stream(service: service, model: model, key: key, turns: turns, search: self.settings.chatWebSearch) { [weak self] event in
                     DispatchQueue.main.async { self?.handle(event, generation: current) }
                 }
             }
@@ -252,7 +263,7 @@ final class ChatStore: ObservableObject {
 
     private func append(_ role: ChatTurn.Role, _ text: String) {
         nextEntryID += 1
-        entries.append(Entry(id: nextEntryID, role: role, text: text, rendered: role == .assistant ? Self.render(text) : nil))
+        entries.append(Entry(id: nextEntryID, role: role, text: text, rendered: role == .assistant ? ChatMarkdown.render(text, maxWidth: Self.answerWidth) : nil))
     }
 
     /// 최근 대화만 보낸다 (비용을 줄인다). 질문으로 시작해야 한다.
@@ -266,15 +277,6 @@ final class ChatStore: ObservableObject {
         }
         while turns.last?.role == .assistant { turns.removeLast() }
         return turns.reversed()
-    }
-
-    /// 굵게·기울임·코드 같은 인라인 서식만 적용한다.
-    /// 모델이 쓴 링크는 표시 글자와 실제 주소가 다를 수 있으므로 누를 수 없게 지운다.
-    private static func render(_ text: String) -> AttributedString {
-        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        guard var attributed = try? AttributedString(markdown: text, options: options) else { return AttributedString(text) }
-        for run in attributed.runs where run.link != nil { attributed[run.range].link = nil }
-        return attributed
     }
 
     // MARK: - 이름·새 채팅·불러오기·삭제
@@ -344,14 +346,6 @@ final class ChatStore: ObservableObject {
             }
         }
     }
-
-    func copyLastAnswer() {
-        guard let text = lastAnswer else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    var lastAnswer: String? { entries.last { $0.role == .assistant }?.text }
 
     // MARK: - 파일
 

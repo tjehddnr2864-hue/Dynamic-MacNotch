@@ -67,9 +67,6 @@ struct ChatPage: View {
             .help("\(settings.chatService.name) · \(settings.chatModel(for: settings.chatService))")
             // 답변을 기다리는 동안에는 이 채팅에 머문다 (중지만 가능)
             if !store.isStreaming {
-                if store.lastAnswer != nil {
-                    iconButton("doc.on.doc", help: T("답변 복사", "Copy Answer")) { store.copyLastAnswer() }
-                }
                 iconButton("square.and.pencil", help: T("새 채팅", "New Chat")) {
                     store.newChat()
                     startEditing(.input)
@@ -144,11 +141,10 @@ struct ChatPage: View {
                     .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         } else {
-            Text(entry.rendered ?? AttributedString(entry.text))
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.92))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 2) {
+                ChatAnswerView(text: entry.rendered ?? NSAttributedString(string: entry.text))
+                ChatCopyButton(text: entry.text)
+            }
         }
     }
 
@@ -179,10 +175,14 @@ struct ChatPage: View {
         HStack(alignment: .bottom, spacing: 6) {
             Group {
                 if store.isStreaming {
-                    Text(T("생각 중…", "Thinking…"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    HStack(spacing: 7) {
+                        SpinnerRing(tint: .white.opacity(0.75))
+                            .frame(width: 13, height: 13)
+                        Text(T("생각 중…", "Thinking…"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 } else if live {
                     ChatInputView(text: store.draft, revision: store.draftRevision, focus: editing == .input,
                                   onChange: { store.draft = $0 },

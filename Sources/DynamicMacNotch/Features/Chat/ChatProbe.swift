@@ -31,7 +31,7 @@ enum ChatProbe {
         case "ask":
             let start = Date()
             let question = input()
-            ChatClient.stream(service: service, model: model, key: key(), turns: [ChatTurn(role: .user, text: question)]) { event in
+            ChatClient.stream(service: service, model: model, key: key(), turns: [ChatTurn(role: .user, text: question)], search: true) { event in
                 print(String(format: "%6.2f", Date().timeIntervalSince(start)), event)
                 switch event {
                 case .delta: break
