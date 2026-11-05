@@ -320,6 +320,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             case "chat": self.vm.openChat()   // 개발용: AI 채팅 페이지 열기
+            case let c where c.hasPrefix("chatsend:"):   // 개발용: 클릭 없이 질문 보내기
+                self.chat.draft = String(c.dropFirst(9))
+                self.chat.send()
+            case "chatlist": self.chat.toggleList()   // 개발용: 채팅 목록 열기·닫기
             case "devfocusanswer":   // 개발용: 첫 답변 본문을 전체 선택
                 func find(_ view: NSView) -> ChatAnswerTextView? {
                     if let tv = view as? ChatAnswerTextView { return tv }
