@@ -131,9 +131,23 @@ final class ChatStore: ObservableObject {
             self.entries = []
             self.summaries = []
             self.unloadWork = nil
+            Self.returnMemory()
         }
         unloadWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.unloadDelay, execute: work)
+    }
+
+    /// 지난 답변이 실제로 해제되게 한다. 메인 스레드의 자동 해제 풀은 다음 이벤트에야 비워지는데,
+    /// 마우스·키 입력이 없으면 그때까지 렌더링한 답변과 이미지를 붙들고 있으므로 빈 이벤트를 보낸다.
+    private static func returnMemory() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            if let event = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0,
+                                              windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) {
+                NSApp.postEvent(event, atStart: false)
+            }
+            MemoryTrim.soon()
+            MemoryGuard.shared.checkSoon()
+        }
     }
 
     private func loadCurrent() {

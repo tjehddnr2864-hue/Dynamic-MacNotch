@@ -53,6 +53,22 @@ struct ChatAnswerView: NSViewRepresentable {
     }
 }
 
+/// 채팅 아이콘. SwiftUI의 Image(systemName:)는 처음 쓸 때 기호 카탈로그를 통째로 읽어
+/// 순간 메모리가 100MB 넘게 늘어나므로, 필요한 기호만 AppKit으로 불러와 재사용한다.
+enum ChatIcon {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(_ symbol: String, size: CGFloat, weight: NSFont.Weight) -> Image {
+        let key = "\(symbol)-\(size)-\(weight.rawValue)"
+        if let cached = cache[key] { return Image(nsImage: cached) }
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: size, weight: weight)) ?? NSImage()
+        image.isTemplate = true
+        cache[key] = image
+        return Image(nsImage: image)
+    }
+}
+
 final class ChatAnswerTextView: MemoNSTextView {
     #if DEV
     /// 개발용: 시험 중 사용자의 클립보드를 덮어쓰지 않게 별도 이름의 클립보드에 쓴다
@@ -121,8 +137,7 @@ struct ChatCopyButton: View {
             copiedState.wrappedValue = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copiedState.wrappedValue = false }
         } label: {
-            Image(systemName: copiedState.wrappedValue ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 10, weight: .semibold))
+            ChatIcon.image(copiedState.wrappedValue ? "checkmark" : "doc.on.doc", size: 10, weight: .semibold)
                 .foregroundStyle(.white.opacity(copiedState.wrappedValue ? 0.9 : 0.5))
                 .frame(width: 20, height: 16)
                 .contentShape(Rectangle())

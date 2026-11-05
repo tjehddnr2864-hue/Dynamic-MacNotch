@@ -294,15 +294,32 @@ enum ChatMarkdown {
 
     /// 글자 그대로 쓴 http(s) 주소에도 링크를 단다 (코드 안 제외)
     private static func detectLinks(_ output: NSMutableAttributedString) {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return }
-        let whole = NSRange(location: 0, length: output.length)
-        for match in detector.matches(in: output.string, range: whole) {
-            guard let url = match.url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
-                  output.attribute(.link, at: match.range.location, effectiveRange: nil) == nil,
-                  output.attribute(codeKey, at: match.range.location, effectiveRange: nil) == nil else { continue }
-            output.addAttribute(.link, value: url, range: match.range)
-            output.addAttribute(.toolTip, value: url.absoluteString, range: match.range)
+        guard let linkPattern else { return }
+        let text = output.string as NSString
+        for match in linkPattern.matches(in: output.string, range: NSRange(location: 0, length: text.length)) {
+            let range = trimmedLink(match.range, in: text)
+            guard let url = URL(string: text.substring(with: range)),
+                  output.attribute(.link, at: range.location, effectiveRange: nil) == nil,
+                  output.attribute(codeKey, at: range.location, effectiveRange: nil) == nil else { continue }
+            output.addAttribute(.link, value: url, range: range)
+            output.addAttribute(.toolTip, value: url.absoluteString, range: range)
         }
+    }
+
+    /// NSDataDetector는 언어 판별·한국어 형태소 모델까지 불러와 순간 메모리가 50MB 넘게 늘어나므로 정규식을 쓴다
+    private static let linkPattern = try? NSRegularExpression(pattern: "https?://[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+", options: .caseInsensitive)
+
+    /// 문장 부호로 끝나면 주소에서 뺀다 (짝이 없는 닫는 괄호 포함)
+    private static func trimmedLink(_ range: NSRange, in text: NSString) -> NSRange {
+        var result = range
+        while result.length > 0 {
+            let last = text.substring(with: NSRange(location: result.location + result.length - 1, length: 1))
+            let body = text.substring(with: result)
+            let unmatched = (last == ")" && !body.contains("(")) || (last == "]" && !body.contains("["))
+            guard ".,;:!?'".contains(last) || unmatched else { break }
+            result.length -= 1
+        }
+        return result
     }
 
     private static func insertFormulas(_ formulas: [Math], into output: NSMutableAttributedString, maxWidth: CGFloat) {

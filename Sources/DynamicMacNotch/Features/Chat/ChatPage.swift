@@ -80,8 +80,7 @@ struct ChatPage: View {
 
     private func iconButton(_ symbol: String, help: String, active: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+            ChatIcon.image(symbol, size: 11, weight: .semibold)
                 .foregroundStyle(.white.opacity(active ? 1 : 0.7))
                 .frame(width: 22, height: 20)
                 .background(Color.white.opacity(active ? 0.18 : 0), in: RoundedRectangle(cornerRadius: 5))
@@ -204,8 +203,7 @@ struct ChatPage: View {
             .padding(.vertical, 5)
             .background(Color.white.opacity(store.isStreaming ? 0 : 0.1), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             Button(action: store.isStreaming ? store.stop : store.send) {
-                Image(systemName: store.isStreaming ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 11, weight: .bold))
+                ChatIcon.image(store.isStreaming ? "stop.fill" : "arrow.up", size: 11, weight: .bold)
                     .foregroundStyle(.black)
                     .frame(width: 26, height: 26)
                     .background(Color.white.opacity(0.9), in: Circle())

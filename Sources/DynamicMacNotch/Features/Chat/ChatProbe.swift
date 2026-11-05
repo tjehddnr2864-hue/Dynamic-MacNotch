@@ -20,6 +20,11 @@ enum ChatProbe {
         case "delkey":
             ChatKeychain.delete(for: service)
             print("has=\(ChatKeychain.has(for: service))")
+        case "links":   // 개발용: 표준 입력의 글에서 링크로 인식한 주소를 출력
+            let text = ChatMarkdown.render(input(), maxWidth: 330)
+            text.enumerateAttribute(.link, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+                if value != nil { print((text.string as NSString).substring(with: range), "->", value!) }
+            }
         case "models":
             let k = key()
             Task.detached {
