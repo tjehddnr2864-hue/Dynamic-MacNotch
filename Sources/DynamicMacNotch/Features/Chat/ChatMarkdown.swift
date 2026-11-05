@@ -317,7 +317,8 @@ enum ChatMarkdown {
         while result.length > 0 {
             let last = text.substring(with: NSRange(location: result.location + result.length - 1, length: 1))
             let body = text.substring(with: result)
-            let unmatched = (last == ")" && !body.contains("(")) || (last == "]" && !body.contains("["))
+            func extra(_ close: Character, _ open: Character) -> Bool { body.filter { $0 == close }.count > body.filter { $0 == open }.count }
+            let unmatched = (last == ")" && extra(")", "(")) || (last == "]" && extra("]", "["))
             guard ".,;:!?'".contains(last) || unmatched else { break }
             result.length -= 1
         }
