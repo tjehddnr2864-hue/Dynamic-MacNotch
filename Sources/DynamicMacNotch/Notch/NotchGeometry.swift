@@ -4,16 +4,6 @@ enum NotchGeometry {
     /// 노치 패널 윈도우 고정 크기. 내부 SwiftUI 도형만 애니메이션한다 (가이드라인 2.1).
     static let panelSize = CGSize(width: 720, height: 300)
 
-    /// 표시할 화면을 고른다. 내장 화면 설정이면 노치가 있는 화면을 우선한다.
-    static func targetScreen(for target: DisplayTarget) -> NSScreen? {
-        switch target {
-        case .builtIn:
-            return NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main
-        case .main:
-            return NSScreen.screens.first ?? NSScreen.main
-        }
-    }
-
     /// 화면 좌표계 기준 노치 사각형. 노치가 없는 화면은 메뉴바 높이의 가상 노치를 만든다.
     static func notchRect(on screen: NSScreen) -> CGRect {
         let frame = screen.frame

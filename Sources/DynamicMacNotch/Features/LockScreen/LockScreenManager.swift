@@ -167,7 +167,7 @@ final class LockScreenManager: ObservableObject {
     }
 
     private var screen: NSScreen? {
-        NotchGeometry.targetScreen(for: settings.displayTarget) ?? NSScreen.main
+        Displays.screen(for: settings.notchDisplays) ?? NSScreen.main
     }
 
     private func showPlayer() {

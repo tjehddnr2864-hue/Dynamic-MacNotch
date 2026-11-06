@@ -1,16 +1,5 @@
 import SwiftUI
 
-enum DisplayTarget: String, CaseIterable, Identifiable {
-    case builtIn, main
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .builtIn: return T("내장 화면(노치)", "Built-in Display (Notch)")
-        case .main: return T("주 화면", "Main Display")
-        }
-    }
-}
-
 enum HapticStrength: String, CaseIterable, Identifiable {
     case off, weak, strong
     var id: String { rawValue }
@@ -111,7 +100,15 @@ final class AppSettings: ObservableObject {
     private let defaults = UserDefaults.standard
 
     // 일반
-    @Published var displayTarget: DisplayTarget { didSet { save(displayTarget.rawValue, "displayTarget") } }
+    /// 노치를 보일 디스플레이: one:<UUID> / builtIn / main (Displays 참고)
+    @Published var notchDisplays: String { didSet { save(notchDisplays, "notchDisplays") } }
+
+    /// 저장된 값이 없으면 예전 설정을 이어 받는다. 신규 설치는 주 디스플레이, 예전 사용자는 지금 자리 그대로.
+    private static func savedNotchDisplays(_ d: UserDefaults) -> String {
+        if let saved = d.string(forKey: "notchDisplays") { return saved }
+        if let old = d.string(forKey: "displayTarget") { return old }
+        return d.bool(forKey: "onboardingDone") ? "builtIn" : "main"
+    }
     /// 앱 언어. 실제 표시는 앱을 다시 시작할 때 바뀐다 (L10n.isEnglish).
     @Published var language: AppLanguage { didSet { save(language.rawValue, L10n.languageKey) } }
     @Published var transientDuration: Double { didSet { save(transientDuration, "transientDuration") } }
@@ -340,7 +337,7 @@ final class AppSettings: ObservableObject {
         let d = UserDefaults.standard
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
 
-        displayTarget = DisplayTarget(rawValue: value("displayTarget", "")) ?? .builtIn
+        notchDisplays = Self.savedNotchDisplays(d)
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
@@ -469,7 +466,7 @@ final class AppSettings: ObservableObject {
         let d = UserDefaults.standard
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
 
-        displayTarget = DisplayTarget(rawValue: value("displayTarget", "")) ?? .builtIn
+        notchDisplays = Self.savedNotchDisplays(d)
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)

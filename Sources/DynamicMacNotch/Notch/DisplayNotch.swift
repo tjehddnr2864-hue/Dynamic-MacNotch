@@ -60,7 +60,7 @@ final class DisplayNotch: NotchGestureDelegate {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in self?.reposition() }
             .store(in: &cancellables)
-        settings.$displayTarget
+        settings.$notchDisplays
             .dropFirst()
             .sink { [weak self] _ in DispatchQueue.main.async { self?.reposition() } }
             .store(in: &cancellables)
@@ -169,7 +169,7 @@ final class DisplayNotch: NotchGestureDelegate {
     // MARK: - 배치
 
     func reposition() {
-        guard let screen = NotchGeometry.targetScreen(for: settings.displayTarget) else { return }
+        guard let screen = Displays.screen(for: settings.notchDisplays) else { return }
         let notch = NotchGeometry.notchRect(on: screen)
         vm.notchSize = notch.size
         vm.hasPhysicalNotch = NotchGeometry.hasPhysicalNotch(screen)

@@ -238,9 +238,7 @@ struct SettingsView: View {
                         }
                     }
                 }
-                Picker(T("표시 화면", "Display"), selection: $settings.displayTarget) {
-                    ForEach(DisplayTarget.allCases) { Text($0.label).tag($0) }
-                }
+                NotchDisplayPicker(settings: settings)
                 Picker(T("일회성 알림 표시 시간", "Alert Duration"), selection: $settings.transientDuration) {
                     ForEach([1.5, 2.5, 4.0, 6.0], id: \.self) { Text(L10n.seconds($0, digits: 1)).tag($0) }
                 }
@@ -1281,5 +1279,28 @@ private struct ReorderList<Row: View>: View {
                     dragY = 0
                 }
             }
+    }
+}
+
+/// 설정 → 일반: 노치를 보일 디스플레이. 연결 상태가 바뀌면 목록이 바로 갱신된다.
+struct NotchDisplayPicker: View {
+    @ObservedObject var settings: AppSettings
+    private let listState = State(initialValue: Displays.all())
+
+    /// 예전 값(builtIn·main)과 지금 연결되지 않은 디스플레이는 실제로 쓰이는 디스플레이로 보여 준다
+    private var current: String {
+        let screen = Displays.screen(for: settings.notchDisplays)
+        return screen.flatMap(Displays.uuid(of:)).map(Displays.selection(uuid:)) ?? settings.notchDisplays
+    }
+
+    var body: some View {
+        let list = listState.wrappedValue
+        Picker(T("표시 화면", "Display"), selection: Binding(get: { current }, set: { settings.notchDisplays = $0 })) {
+            ForEach(list) { Text($0.label).tag(Displays.selection(uuid: $0.uuid)) }
+        }
+        .disabled(list.count < 2)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            listState.wrappedValue = Displays.all()
+        }
     }
 }

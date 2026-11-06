@@ -350,6 +350,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     tv.window?.makeFirstResponder(tv)
                     tv.selectAll(nil)
                 }
+            case "displaystate":   // 개발용: 노치가 어느 디스플레이에 있는지 기록
+                let panel = self.notch?.panel
+                let lines = ["selection=\(self.settings.notchDisplays)",
+                             "panel=\(panel?.frame ?? .zero) screen=\(panel?.screen.flatMap(Displays.uuid(of:)) ?? "-")",
+                             "notch=\(self.vm.notchSize) physical=\(self.vm.hasPhysicalNotch)"]
+                    + Displays.all().map { "display \($0.uuid) \($0.label) builtIn=\($0.isBuiltIn) notch=\($0.hasNotch)" }
+                try? (lines.joined(separator: "\n") + "\n").write(toFile: NSTemporaryDirectory() + "dmn-display.txt", atomically: true, encoding: .utf8)
             case "mcstate":   // 개발용: Mission Control 숨김 상태 기록
                 let panel = self.notch?.panel
                 try? "active=\(self.missionControl.isActive) hidden=\(self.vm.missionControlHidden) alpha=\(panel?.alphaValue ?? -1) mouseThrough=\(panel?.ignoresMouseEvents ?? false) expanded=\(self.vm.isExpanded)\n"
