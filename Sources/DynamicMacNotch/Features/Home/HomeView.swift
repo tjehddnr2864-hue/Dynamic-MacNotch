@@ -3,7 +3,7 @@ import SwiftUI
 /// 확장 상태 홈: 카메라 · 타이머 · 오늘 일정 · 에어드랍/트레이를 한 번에 하나씩 보여 준다.
 /// 노치 바깥 아래의 점 4개를 누르거나 두 손가락으로 좌우 스와이프해 넘긴다.
 struct HomePager: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
     let timer: TimerController
     var pages: HomePages? = nil
 
@@ -69,7 +69,7 @@ struct HomePages {
 
 /// 상시 표시 항목 팝업의 페이지 점 (홈 점과 같은 모양, 우선순위 순)
 struct PersistentDots: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
 
     var body: some View {
         HStack(spacing: 0) {
@@ -116,7 +116,7 @@ struct PersistentInfoPage: View {
 
 /// 확장된 노치 바깥에 따로 떠 있는 페이지 점. 선택된 점은 가로로 길어진다.
 struct PageDots: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
 
     var body: some View {
         HStack(spacing: 0) {

@@ -16,7 +16,7 @@ struct NotchFeatures {
 }
 
 struct NotchRootView: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
     let timer: TimerController
     let features: NotchFeatures
     var openSettings: () -> Void
@@ -47,7 +47,7 @@ struct NotchRootView: View {
             }
             .overlay(alignment: vm.fileDragBarOnLeft ? .topLeading : .topTrailing) {
                 if vm.fileDragOtherPage != nil {
-                    let inset = NotchViewModel.fileDragBarZone - vm.topRadius
+                    let inset = DisplayNotchState.fileDragBarZone - vm.topRadius
                     // 막대 아래 끝: 트레이는 아래 모서리 곡선이 끝나는 곳(옆면과 만나는 곳), 채팅은 그곳과 하단의 중간
                     let bottomInset = vm.homeOption == .chat ? vm.bottomRadius / 2 : vm.bottomRadius
                     FileDragBar(vm: vm, length: size.height - vm.notchSize.height - bottomInset)
@@ -137,7 +137,7 @@ struct NotchRootView: View {
 
 /// 파일을 든 동안 노치 옆에 뜨는 세로 막대 (아래 페이지 점과 같은 굵기). 커서가 닿으면 다른 화면으로 넘어간다.
 private struct FileDragBar: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
     /// 막대 바탕의 길이
     var length: CGFloat
 
@@ -147,10 +147,10 @@ private struct FileDragBar: View {
         Capsule()
             .fill(Color.white.opacity(targetedState.wrappedValue ? 0.95 : 0.7))
             .frame(width: 6, height: max(length - 12, 6))
-            .frame(width: NotchViewModel.fileDragBarThickness, height: length)
+            .frame(width: DisplayNotchState.fileDragBarThickness, height: length)
             .background(Color.black.opacity(0.8), in: Capsule())
-            .padding(vm.fileDragBarOnLeft ? .trailing : .leading, NotchViewModel.fileDragBarGap)
-            .frame(width: NotchViewModel.fileDragBarZone, alignment: vm.fileDragBarOnLeft ? .trailing : .leading)
+            .padding(vm.fileDragBarOnLeft ? .trailing : .leading, DisplayNotchState.fileDragBarGap)
+            .frame(width: DisplayNotchState.fileDragBarZone, alignment: vm.fileDragBarOnLeft ? .trailing : .leading)
             .contentShape(Rectangle())
             .help(vm.fileDragOtherPage?.title ?? "")
             .onDrop(of: [.fileURL], isTargeted: Binding(get: { targetedState.wrappedValue }, set: { targeted in
@@ -162,7 +162,7 @@ private struct FileDragBar: View {
 
 /// 확장 상태: 노치 폭 그대로 아래로 커진 영역에 한 페이지씩 표시한다.
 struct ExpandedView: View {
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
     let timer: TimerController
     let features: NotchFeatures
     var openSettings: () -> Void
@@ -178,7 +178,7 @@ struct ExpandedView: View {
             chat: AnyView(ChatPage(store: features.chat,
                                    active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .chat,
                                    collapse: { vm.collapse() }, openSettings: openSettings,
-                                   setInputExtra: { vm.chatInputExtra = $0 },
+                                   setInputExtra: { vm.shared.chatInputExtra = $0 },
                                    fileDragging: vm.isFileDragging,
                                    onFilesDropped: { vm.endFileDrag(dropped: true) }))
         )

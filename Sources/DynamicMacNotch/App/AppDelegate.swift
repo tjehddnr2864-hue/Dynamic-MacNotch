@@ -5,8 +5,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = AppSettings.shared
     private let center = ActivityCenter()
-    private lazy var vm = NotchViewModel(center: center)
-    private lazy var timer = TimerController(center: center, viewModel: vm)
+    private lazy var timer = TimerController(center: center)
     private lazy var battery = BatteryMonitor(center: center)
     private lazy var network = NetworkMonitor(center: center)
     private lazy var bluetooth = BluetoothMonitor(center: center)
@@ -28,7 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var previewObservers = Set<AnyCancellable>()
     private lazy var calendar = CalendarController(center: center)
 
-    private var notch: NotchController?
+    /// 앱이 뜨는 즉시 만들어진다 (applicationDidFinishLaunching 맨 앞)
+    private var hub: NotchHub!
+    private var vm: DisplayNotchState { hub.current.vm }
+    private var notch: DisplayNotch? { hub?.current }
     private var lockScreen: LockScreenManager?
     private let missionControl = MissionControlMonitor()
     private var statusItem: NSStatusItem?
@@ -37,48 +39,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar,
                                      call: call, usage: usage, memo: memo, chat: chat)
-        let root = NotchRootView(vm: vm, timer: timer, features: features) { [weak self] in self?.showSettings() }
-        vm.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
-        vm.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
+        let shared = SharedNotchState()
+        shared.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
+        shared.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
         // 음악 팝업·작은 노치에서 두 손가락 좌우: 다음/이전 곡 (넘길 수 없는 미디어면 아무 일도 하지 않음)
-        vm.onMediaSwipe = { [weak self] forward in
+        shared.onMediaSwipe = { [weak self] forward in
             guard let self, self.media.canSkip(forward ? 1 : -1) else { return }
             forward ? self.media.next() : self.media.previousTrack()
             Haptics.perform()
         }
-        vm.longPressShouldExpand = { [weak self] activity in self?.longPress(activity) ?? true }
-        vm.allowsPressFeedback = { [weak self] activity in self?.hasLongPressAction(activity) ?? true }
-        vm.onDetailSwipeUp = { [weak self] in
+        shared.longPressShouldExpand = { [weak self] activity in self?.longPress(activity) ?? true }
+        shared.allowsPressFeedback = { [weak self] activity in self?.hasLongPressAction(activity) ?? true }
+        shared.onDetailSwipeUp = { [weak self] in
             guard let self else { return }
             if self.center.transient?.kind == .call { self.call.minimizeIncoming() } else { self.center.dismissTransient() }
         }
-        notch = NotchController(
-            vm: vm,
-            rootView: root,
+        let timer = self.timer
+        let hub = NotchHub(
+            center: center,
+            shared: shared,
+            rootView: { [weak self] state in
+                NotchRootView(vm: state, timer: timer, features: features) { self?.showSettings() }
+            },
             menuProvider: { [weak self] in self?.makeMenu() ?? NSMenu() },
-            clickHandler: { [weak self] activity, leftSide in self?.handleClick(activity, leftSide: leftSide) }
+            clickHandler: { [weak self] state, activity, leftSide in self?.handleClick(activity, leftSide: leftSide, on: state) }
         )
-        if let notch {
-            let manager = LockScreenManager(center: center, vm: vm, media: media)
-            manager.setLockNotchVisible = { [weak notch] visible in notch?.setLockPanelVisible(visible) }
-            manager.prepareLockNotch = { [weak notch] in notch?.prepareLockPanel() }
-            manager.setMainNotchHidden = { [weak notch] hidden, animated in notch?.setMainPanelHidden(hidden, animated: animated) }
-            manager.lockNotchAvailable = { [weak notch] in notch?.lockPanelReady ?? false }
-            manager.refreshNotch = { [weak notch] in notch?.forceRefresh() }
-            manager.start()
-            lockScreen = manager
-            notch.isLocked = { [weak manager] in manager?.isLocked ?? false }
-        }
+        self.hub = hub
+        timer.onShake = { [weak hub] in hub?.shake() }
+        let manager = LockScreenManager(center: center, hub: hub, media: media)
+        manager.setLockNotchVisible = { [weak hub] visible in hub?.setLockPanelVisible(visible) }
+        manager.prepareLockNotch = { [weak hub] in hub?.prepareLockPanel() }
+        manager.setMainNotchHidden = { [weak hub] hidden, animated in hub?.setMainPanelsHidden(hidden, animated: animated) }
+        manager.lockNotchAvailable = { [weak hub] in hub?.lockPanelReady ?? false }
+        manager.refreshNotch = { [weak hub] in hub?.forceRefresh() }
+        manager.start()
+        lockScreen = manager
+        hub.setIsLocked { [weak manager] in manager?.isLocked ?? false }
         timer.$editingUnit
             .removeDuplicates()
             .filter { $0 == nil }
-            .sink { [weak self] _ in DispatchQueue.main.async { self?.notch?.releaseKeyFocus() } }
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.hub.releaseKeyFocus() } }
             .store(in: &cancellables)
-        vm.$isExpanded
-            .filter { !$0 }
-            .sink { [weak self] _ in
+        hub.collapsed
+            .sink { [weak self] in
                 self?.timer.endEditing()
-                DispatchQueue.main.async { self?.notch?.releaseKeyFocus() }
+                DispatchQueue.main.async { self?.hub.releaseKeyFocus() }
             }
             .store(in: &cancellables)
         battery.start()
@@ -112,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.center.objectWillChange.send()   // 정렬·상시 표시·AI 사용량 가림 여부 다시 계산
-                self.vm.resyncPersistentOrder()
+                self.hub.resyncPersistentOrder()
             }
             .store(in: &cancellables)
         // 일정 상시 표시 켜기·끄기 (일정 기능이 켜져 있을 때만 다시 읽음)
@@ -159,18 +164,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.collapseIfActivityGone() }
             .store(in: &previewObservers)
         // 재생 테스트 중 노치에 커서를 올리거나 열면 '조작'으로 보고 자동 중지 시간을 늘린다
-        vm.$isHovering.merge(with: vm.$isExpanded).filter { $0 }
-            .sink { [weak self] _ in self?.media.noteTestInteraction() }
+        hub.interacted
+            .sink { [weak self] in self?.media.noteTestInteraction() }
             .store(in: &previewObservers)
         Updater.shared.start()
-        missionControl.onChange = { [weak self] active in self?.notch?.setMissionControlActive(active) }
+        missionControl.onChange = { [weak self] active in self?.hub.setMissionControlActive(active) }
         missionControl.start()
         // AI 채팅: 대화가 있으면 큰 노치, 입력·생각 중이면 작은 노치. 페이지를 닫은 동안 답변이 끝나면 알린다.
         chat.objectWillChange
             .receive(on: RunLoop.main)
             .compactMap { [weak self] in self?.chat.isLarge }
             .removeDuplicates()
-            .sink { [weak self] large in self?.vm.chatLarge = large }
+            .sink { [weak shared] large in shared?.chatLarge = large }
             .store(in: &cancellables)
         chat.onFinishedInBackground = { [weak self] failure, title in
             self?.center.post(ChatStore.finishedActivity(failure: failure, title: title))
@@ -225,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "closewin": self.closeHelper()
             case "update": Updater.shared.check(userInitiated: true)   // 개발용: 지금 업데이트 확인
             case "longpress":   // 개발용: 길게누르기와 같은 판단
-                if self.vm.longPressShouldExpand?(self.center.displayed) ?? true {
+                if self.hub.shared.longPressShouldExpand?(self.center.displayed) ?? true {
                     self.vm.expand(page: self.vm.longPressPage(for: self.center.displayed))
                 }
             case let c where c.hasPrefix("shotfile:"): self.screenshot.debugPresentFile(URL(fileURLWithPath: String(c.dropFirst(9))))
@@ -233,8 +238,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "memtest":   // 개발용: 기준을 1MB로 낮춰 지킴이 동작(캐시 비우기 → 쉬는 동안 재시작)을 시험
                 MemoryGuard.testLimitMB = 1
                 MemoryGuard.shared.debugCheckNow()
-            case "skipnext": self.vm.onMediaSwipe?(true)
-            case "skipprev": self.vm.onMediaSwipe?(false)
+            case "skipnext": self.hub.shared.onMediaSwipe?(true)
+            case "skipprev": self.hub.shared.onMediaSwipe?(false)
             case "recstop": self.recording.stop()   // 개발용: 녹화 정지(⌃⌘Esc)
             case "pick": FilePicker.choose(.tray) { self.tray.add($0) }   // 개발용: 트레이 파일 선택 창
             case "volrow": self.vm.toggleMediaVolume()   // 개발용: 음악 팝업 음량 줄 토글
@@ -388,7 +393,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (음악 재생은 다른 앱에서 계속되므로 막지 않는다)
     private func isIdleForRelaunch() -> Bool {
         let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
-        return !vm.isExpanded && !vm.isHovering && !vm.isFileDragging
+        return !hub.anyExpanded && !hub.anyHovering && !hub.anyFileDragging
             && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
             && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming && chat.draft.isEmpty && chat.pending.isEmpty && chat.attaching == 0
             && lockScreen?.isLocked != true && helperProcess?.isRunning != true && !FilePicker.isRunning
@@ -437,7 +442,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !stillShown { vm.collapse() }
     }
 
-    private func handleClick(_ activity: NotchActivity?, leftSide: Bool) {
+    private func handleClick(_ activity: NotchActivity?, leftSide: Bool, on vm: DisplayNotchState) {
         guard let activity else { return }
         switch activity.kind {
         case .battery:
@@ -560,7 +565,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 설정 창은 같은 실행 파일을 도우미 모드로 띄워 연다. 창을 닫으면 도우미가 끝나며 메모리가 모두 반환된다.
     /// 이미 떠 있으면 새로 띄우지 않고 그 창을 앞으로 가져온다.
     private func openHelper(_ mode: String) {
-        vm.collapse()
+        hub.collapseAll()
         if let p = helperProcess, p.isRunning {
             DistributedNotificationCenter.default().postNotificationName(Helper.helperNotification, object: mode,
                                                                          userInfo: nil, deliverImmediately: true)

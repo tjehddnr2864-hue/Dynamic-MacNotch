@@ -10,12 +10,12 @@ final class TimerController: ObservableObject {
     @Published private(set) var now = Date()
 
     private let center: ActivityCenter
-    private weak var viewModel: NotchViewModel?
+    /// 타이머가 끝났을 때 노치를 흔든다
+    var onShake: (() -> Void)?
     private var ticker: Timer?
 
-    init(center: ActivityCenter, viewModel: NotchViewModel) {
+    init(center: ActivityCenter) {
         self.center = center
-        self.viewModel = viewModel
     }
 
     var isActive: Bool { endDate != nil || pausedRemaining != nil }
@@ -214,7 +214,7 @@ final class TimerController: ObservableObject {
             subtitle: T("\(totalText) 타이머가 끝났습니다", "Your \(totalText) timer is done")
         ))
         NSSound(named: "Glass")?.play()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.viewModel?.shake() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.onShake?() }
     }
 }
 

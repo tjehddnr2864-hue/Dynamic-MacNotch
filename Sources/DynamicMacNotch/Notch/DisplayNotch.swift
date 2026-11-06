@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// 노치 패널 배치, 마우스 통과/호버 판정, 제스처 매핑을 맡는다 (가이드라인 4장).
-final class NotchController: NotchGestureDelegate {
+/// 디스플레이 하나의 노치. 패널 배치, 마우스 통과/호버 판정, 제스처 매핑을 맡는다 (가이드라인 4장).
+final class DisplayNotch: NotchGestureDelegate {
     let panel = NotchPanel()
     /// 잠금화면 전용 노치 창. 같은 뷰를 그리며 SkyLight 전용 Space(잠금화면 위)에 들어가 있고, 잠금 중에만 보인다.
     /// 평소 노치(panel)는 일반 레이어에 두어 파일 드래그·드롭이 정상 동작하게 한다.
@@ -11,12 +11,14 @@ final class NotchController: NotchGestureDelegate {
     private(set) var lockPanelReady = false
     private var lockRootView: NotchRootView?
     private var lockPanelFrame = CGRect.zero
-    let vm: NotchViewModel
+    let vm: DisplayNotchState
     private let hostingView: NotchHostingView
     private let settings = AppSettings.shared
     private let menuProvider: () -> NSMenu
     /// 짧은 클릭: (표시 중인 활동, 노치 가운데보다 왼쪽을 눌렀는지)
-    private let clickHandler: (NotchActivity?, Bool) -> Void
+    private let clickHandler: (DisplayNotchState, NotchActivity?, Bool) -> Void
+    /// 이 노치의 호버 상태가 바뀔 때 (알림 시간 멈춤은 NotchHub가 모아서 정한다)
+    var onHoverChanged: (() -> Void)?
 
     private var monitors: [Any] = []
     /// 잠금 중에는 노치를 펼치지 않는다 (잠금화면 정보 노출 방지).
@@ -38,10 +40,10 @@ final class NotchController: NotchGestureDelegate {
     // 스와이프
     private var scrollAccum = CGSize.zero
 
-    init(vm: NotchViewModel,
+    init(vm: DisplayNotchState,
          rootView: NotchRootView,
          menuProvider: @escaping () -> NSMenu,
-         clickHandler: @escaping (NotchActivity?, Bool) -> Void) {
+         clickHandler: @escaping (DisplayNotchState, NotchActivity?, Bool) -> Void) {
         self.vm = vm
         self.menuProvider = menuProvider
         self.clickHandler = clickHandler
@@ -117,9 +119,7 @@ final class NotchController: NotchGestureDelegate {
             cancelPress()
             hoverOpenWork?.cancel()
             vm.endPress()
-            vm.center.hiddenFromScreen = true
             vm.isHovering = false
-            vm.center.paused = false
             if vm.isFileDragging { vm.endFileDrag(dropped: false) }
             collapse()
             panel.ignoresMouseEvents = true   // 그 자리의 Mission Control 창을 누를 수 있게
@@ -135,8 +135,6 @@ final class NotchController: NotchGestureDelegate {
             missionControlHidden = false
             applyPanelVisibility(animated: false)
             withAnimation(reduce ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.85)) { vm.missionControlHidden = false }
-            vm.center.hiddenFromScreen = false
-            updateHover()
         }
     }
 
@@ -252,6 +250,8 @@ final class NotchController: NotchGestureDelegate {
         panel.ignoresMouseEvents = false
     }
 
+    func refreshHover() { updateHover() }
+
     private func updateHover() {
         guard !vm.missionControlHidden else { return }
         let loc = NSEvent.mouseLocation
@@ -266,7 +266,7 @@ final class NotchController: NotchGestureDelegate {
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
         guard inside != vm.isHovering else { return }
         vm.isHovering = inside
-        vm.center.paused = inside
+        onHoverChanged?()
 
         hoverOpenWork?.cancel()
         if inside, settings.hoverToOpen, !vm.isExpanded {
@@ -281,7 +281,7 @@ final class NotchController: NotchGestureDelegate {
     private func expand(haptic: Bool) {
         guard !isLocked(), !vm.missionControlHidden, !vm.isExpanded, Date().timeIntervalSince(lastCollapse) > 0.3 else { return }
         // 알림은 확장 화면 대신 앱이 처리한다 (컴팩트 → 상세 카드, 상세 → 반응 없음)
-        if let decide = vm.longPressShouldExpand, !decide(vm.center.displayed) {
+        if let decide = vm.shared.longPressShouldExpand, !decide(vm.center.displayed) {
             vm.endPress()
             return
         }
@@ -308,7 +308,7 @@ final class NotchController: NotchGestureDelegate {
         pressFired = false
         pressOrigin = NSEvent.mouseLocation
         // 상세 알림처럼 길게누르기가 없는 경우: 누름 반응·길게누르기 없이 클릭만 받는다
-        pressBlocked = !(vm.allowsPressFeedback?(vm.center.displayed) ?? true)
+        pressBlocked = !(vm.shared.allowsPressFeedback?(vm.center.displayed) ?? true)
         guard !pressBlocked else { return }
         let duration = settings.longPressDuration
         vm.beginPress(duration: duration)
@@ -338,7 +338,7 @@ final class NotchController: NotchGestureDelegate {
         vm.endPress()
         if wasPressing, !pressFired {
             // 짧은 클릭: 액티비티 소스 열기. Idle에서는 아무것도 하지 않는다.
-            clickHandler(vm.center.displayed, leftSide)
+            clickHandler(vm, vm.center.displayed, leftSide)
         }
     }
 
@@ -377,7 +377,7 @@ final class NotchController: NotchGestureDelegate {
             let fingerDY = natural ? -event.scrollingDeltaY : event.scrollingDeltaY
             // 타이머 시·분·초 칸 위에서의 세로 스크롤은 값 조절에 쓴다.
             if scrollConsumedByPage || abs(scrollAccum.height) >= abs(scrollAccum.width),
-               vm.verticalScrollHandler?(fingerDY) == true {
+               vm.shared.verticalScrollHandler?(fingerDY) == true {
                 scrollConsumedByPage = true
                 return
             }
@@ -389,7 +389,7 @@ final class NotchController: NotchGestureDelegate {
             defer { scrollAccum = .zero }
             if scrollConsumedByPage {
                 scrollConsumedByPage = false
-                vm.verticalScrollEnded?()
+                vm.shared.verticalScrollEnded?()
                 return
             }
             let fingerUp = natural ? -scrollAccum.height : scrollAccum.height
@@ -432,7 +432,7 @@ final class NotchController: NotchGestureDelegate {
             // 음악이 작은 노치에 떠 있을 때 두 손가락 좌우: 다음/이전 곡
             if abs(scrollAccum.width) > abs(scrollAccum.height) * 1.5, vm.center.displayed?.kind == .media {
                 let contentDX = natural ? scrollAccum.width : -scrollAccum.width
-                if abs(contentDX) > 50 { vm.onMediaSwipe?(contentDX < 0) }
+                if abs(contentDX) > 50 { vm.shared.onMediaSwipe?(contentDX < 0) }
                 return
             }
             guard abs(scrollAccum.height) > abs(scrollAccum.width) * 1.5 else { return }
@@ -440,7 +440,7 @@ final class NotchController: NotchGestureDelegate {
             let center = vm.center
             // 상세(확장) 알림 위로 올리기: 알림만 올려 보낸다 (전화 수신이면 거절이 아니라 접기)
             if fingerUp > 30, vm.state == .detail, center.transient != nil {
-                if let handler = vm.onDetailSwipeUp { withAnimation(vm.closeSpring) { handler() } }
+                if let handler = vm.shared.onDetailSwipeUp { withAnimation(vm.closeSpring) { handler() } }
                 Haptics.perform()
                 return
             }

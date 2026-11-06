@@ -231,7 +231,7 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
 
 struct TrayPage: View {
     @ObservedObject var store: TrayStore
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
 
     var body: some View {
         if vm.isFileDragging || store.items.isEmpty {

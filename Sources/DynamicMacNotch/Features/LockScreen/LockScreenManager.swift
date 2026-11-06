@@ -10,7 +10,7 @@ final class LockScreenManager: ObservableObject {
     @Published private(set) var isLocked = false
 
     private let center: ActivityCenter
-    private let vm: NotchViewModel
+    private let hub: NotchHub
     private let media: MediaController
     let lyrics = LyricsProvider()
     let playerState = LockPlayerState()
@@ -24,7 +24,7 @@ final class LockScreenManager: ObservableObject {
     /// 숨김 애니메이션이 끝나기 전에 다시 보이게 되면 이전 숨김 완료 처리를 무시한다.
     private var playerHideToken = 0
 
-    /// 잠금화면 노치 창 보이기/숨기기, 미리 준비 (AppDelegate가 NotchController에 연결)
+    /// 잠금화면 노치 창 보이기/숨기기, 미리 준비 (AppDelegate가 NotchHub에 연결)
     var setLockNotchVisible: ((Bool) -> Void)?
     /// 평소 노치 창 숨기기/보이기 (숨김, 서서히)
     var setMainNotchHidden: ((Bool, Bool) -> Void)?
@@ -32,9 +32,9 @@ final class LockScreenManager: ObservableObject {
     var lockNotchAvailable: (() -> Bool)?
     var prepareLockNotch: (() -> Void)?
 
-    init(center: ActivityCenter, vm: NotchViewModel, media: MediaController) {
+    init(center: ActivityCenter, hub: NotchHub, media: MediaController) {
         self.center = center
-        self.vm = vm
+        self.hub = hub
         self.media = media
     }
 
@@ -87,7 +87,7 @@ final class LockScreenManager: ObservableObject {
         self.preview = preview
         isLocked = true
         swapWork?.cancel()
-        vm.collapse()
+        hub.collapseAll()
         let independent = !preview && settings.lockNotchEnabled && (lockNotchAvailable?() ?? false)
         if !preview { setMainNotchHidden?(true, false) }
         // 화면 보호기 상태는 잠글 때 실제 상태로 다시 맞춘다 (끝남 알림을 놓쳐 '실행 중'으로 남는 일 방지)
@@ -121,7 +121,7 @@ final class LockScreenManager: ObservableObject {
             Haptics.perform()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
                 guard let self, !self.isLocked else { return }
-                withAnimation(self.vm.closeSpring) { self.center.lockActivity = nil }
+                withAnimation(self.hub.current.vm.closeSpring) { self.center.lockActivity = nil }
             }
         } else {
             center.lockActivity = nil

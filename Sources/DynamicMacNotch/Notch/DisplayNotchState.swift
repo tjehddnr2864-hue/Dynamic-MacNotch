@@ -57,23 +57,19 @@ enum ExpandedPage: Equatable {
     case activity(ActivityKind)
 }
 
-/// 노치 크기·상태의 단일 원천. 상태는 액티비티 센터와 확장 여부에서 계산된다 (가이드라인 3장).
-final class NotchViewModel: ObservableObject {
+/// 디스플레이 하나의 노치 크기·상태. 상태는 액티비티 센터와 확장 여부에서 계산된다 (가이드라인 3장).
+/// 디스플레이끼리 같아야 하는 값은 SharedNotchState에 있다.
+final class DisplayNotchState: ObservableObject {
     let center: ActivityCenter
+    let shared: SharedNotchState
     let settings = AppSettings.shared
 
     @Published var notchSize = CGSize(width: 185, height: 32)
     @Published var hasPhysicalNotch = true
     @Published private(set) var isExpanded = false
     @Published var expandedPage: ExpandedPage = .home
-    /// 길게누르기 전에 묻는다: 이 활동을 확장 화면으로 열지(true), 앱이 따로 처리했는지(false).
-    var longPressShouldExpand: ((NotchActivity?) -> Bool)?
-    /// 누르고 있을 때 커지는 반응을 보일지 (상세 알림처럼 길게누르기가 없는 경우 false → 클릭만 반응)
-    var allowsPressFeedback: ((NotchActivity?) -> Bool)?
     /// 홈의 카메라 거울을 켰는지 (켜면 노치가 더 커져 화면을 크게 보여 줌)
     @Published var cameraOn = false
-    /// 상세 알림 위에서 두 손가락으로 위로 올렸을 때 (전화 수신 카드는 접기, 그 밖은 닫기)
-    var onDetailSwipeUp: (() -> Void)?
     /// 음악 팝업 아래에 음량 줄을 펼쳤는지 (출력 기기 아이콘을 길게 눌러 토글)
     @Published private(set) var mediaVolumeShown = false
     /// 음량 줄이 더하는 높이
@@ -87,24 +83,13 @@ final class NotchViewModel: ObservableObject {
     @Published var forcePressure: CGFloat = 0
     @Published var stretch = CGSize(width: 1, height: 1)
     @Published var shakeTrigger: CGFloat = 0
-    /// 현재 홈 옵션. 마지막으로 본 옵션을 기억한다.
-    @Published private(set) var homeOption: HomeOption = NotchViewModel.savedHomeOption() {
-        didSet { if homeOption != .camera { cameraOn = false } }   // 다른 페이지로 넘기면 카메라 끔
+    /// 현재 홈 옵션. 마지막으로 본 옵션을 기억하고 모든 디스플레이가 공유한다.
+    private(set) var homeOption: HomeOption {
+        get { shared.homeOption }
+        set { shared.homeOption = newValue }
     }
 
-    private static let homeKey = "homeOptionKey"
-
-    /// 마지막으로 본 홈 페이지 (이름으로 저장. 예전 번호 저장값은 한 번 옮겨 읽는다)
-    private static func savedHomeOption() -> HomeOption {
-        let d = UserDefaults.standard
-        if let key = d.string(forKey: homeKey), let o = HomeOption(key: key) { return o }
-        if d.object(forKey: "homeOption") != nil, let o = HomeOption(rawValue: d.integer(forKey: "homeOption")) { return o }
-        return .camera
-    }
-
-    private func saveHomeOption() {
-        UserDefaults.standard.set(homeOption.key, forKey: Self.homeKey)
-    }
+    private func saveHomeOption() { shared.saveHomeOption() }
 
     // MARK: - 홈 페이지 목록 (설정 → 상호작용 → 기본)
 
@@ -131,8 +116,18 @@ final class NotchViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(center: ActivityCenter) {
+    init(center: ActivityCenter, shared: SharedNotchState) {
         self.center = center
+        self.shared = shared
+        shared.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        // 다른 페이지로 넘기면 카메라 끔
+        shared.$homeOption
+            .sink { [weak self] option in
+                if option != .camera, self?.cameraOn == true { self?.cameraOn = false }
+            }
+            .store(in: &cancellables)
         // 액티비티 변화도 뷰 갱신을 일으키도록 전달한다.
         center.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
@@ -245,7 +240,7 @@ final class NotchViewModel: ObservableObject {
             switch expandedPage {
             case .home:
                 if homeOption == .usage || homeOption == .memo { return usageSize }   // 메모도 AI 사용량과 같은 크기
-                if homeOption == .chat { return chatLarge ? chatSize : chatCompactSize }
+                if homeOption == .chat { return shared.chatLarge ? chatSize : chatCompactSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
                 return popupSize(for: kind)
@@ -295,11 +290,6 @@ final class NotchViewModel: ObservableObject {
         CGSize(width: 300 + 2 * (topRadius + 22), height: notchSize.height + 6 + 124 + 22)
     }
 
-    /// AI 채팅: 대화를 보여 주는 중인지 (입력만 있거나 생각 중이면 작은 노치)
-    @Published var chatLarge = false
-    /// 입력 칸이 여러 줄로 늘어난 높이
-    @Published var chatInputExtra: CGFloat = 0
-
     /// AI 채팅(대화): 답변을 읽을 수 있도록 AI 사용량보다 좌우·아래로 더 크게
     var chatSize: CGSize {
         CGSize(width: 340 + 2 * (topRadius + 22), height: notchSize.height + 6 + 200 + 22)
@@ -307,7 +297,7 @@ final class NotchViewModel: ObservableObject {
 
     /// AI 채팅(입력·생각 중): 제목 줄 20 + 입력 줄 26 + 간격
     var chatCompactSize: CGSize {
-        CGSize(width: chatSize.width, height: notchSize.height + 6 + 2 + 20 + 6 + 26 + chatInputExtra + 22)
+        CGSize(width: chatSize.width, height: notchSize.height + 6 + 2 + 20 + 6 + 26 + shared.chatInputExtra + 22)
     }
 
     /// 답변 완료 알림을 눌렀을 때: 채팅 페이지를 연다
@@ -577,16 +567,9 @@ final class NotchViewModel: ObservableObject {
         swipeOffset = atEdge ? contentDX * 0.15 : contentDX * 0.45
     }
 
-    /// 확장 상태의 세로 스크롤을 먼저 가져갈 처리기 (타이머 시·분·초 조절). 처리하면 true.
-    var verticalScrollHandler: ((CGFloat) -> Bool)?
-    var verticalScrollEnded: (() -> Void)?
-
-    /// 음악 제어 페이지에서 좌우 스와이프 = 이전/다음 곡 (가이드라인 5.7)
-    var onMediaSwipe: ((Bool) -> Void)?
-
     func switchExpandedPage(forward: Bool) {
         guard isExpanded else { return }
-        if expandedPage == .activity(.media), let onMediaSwipe {
+        if expandedPage == .activity(.media), let onMediaSwipe = shared.onMediaSwipe {
             onMediaSwipe(forward)
             cancelDrag()
             return

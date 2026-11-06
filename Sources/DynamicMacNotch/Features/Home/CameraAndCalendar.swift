@@ -9,7 +9,7 @@ import EventKit
 struct CameraPage: View {
     @ObservedObject var settings = AppSettings.shared
     /// 켜짐 상태는 노치와 공유한다: 켜면 노치가 커지고, 끄거나 노치를 닫거나 다른 페이지로 넘기면 작아진다.
-    @ObservedObject var vm: NotchViewModel
+    @ObservedObject var vm: DisplayNotchState
     private let statusState = State(initialValue: AVCaptureDevice.authorizationStatus(for: .video))
 
     private var active: Bool {
