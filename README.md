@@ -30,6 +30,8 @@ To verify the download, compare it with the `.sha256` file attached to the relea
 ### Updating
 After an update, click the document icon on the "Updated" alert to see what changed. From 1.0.1 the app **updates itself**: it checks GitHub once a day, verifies the download (SHA-256, code signature, bundle ID, newer version), replaces itself and relaunches. Check manually from **right-click the notch → Check for Updates…**, or turn it off in Settings → General.
 To update by hand, quit the app, replace it in Applications, and open it again.
+**If your app shows version 1.4.0:** that release was renumbered 1.3.1, so automatic updates can't reach it. Download the latest version once from Releases and replace the app; updates work normally after that.
+
 If Accessibility or Input Monitoring stop working after an update, remove Dynamic MacNotch from that list in System Settings (−) and allow it again.
 
 ## Permissions
@@ -230,6 +232,8 @@ scripts/build.sh --install --run  # install to /Applications
 ### 업데이트
 업데이트 후 "업데이트 완료" 알림의 문서 아이콘을 누르면 바뀐 내용을 볼 수 있습니다. 1.0.1부터 **자동 업데이트**됩니다. 하루 한 번 GitHub에서 새 버전을 확인하고, 내려받은 파일을 검증(SHA-256, 코드 서명, 번들 ID, 더 높은 버전)한 뒤 스스로 교체하고 다시 실행합니다. **노치 우클릭 → 업데이트 확인…**으로 바로 확인할 수 있고, 설정 → 일반에서 끌 수 있습니다.
 직접 업데이트하려면 앱을 종료하고 응용 프로그램 폴더의 앱을 새 버전으로 바꾼 뒤 다시 실행합니다.
+**앱 버전이 1.4.0으로 표시되면:** 해당 릴리즈 번호가 1.3.1로 바뀌어 자동 업데이트가 닿지 않습니다. Releases에서 최신 버전을 한 번 내려받아 앱을 교체해 주세요. 그 뒤로는 자동 업데이트가 정상 동작합니다.
+
 업데이트 후 손쉬운 사용·입력 모니터링이 허용돼 있는데도 동작하지 않으면, 시스템 설정의 해당 목록에서 Dynamic MacNotch를 지우고(−) 다시 허용하세요.
 
 ## 권한
