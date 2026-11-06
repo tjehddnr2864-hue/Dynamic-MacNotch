@@ -89,7 +89,7 @@ Reorder the pages or turn features off in **Settings → Interactions → Basics
    - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
    - Tray files: click / ⌘-click / ⇧-click to select, double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
    - Options: keep copies in the tray, auto-clean after 1 or 7 days.
-7. **AI Chat** (off by default; turn it on in Settings → Interactions → AI Chat) — ask **Claude, GPT or Gemini** from the notch with **your own API key**. Meant for quick, light questions, not as a replacement for a full chat app. Usage is billed to your key by each company, separately from any subscription. Answers support Markdown, clickable links and LaTeX; you can copy them. Web search is used only when a question needs it. Chats are named and saved like memos, and you can write your own answer instructions.
+7. **AI Chat** (off by default; turn it on in Settings → Interactions → AI Chat) — ask **Claude, GPT or Gemini** from the notch with **your own API key**. Meant for quick, light questions, not as a replacement for a full chat app. Usage is billed to your key by each company, separately from any subscription. Answers support Markdown, clickable links and LaTeX; you can copy them. Web search is used only when a question needs it. Chats are named and saved like memos, and you can write your own answer instructions. Attach **images (up to 4), a PDF (10 MB, 30 pages), text files (200 KB) or Word files** with the paperclip, ⌘V or drag and drop. Attachments are saved with the chat; on a follow-up a file is sent again only when your question points at it or the AI asks to read it.
 
 ### Music
 - Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Interactions → Media).
@@ -156,9 +156,9 @@ Korean and English. Settings → General → Language (System default / 한국�
   - **Spotify artwork**: the cover image URL that Spotify provides (HTTPS only).
   - **VPN country** (only with the VPN live display on, off by default): while a VPN is connected, your public IP goes to [country.is](https://country.is) (or ipinfo.io if that fails) when the network changes and once a minute.
   - **AI Usage** (only for services you sign in to): reads your usage from claude.ai, chatgpt.com and gemini.google.com. Sign-in data stays in the app's own web storage.
-  - **AI Chat** (off by default, only when you ask something): your question, recent messages from that chat and your answer instructions go to the company you chose (Anthropic, OpenAI or Google), which handles them under its own policies. The clipboard, screen and files are never sent. Web search, used only when needed, runs through that company's search tool. Links open only when you click them.
+  - **AI Chat** (off by default, only when you ask something): your question, recent messages from that chat, your answer instructions and any files you attach go to the company you chose (Anthropic, OpenAI or Google), which handles them under its own policies. The clipboard, screen and files are never sent on their own, only what you attach yourself. Photos are reduced to 1568 pixels and lose location data first. Web search, used only when needed, runs through that company's search tool. Links open only when you click them.
 - Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist` and `~/Library/Application Support/Dynamic MacNotch/`. Delete both to reset.
-- **AI Chat data:** API keys are stored in the macOS Keychain. Conversations are saved **unencrypted** in `~/Library/Application Support/DynamicMacNotch/Chats/`, readable only by your macOS account. Answer instructions are stored with the settings. Settings → Interactions → AI Chat → **Clear Cache** deletes every saved conversation at once.
+- **AI Chat data:** API keys are stored in the macOS Keychain. Conversations and attachments are saved **unencrypted** in `~/Library/Application Support/DynamicMacNotch/Chats/`, readable only by your macOS account. Answer instructions are stored with the settings. Settings → Interactions → AI Chat → **Clear Cache** deletes every saved conversation and attachment at once.
 - **Keychain limit:** the app has an ad-hoc signature, so another app signed with the same bundle ID could read a saved key. Use a key with a spending limit, and delete it if you stop using AI Chat.
 
 ## Memory
@@ -277,7 +277,7 @@ scripts/build.sh --install --run  # install to /Applications
    - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
    - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
    - 옵션: 트레이에 복사본 보관, 1일·7일 뒤 자동 정리.
-7. **AI 채팅**(기본 꺼짐, 설정 → 상호작용 → AI 채팅에서 켭니다) — **내 API 키**로 노치에서 **Claude, GPT, Gemini**에게 묻습니다. **간단한 질문을 가볍게 쓰는 기능이며, 전용 채팅 앱을 대신하지는 않습니다.** 요금은 구독과 별도로 각 회사가 키 주인에게 청구합니다. 답변은 Markdown, 누를 수 있는 링크, LaTeX 수식을 지원하고 복사할 수 있습니다. 웹 검색은 필요한 질문에만 씁니다. 채팅은 메모처럼 이름을 붙여 저장되며, 답변 지침을 직접 적을 수 있습니다.
+7. **AI 채팅**(기본 꺼짐, 설정 → 상호작용 → AI 채팅에서 켭니다) — **내 API 키**로 노치에서 **Claude, GPT, Gemini**에게 묻습니다. **간단한 질문을 가볍게 쓰는 기능이며, 전용 채팅 앱을 대신하지는 않습니다.** 요금은 구독과 별도로 각 회사가 키 주인에게 청구합니다. 답변은 Markdown, 누를 수 있는 링크, LaTeX 수식을 지원하고 복사할 수 있습니다. 웹 검색은 필요한 질문에만 씁니다. 채팅은 메모처럼 이름을 붙여 저장되며, 답변 지침을 직접 적을 수 있습니다. 클립 버튼, ⌘V, 끌어놓기로 **이미지(4장), PDF(10MB·30쪽), 텍스트 파일(200KB), 워드 파일**을 첨부할 수 있습니다. 첨부 파일은 대화와 함께 저장되며, 후속 질문에서는 질문이 파일을 가리키거나 AI가 읽어야 한다고 판단할 때만 다시 보냅니다.
 
 ### 음악
 - **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 상호작용 → 미디어).
@@ -344,9 +344,9 @@ Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면
   - **Spotify 앨범아트**: Spotify가 알려 주는 표지 이미지 주소(HTTPS만).
   - **VPN 국가**(VPN 상시 표시를 켰을 때만, 기본 꺼짐): VPN이 연결된 동안, 네트워크가 바뀔 때와 1분마다 공인 IP를 [country.is](https://country.is)(실패 시 ipinfo.io)로 보냅니다.
   - **AI 사용량**(로그인한 서비스만): claude.ai, chatgpt.com, gemini.google.com에서 사용량을 읽습니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다.
-  - **AI 채팅**(기본 꺼짐, 질문할 때만): 질문, 그 채팅의 최근 대화, 답변 지침을 내가 고른 회사(Anthropic, OpenAI, Google)로 보내며, 전송된 내용은 각 회사의 정책을 따릅니다. 클립보드·화면·파일은 보내지 않습니다. 웹 검색은 필요할 때만 그 회사의 검색 도구로 합니다. 링크는 누를 때만 열립니다.
+  - **AI 채팅**(기본 꺼짐, 질문할 때만): 질문, 그 채팅의 최근 대화, 답변 지침, 내가 첨부한 파일을 내가 고른 회사(Anthropic, OpenAI, Google)로 보내며, 전송된 내용은 각 회사의 정책을 따릅니다. 클립보드·화면·파일을 앱이 알아서 보내지 않고, 직접 첨부한 것만 보냅니다. 사진은 긴 변 1568픽셀로 줄이고 위치 정보를 지운 뒤 보냅니다. 웹 검색은 필요할 때만 그 회사의 검색 도구로 합니다. 링크는 누를 때만 열립니다.
 - 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`. 둘 다 지우면 초기화됩니다.
-- **AI 채팅 데이터:** API 키는 macOS 키체인에 저장합니다. 대화 내용은 `~/Library/Application Support/DynamicMacNotch/Chats/`에 **암호화 없이** 저장되며 내 macOS 계정만 읽을 수 있습니다. 답변 지침은 설정과 함께 저장됩니다. 설정 → 상호작용 → AI 채팅 → **캐시 비우기**로 저장된 대화를 한 번에 지울 수 있습니다.
+- **AI 채팅 데이터:** API 키는 macOS 키체인에 저장합니다. 대화 내용과 첨부 파일은 `~/Library/Application Support/DynamicMacNotch/Chats/`에 **암호화 없이** 저장되며 내 macOS 계정만 읽을 수 있습니다. 답변 지침은 설정과 함께 저장됩니다. 설정 → 상호작용 → AI 채팅 → **캐시 비우기**로 저장된 대화와 첨부 파일을 한 번에 지울 수 있습니다.
 - **키체인 한계:** 앱이 임시(ad-hoc) 서명이라, 같은 번들 ID로 서명한 다른 앱이 저장된 키를 읽을 수 있습니다. 사용 한도를 정한 키를 쓰고, AI 채팅을 그만 쓰면 키를 지워 주세요.
 
 ## 메모리
