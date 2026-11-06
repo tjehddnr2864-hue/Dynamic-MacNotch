@@ -12,6 +12,9 @@ struct ChatPage: View {
     var openSettings: () -> Void
     /// 입력 칸이 여러 줄로 늘어난 만큼 작은 노치를 키운다
     var setInputExtra: (CGFloat) -> Void
+    /// 파일을 든 채 노치에 온 상태
+    var fileDragging = false
+    var onFilesDropped: () -> Void = {}
 
     @ObservedObject private var settings = AppSettings.shared
 
@@ -37,16 +40,19 @@ struct ChatPage: View {
         }
         .padding(.top, 2)
         .overlay {
-            if dropTargetState.wrappedValue {
+            if dropTargetState.wrappedValue || fileDragging {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                    .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .strokeBorder(Color.white.opacity(dropTargetState.wrappedValue ? 0.9 : 0.45), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .background(Color.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     .overlay(Text(T("여기에 놓아 첨부", "Drop to Attach")).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white))
                     .allowsHitTesting(false)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: dropTargetState.projectedValue) { providers in
-            TrayStore.loadURLs(providers) { store.attach($0) }
+            TrayStore.loadURLs(providers) { urls in
+                store.attach(urls)
+                onFilesDropped()
+            }
             return true
         }
         .onChange(of: showsAttachmentRow) { _, _ in reportExtra() }

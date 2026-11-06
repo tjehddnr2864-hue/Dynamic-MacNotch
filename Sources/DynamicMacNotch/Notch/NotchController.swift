@@ -185,9 +185,17 @@ final class NotchController: NotchGestureDelegate {
         }
     }
 
+    /// 파일을 든 커서가 노치 옆 막대에 닿았는지
+    private func checkFileDragBar(_ loc: CGPoint) {
+        guard let bar = vm.fileDragBarRect else { return }
+        let f = panel.frame
+        let rect = CGRect(x: f.midX + bar.minX, y: f.maxY - bar.maxY, width: bar.width, height: bar.height)
+        if rect.contains(loc) { vm.switchFileDragPage() }
+    }
+
     private func checkFileDrag() {
         // 에어드랍·트레이를 끄면 파일을 노치로 끌어와도 아무 일도 하지 않는다
-        guard !vm.isFileDragging, settings.trayMode != .off else { return }
+        guard !vm.isFileDragging, vm.acceptsFileDrag else { return }
         // 먼저 커서 위치(계산만)로 거르고, 노치 근처일 때만 드래그 페이스트보드(프로세스 간 통신)를 확인한다.
         let loc = NSEvent.mouseLocation
         let f = panel.frame
@@ -203,6 +211,7 @@ final class NotchController: NotchGestureDelegate {
 
     private func updateHover() {
         let loc = NSEvent.mouseLocation
+        checkFileDragBar(loc)
         // 빠른 거르기: 노치 패널 높이보다 아래에 있고 이미 호버 상태가 아니면 아무것도 계산하지 않는다.
         // (마우스가 움직일 때마다 불리므로 대부분의 이동은 여기서 바로 끝난다)
         if loc.y < panel.frame.minY || abs(loc.x - panel.frame.midX) > panel.frame.width / 2 {

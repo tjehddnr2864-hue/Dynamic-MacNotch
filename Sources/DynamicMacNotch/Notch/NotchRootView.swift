@@ -43,6 +43,13 @@ struct NotchRootView: View {
                     .compositingGroup()
                     .clipShape(shape)
             }
+            .overlay(alignment: vm.fileDragBarOnLeft ? .topLeading : .topTrailing) {
+                if vm.fileDragOtherPage != nil {
+                    FileDragBar(vm: vm, height: max(size.height, 90))
+                        .offset(x: vm.fileDragBarOnLeft ? -NotchViewModel.fileDragBarZone : NotchViewModel.fileDragBarZone)
+                        .transition(.opacity)
+                }
+            }
             .modifier(ShakeEffect(animatableData: vm.shakeTrigger))
             .scaleEffect(x: vm.stretch.width, y: vm.stretch.height, anchor: .top)
 
@@ -123,6 +130,30 @@ struct NotchRootView: View {
     }
 }
 
+/// 파일을 든 동안 노치 옆에 뜨는 세로 막대 (아래 페이지 점과 같은 굵기). 커서가 닿으면 다른 화면으로 넘어간다.
+private struct FileDragBar: View {
+    @ObservedObject var vm: NotchViewModel
+    var height: CGFloat
+
+    private let targetedState = State(initialValue: false)
+
+    var body: some View {
+        Capsule()
+            .fill(Color.white.opacity(targetedState.wrappedValue ? 0.95 : 0.7))
+            .frame(width: 6, height: 44)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .background(Color.black.opacity(0.8), in: Capsule())
+            .frame(width: NotchViewModel.fileDragBarZone, height: height)
+            .contentShape(Rectangle())
+            .help(vm.fileDragOtherPage?.title ?? "")
+            .onDrop(of: [.fileURL], isTargeted: Binding(get: { targetedState.wrappedValue }, set: { targeted in
+                targetedState.wrappedValue = targeted
+                if targeted { vm.switchFileDragPage() }
+            })) { _ in false }
+    }
+}
+
 /// 확장 상태: 노치 폭 그대로 아래로 커진 영역에 한 페이지씩 표시한다.
 struct ExpandedView: View {
     @ObservedObject var vm: NotchViewModel
@@ -141,7 +172,9 @@ struct ExpandedView: View {
             chat: AnyView(ChatPage(store: features.chat,
                                    active: vm.state == .expanded && vm.expandedPage == .home && vm.homeOption == .chat,
                                    collapse: { vm.collapse() }, openSettings: openSettings,
-                                   setInputExtra: { vm.chatInputExtra = $0 }))
+                                   setInputExtra: { vm.chatInputExtra = $0 },
+                                   fileDragging: vm.isFileDragging,
+                                   onFilesDropped: { vm.endFileDrag(dropped: true) }))
         )
     }
 

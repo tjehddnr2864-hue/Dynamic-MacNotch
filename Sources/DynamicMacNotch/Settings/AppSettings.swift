@@ -218,6 +218,8 @@ final class AppSettings: ObservableObject {
     /// 자동 정리 일수 (0 = 끄기)
     @Published var trayCleanupDays: Double { didSet { save(trayCleanupDays, "trayCleanupDays") } }
     @Published var dragZoneHeight: Double { didSet { save(dragZoneHeight, "dragZoneHeight") } }
+    /// 파일을 끌어왔을 때 먼저 보일 화면 (트레이·AI 채팅이 모두 켜져 있을 때)
+    @Published var fileDragPage: String { didSet { save(fileDragPage, "fileDragPage") } }
     @Published var airdropStyle: ProgressStyle { didSet { save(airdropStyle.rawValue, "airdropStyle") } }
 
     // 스크린샷 (5.11)
@@ -443,6 +445,7 @@ final class AppSettings: ObservableObject {
         trayKeepCopies = value("trayKeepCopies", false)
         trayCleanupDays = value("trayCleanupDays", 0.0)
         dragZoneHeight = value("dragZoneHeight", 120.0)
+        fileDragPage = value("fileDragPage", "tray")
         airdropStyle = ProgressStyle(rawValue: value("airdropStyle", "")) ?? .ring
 
         screenshotEnabled = value("screenshotEnabled", true)
@@ -571,6 +574,7 @@ final class AppSettings: ObservableObject {
         trayKeepCopies = value("trayKeepCopies", false)
         trayCleanupDays = value("trayCleanupDays", 0.0)
         dragZoneHeight = value("dragZoneHeight", 120.0)
+        fileDragPage = value("fileDragPage", "tray")
         airdropStyle = ProgressStyle(rawValue: value("airdropStyle", "")) ?? .ring
 
         screenshotEnabled = value("screenshotEnabled", true)

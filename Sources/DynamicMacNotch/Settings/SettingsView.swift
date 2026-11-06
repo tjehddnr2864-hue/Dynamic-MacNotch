@@ -251,6 +251,17 @@ struct SettingsView: View {
                     ForEach([70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0], id: \.self) { Text("\(Int($0)) MB").tag($0) }
                 }
                 .disabled(!settings.memoryGuard)
+                // 둘 다 켜져 있을 때만 고를 수 있다. 하나만 켜져 있으면 그 화면이 뜬다.
+                let trayOn = settings.trayMode != .off, chatOn = settings.chatEnabled
+                Picker(T("파일을 끌어왔을 때 보일 화면", "Screen Shown When Dragging a File"),
+                       selection: Binding(get: { !chatOn ? "tray" : (!trayOn ? "chat" : settings.fileDragPage) }, set: { settings.fileDragPage = $0 })) {
+                    Text(T("에어드랍 · 트레이", "AirDrop · Tray")).tag("tray")
+                    Text(T("AI 채팅", "AI Chat")).tag("chat")
+                }
+                .disabled(!(trayOn && chatOn))
+            } footer: {
+                footnote(T("에어드랍·트레이와 AI 채팅이 모두 켜져 있으면, 파일을 든 채 노치 옆의 세로 막대로 커서를 옮겨 다른 화면으로 바꿀 수 있습니다. 막대의 방향은 기본 노치 순서를 따릅니다.",
+                           "When AirDrop · Tray and AI Chat are both on, move the cursor to the vertical bar beside the notch while holding a file to switch screens. The bar's side follows the Home order."))
             }
             Section {
                 LabeledContent(T("길게누르기 시간", "Long-Press Duration")) {

@@ -331,6 +331,11 @@ final class NotchViewModel: ObservableObject {
     var interactiveSize: CGSize {
         var size = targetSize
         if state == .expanded, expandedPage == .home || showsPersistentDots { size.height += Self.dotsAreaHeight }
+        // 파일을 든 동안에는 노치 옆 막대까지 받는다 (좌우로 대칭)
+        if fileDragOtherPage != nil {
+            size.width += 2 * Self.fileDragBarZone
+            size.height = max(size.height, 90)
+        }
         return size
     }
 
@@ -603,13 +608,65 @@ final class NotchViewModel: ObservableObject {
 
     /// 파일 드래그가 노치에 가까워지면 트레이 페이지로 자동 확장한다.
     func beginFileDrag() {
-        guard !isFileDragging, settings.trayMode != .off else { return }
-        // 채팅 페이지가 열려 있으면 그 파일은 첨부다 (페이지를 트레이로 바꾸지 않는다)
-        guard !(isExpanded && expandedPage == .home && homeOption == .chat) else { return }
-        homeOption = .tray
+        guard !isFileDragging, acceptsFileDrag else { return }
+        let bothOn = settings.trayMode != .off && settings.chatEnabled
+        // 이미 그 화면이 열려 있으면 그대로 두고, 아니면 설정한 화면으로 연다
+        if !(bothOn && isExpanded && expandedPage == .home && (homeOption == .tray || homeOption == .chat)) {
+            if bothOn {
+                homeOption = settings.fileDragPage == "chat" ? .chat : .tray
+            } else {
+                homeOption = settings.chatEnabled ? .chat : .tray
+            }
+        }
         expandedPage = .home
         withAnimation(openSpring) { isFileDragging = true }
         if !isExpanded { expand(page: .home) }
+        Haptics.perform()
+    }
+
+    /// 파일을 끌어와도 열 화면이 있는지
+    var acceptsFileDrag: Bool { settings.trayMode != .off || settings.chatEnabled }
+
+    /// 파일을 든 동안 옮겨 갈 다른 화면. 파일을 들고 있고 트레이·AI 채팅이 모두 켜져 있을 때만 있다.
+    var fileDragOtherPage: HomeOption? {
+        guard isFileDragging, settings.trayMode != .off, settings.chatEnabled, expandedPage == .home else { return nil }
+        switch homeOption {
+        case .tray: return .chat
+        case .chat: return .tray
+        default: return nil
+        }
+    }
+
+    /// 다른 화면이 기본 노치 순서에서 왼쪽에 있으면 막대도 왼쪽에 둔다
+    var fileDragBarOnLeft: Bool {
+        guard let other = fileDragOtherPage else { return false }
+        let order = settings.homeOrder
+        return (order.firstIndex(of: other.key) ?? .max) < (order.firstIndex(of: homeOption.key) ?? .max)
+    }
+
+    /// 막대를 받는 폭 (노치 바깥)
+    static let fileDragBarZone: CGFloat = 34
+
+    /// 막대의 받는 영역. x는 노치 중심 기준, y는 화면 위에서부터.
+    var fileDragBarRect: CGRect? {
+        guard fileDragOtherPage != nil else { return nil }
+        let size = targetSize
+        let height = max(size.height, 90)
+        return CGRect(x: fileDragBarOnLeft ? -size.width / 2 - Self.fileDragBarZone : size.width / 2,
+                      y: 0, width: Self.fileDragBarZone, height: height)
+    }
+
+    private var lastFileDragSwitch = Date.distantPast
+
+    /// 막대에 커서가 닿으면 다른 화면으로 옮긴다 (막대가 옮겨 가는 동안 되돌아오지 않게 잠깐 쉰다)
+    func switchFileDragPage() {
+        guard let other = fileDragOtherPage, Date().timeIntervalSince(lastFileDragSwitch) > 0.45 else { return }
+        lastFileDragSwitch = Date()
+        pageForward = !fileDragBarOnLeft
+        withAnimation(openSpring) {
+            homeOption = other
+            swipeOffset = 0
+        }
         Haptics.perform()
     }
 

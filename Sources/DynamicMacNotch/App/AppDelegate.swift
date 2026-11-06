@@ -326,6 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "chatlist": self.chat.toggleList()   // 개발용: 채팅 목록 열기·닫기
             case let c where c.hasPrefix("chatattach:"):   // 개발용: 클릭 없이 파일 첨부
                 self.chat.attach([URL(fileURLWithPath: String(c.dropFirst(11)))])
+            case "dragbegin": self.vm.beginFileDrag()   // 개발용: 파일 끌기 시작
+            case "dragswitch": self.vm.switchFileDragPage()   // 개발용: 막대에 닿은 것처럼
+            case "dragend": self.vm.endFileDrag(dropped: false)   // 개발용: 파일 끌기 끝
             case "chatdelete": self.chat.delete(self.chat.currentID)   // 개발용: 지금 채팅 삭제
             case "chatpaste":   // 개발용: 시험용 클립보드에서 첨부
                 if let board = ChatAnswerTextView.testPasteboard { _ = self.chat.attachFromPasteboard(board) }
