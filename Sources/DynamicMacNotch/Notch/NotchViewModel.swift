@@ -334,7 +334,6 @@ final class NotchViewModel: ObservableObject {
         // 파일을 든 동안에는 노치 옆 막대까지 받는다 (좌우로 대칭)
         if fileDragOtherPage != nil {
             size.width += 2 * Self.fileDragBarZone
-            size.height = max(size.height, 90)
         }
         return size
     }
@@ -644,16 +643,21 @@ final class NotchViewModel: ObservableObject {
         return (order.firstIndex(of: other.key) ?? .max) < (order.firstIndex(of: homeOption.key) ?? .max)
     }
 
-    /// 막대를 받는 폭 (노치 바깥)
-    static let fileDragBarZone: CGFloat = 34
+    /// 막대와 노치 사이 간격 (아래 페이지 점과 노치 사이와 같다)
+    static let fileDragBarGap: CGFloat = 8
+    /// 막대 바탕의 굵기 (아래 페이지 점의 바탕과 같다)
+    static let fileDragBarThickness: CGFloat = 18
+    /// 막대를 받는 폭 (간격 + 막대 + 바깥 여유)
+    static let fileDragBarZone: CGFloat = fileDragBarGap + fileDragBarThickness + 8
 
     /// 막대의 받는 영역. x는 노치 중심 기준, y는 화면 위에서부터.
+    /// 노치 위쪽 모서리가 바깥으로 벌어져 있어, 실제 몸통은 도형 폭보다 topRadius만큼씩 좁다.
     var fileDragBarRect: CGRect? {
         guard fileDragOtherPage != nil else { return nil }
         let size = targetSize
-        let height = max(size.height, 90)
-        return CGRect(x: fileDragBarOnLeft ? -size.width / 2 - Self.fileDragBarZone : size.width / 2,
-                      y: 0, width: Self.fileDragBarZone, height: height)
+        let edge = size.width / 2 - topRadius
+        return CGRect(x: fileDragBarOnLeft ? -edge - Self.fileDragBarZone : edge,
+                      y: notchSize.height, width: Self.fileDragBarZone, height: size.height - notchSize.height + Self.fileDragBarGap)
     }
 
     private var lastFileDragSwitch = Date.distantPast

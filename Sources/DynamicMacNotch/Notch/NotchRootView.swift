@@ -45,8 +45,10 @@ struct NotchRootView: View {
             }
             .overlay(alignment: vm.fileDragBarOnLeft ? .topLeading : .topTrailing) {
                 if vm.fileDragOtherPage != nil {
-                    FileDragBar(vm: vm, height: max(size.height, 90))
-                        .offset(x: vm.fileDragBarOnLeft ? -NotchViewModel.fileDragBarZone : NotchViewModel.fileDragBarZone)
+                    let inset = NotchViewModel.fileDragBarZone - vm.topRadius
+                    // 아래 끝을 노치 아래 끝에 맞추므로 막대 길이는 화면(노치 높이)마다 달라진다
+                    FileDragBar(vm: vm, length: size.height - vm.notchSize.height)
+                        .offset(x: vm.fileDragBarOnLeft ? -inset : inset, y: vm.notchSize.height)
                         .transition(.opacity)
                 }
             }
@@ -133,18 +135,19 @@ struct NotchRootView: View {
 /// 파일을 든 동안 노치 옆에 뜨는 세로 막대 (아래 페이지 점과 같은 굵기). 커서가 닿으면 다른 화면으로 넘어간다.
 private struct FileDragBar: View {
     @ObservedObject var vm: NotchViewModel
-    var height: CGFloat
+    /// 막대 바탕의 길이
+    var length: CGFloat
 
     private let targetedState = State(initialValue: false)
 
     var body: some View {
         Capsule()
             .fill(Color.white.opacity(targetedState.wrappedValue ? 0.95 : 0.7))
-            .frame(width: 6, height: 44)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
+            .frame(width: 6, height: max(length - 12, 6))
+            .frame(width: NotchViewModel.fileDragBarThickness, height: length)
             .background(Color.black.opacity(0.8), in: Capsule())
-            .frame(width: NotchViewModel.fileDragBarZone, height: height)
+            .padding(vm.fileDragBarOnLeft ? .trailing : .leading, NotchViewModel.fileDragBarGap)
+            .frame(width: NotchViewModel.fileDragBarZone, alignment: vm.fileDragBarOnLeft ? .trailing : .leading)
             .contentShape(Rectangle())
             .help(vm.fileDragOtherPage?.title ?? "")
             .onDrop(of: [.fileURL], isTargeted: Binding(get: { targetedState.wrappedValue }, set: { targeted in
