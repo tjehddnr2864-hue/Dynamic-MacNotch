@@ -46,8 +46,9 @@ struct NotchRootView: View {
             .overlay(alignment: vm.fileDragBarOnLeft ? .topLeading : .topTrailing) {
                 if vm.fileDragOtherPage != nil {
                     let inset = NotchViewModel.fileDragBarZone - vm.topRadius
-                    // 아래 끝을 노치 아래 끝에 맞추므로 막대 길이는 화면(노치 높이)마다 달라진다
-                    FileDragBar(vm: vm, length: size.height - vm.notchSize.height)
+                    // 막대 아래 끝: 트레이는 아래 모서리 곡선이 끝나는 곳(옆면과 만나는 곳), 채팅은 그곳과 하단의 중간
+                    let bottomInset = vm.homeOption == .chat ? vm.bottomRadius / 2 : vm.bottomRadius
+                    FileDragBar(vm: vm, length: size.height - vm.notchSize.height - bottomInset)
                         .offset(x: vm.fileDragBarOnLeft ? -inset : inset, y: vm.notchSize.height)
                         .transition(.opacity)
                 }
