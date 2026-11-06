@@ -356,7 +356,7 @@ enum ChatMarkdown {
     }
 
     private static func attributes(for run: AttributedString.Runs.Run, components: [PresentationIntent.IntentType]) -> [NSAttributedString.Key: Any] {
-        var size = bodySize
+        let size = bodySize
         var bold = false
         var color = textColor
         var mono = false
