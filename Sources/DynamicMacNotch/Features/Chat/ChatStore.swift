@@ -76,7 +76,9 @@ final class ChatStore: ObservableObject {
     /// 취소한 요청의 뒤늦은 이벤트를 무시하기 위한 번호
     private var generation = 0
     private var answer = ""
-    private var visible = false
+    /// 페이지를 다른 디스플레이로 옮겨 열면 새 쪽이 먼저 나타날 수 있어 개수로 센다
+    private var visibleCount = 0
+    private var visible: Bool { visibleCount > 0 }
     private var opensAnswerNext = false
     private var unloadWork: DispatchWorkItem?
     private var titleSaveWork: DispatchWorkItem?
@@ -214,7 +216,7 @@ final class ChatStore: ObservableObject {
     // MARK: - 페이지 열림·닫힘
 
     func pageAppeared() {
-        visible = true
+        visibleCount += 1
         unloadWork?.cancel()
         unloadWork = nil
         let keepAnswer = opensAnswerNext
@@ -238,7 +240,7 @@ final class ChatStore: ObservableObject {
     func openAnswerNext() { opensAnswerNext = true }
 
     func pageDisappeared() {
-        visible = false
+        visibleCount = max(0, visibleCount - 1)
         saveTitleNow()
         scheduleUnload()
     }

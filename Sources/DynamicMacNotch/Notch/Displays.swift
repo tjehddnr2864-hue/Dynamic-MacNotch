@@ -18,6 +18,15 @@ struct DisplayInfo: Identifiable, Equatable {
     }
 }
 
+/// 디스플레이별 상시 표시 선택 (`displayContent`의 값)
+enum DisplayChoice {
+    static let all = "all"
+    static let notchOnly = "notchOnly"
+    static let none = "none"
+    static let followMain = "followMain"
+    static func kind(_ key: String) -> String { "kind:" + key }
+}
+
 enum Displays {
     /// `notchDisplays` 값: 디스플레이 하나
     static func selection(uuid: String) -> String { "one:" + uuid }
@@ -43,6 +52,20 @@ enum Displays {
         }
     }
 
+    /// 노치를 켠 디스플레이의 UUID (주 디스플레이가 먼저). 비는 일이 없도록, 전부 "노치 없음"이면 주 디스플레이를 켠다.
+    static func enabledUUIDs(selection: String, content: [String: String], connected: [String]) -> [String] {
+        guard let main = connected.first else { return [] }
+        let chosen: [String]
+        switch selection {
+        case "all": chosen = connected
+        case "main": chosen = [main]
+        default:
+            chosen = uuid(selection: selection).flatMap { connected.contains($0) ? [$0] : nil } ?? []
+        }
+        let enabled = chosen.filter { content[$0] != DisplayChoice.none }
+        return enabled.isEmpty ? [main] : enabled
+    }
+
     /// 설정 값에 해당하는 화면. 선택한 디스플레이가 연결되어 있지 않으면 노치 있는 화면 → 주 디스플레이로 대신한다.
     /// 설정 값은 바꾸지 않으므로 다시 연결되면 원래대로 돌아간다.
     static func screen(for selection: String) -> NSScreen? {
@@ -50,7 +73,7 @@ enum Displays {
         if let uuid = uuid(selection: selection), let match = list.first(where: { self.uuid(of: $0) == uuid }) {
             return match
         }
-        if selection == "main" { return list.first ?? NSScreen.main }
+        if selection == "main" || selection == "all" { return list.first ?? NSScreen.main }
         return list.first { $0.safeAreaInsets.top > 0 } ?? list.first ?? NSScreen.main
     }
 

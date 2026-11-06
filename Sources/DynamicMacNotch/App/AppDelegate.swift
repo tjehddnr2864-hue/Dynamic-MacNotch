@@ -29,8 +29,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 앱이 뜨는 즉시 만들어진다 (applicationDidFinishLaunching 맨 앞)
     private var hub: NotchHub!
-    private var vm: DisplayNotchState { hub.current.vm }
-    private var notch: DisplayNotch? { hub?.current }
+    private var vm: DisplayNotchState { notch?.vm ?? hub.current.vm }
+    private var notch: DisplayNotch? {
+        #if DEV
+        if let hub, hub.displays.indices.contains(devDisplay) { return hub.displays[devDisplay] }
+        #endif
+        return hub?.current
+    }
+    #if DEV
+    /// 개발용: 시험 명령이 향할 디스플레이 번호 (음수면 평소처럼)
+    private var devDisplay = -1
+    #endif
     private var lockScreen: LockScreenManager?
     private let missionControl = MissionControlMonitor()
     private var statusItem: NSStatusItem?
@@ -350,11 +359,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     tv.window?.makeFirstResponder(tv)
                     tv.selectAll(nil)
                 }
+            case let c where c.hasPrefix("devdisplay:"):   // 개발용: 이후 명령이 향할 디스플레이 (devdisplay:-1 = 평소처럼)
+                self.devDisplay = Int(c.dropFirst(11)) ?? -1
             case "displaystate":   // 개발용: 노치가 어느 디스플레이에 있는지 기록
-                let panel = self.notch?.panel
-                let lines = ["selection=\(self.settings.notchDisplays)",
-                             "panel=\(panel?.frame ?? .zero) screen=\(panel?.screen.flatMap(Displays.uuid(of:)) ?? "-")",
-                             "notch=\(self.vm.notchSize) physical=\(self.vm.hasPhysicalNotch)"]
+                let lines = ["selection=\(self.settings.notchDisplays) paused=\(self.center.paused)"]
+                    + self.hub.displays.map { d in
+                        "notch uuid=\(d.uuid.prefix(8)) panel=\(d.panel.frame) screen=\((d.panel.screen.flatMap(Displays.uuid(of:)) ?? "-").prefix(8)) alpha=\(d.panel.alphaValue) size=\(d.vm.notchSize) expanded=\(d.vm.isExpanded) state=\(d.vm.state) page=\(d.vm.homeOption.key) shown=\(d.vm.center.displayed?.kind.rawValue ?? "-")"
+                    }
                     + Displays.all().map { "display \($0.uuid) \($0.label) builtIn=\($0.isBuiltIn) notch=\($0.hasNotch)" }
                 try? (lines.joined(separator: "\n") + "\n").write(toFile: NSTemporaryDirectory() + "dmn-display.txt", atomically: true, encoding: .utf8)
             case "mcstate":   // 개발용: Mission Control 숨김 상태 기록

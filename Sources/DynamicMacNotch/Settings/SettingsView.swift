@@ -1289,6 +1289,7 @@ struct NotchDisplayPicker: View {
 
     /// 예전 값(builtIn·main)과 지금 연결되지 않은 디스플레이는 실제로 쓰이는 디스플레이로 보여 준다
     private var current: String {
+        if settings.notchDisplays == "all" { return "all" }
         let screen = Displays.screen(for: settings.notchDisplays)
         return screen.flatMap(Displays.uuid(of:)).map(Displays.selection(uuid:)) ?? settings.notchDisplays
     }
@@ -1297,6 +1298,9 @@ struct NotchDisplayPicker: View {
         let list = listState.wrappedValue
         Picker(T("표시 화면", "Display"), selection: Binding(get: { current }, set: { settings.notchDisplays = $0 })) {
             ForEach(list) { Text($0.label).tag(Displays.selection(uuid: $0.uuid)) }
+            if list.count > 1 {
+                Text(T("모든 디스플레이", "All Displays")).tag("all")
+            }
         }
         .disabled(list.count < 2)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in

@@ -381,8 +381,12 @@ final class DisplayNotchState: ObservableObject {
 
     // MARK: - 동작
 
+    /// 확장은 한 번에 한 디스플레이만. 열기 직전에 불린다.
+    var willExpand: (() -> Void)?
+
     func expand(page: ExpandedPage) {
         guard !isExpanded else { return }
+        willExpand?()
         if page == .home { ensureValidHome() }
         expandedPage = page
         mediaVolumeShown = false

@@ -100,8 +100,11 @@ final class AppSettings: ObservableObject {
     private let defaults = UserDefaults.standard
 
     // 일반
-    /// 노치를 보일 디스플레이: one:<UUID> / builtIn / main (Displays 참고)
+    /// 노치를 보일 디스플레이: one:<UUID> / builtIn / main / all (Displays 참고)
     @Published var notchDisplays: String { didSet { save(notchDisplays, "notchDisplays") } }
+
+    /// 디스플레이별 상시 표시 선택 (UUID → DisplayChoice). 없으면 주 디스플레이는 모든 항목, 나머지는 주 디스플레이를 따름.
+    @Published var displayContent: [String: String] { didSet { save(displayContent, "displayContent") } }
 
     /// 저장된 값이 없으면 예전 설정을 이어 받는다. 신규 설치는 주 디스플레이, 예전 사용자는 지금 자리 그대로.
     private static func savedNotchDisplays(_ d: UserDefaults) -> String {
@@ -338,6 +341,7 @@ final class AppSettings: ObservableObject {
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
 
         notchDisplays = Self.savedNotchDisplays(d)
+        displayContent = value("displayContent", [:])
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
@@ -467,6 +471,7 @@ final class AppSettings: ObservableObject {
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
 
         notchDisplays = Self.savedNotchDisplays(d)
+        displayContent = value("displayContent", [:])
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)

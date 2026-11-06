@@ -4,10 +4,18 @@ import Combine
 
 /// 디스플레이 하나의 노치. 패널 배치, 마우스 통과/호버 판정, 제스처 매핑을 맡는다 (가이드라인 4장).
 final class DisplayNotch: NotchGestureDelegate {
+    /// 이 노치가 놓인 디스플레이
+    let uuid: String
     let panel = NotchPanel()
     /// 잠금화면 전용 노치 창. 같은 뷰를 그리며 SkyLight 전용 Space(잠금화면 위)에 들어가 있고, 잠금 중에만 보인다.
     /// 평소 노치(panel)는 일반 레이어에 두어 파일 드래그·드롭이 정상 동작하게 한다.
-    let lockPanel = NotchPanel()
+    private lazy var lockPanel: NotchPanel = {
+        lockPanelMade = true
+        let panel = NotchPanel()
+        panel.ignoresMouseEvents = true
+        return panel
+    }()
+    private var lockPanelMade = false
     private(set) var lockPanelReady = false
     private var lockRootView: NotchRootView?
     private var lockPanelFrame = CGRect.zero
@@ -40,10 +48,12 @@ final class DisplayNotch: NotchGestureDelegate {
     // 스와이프
     private var scrollAccum = CGSize.zero
 
-    init(vm: DisplayNotchState,
+    init(uuid: String,
+         vm: DisplayNotchState,
          rootView: NotchRootView,
          menuProvider: @escaping () -> NSMenu,
          clickHandler: @escaping (DisplayNotchState, NotchActivity?, Bool) -> Void) {
+        self.uuid = uuid
         self.vm = vm
         self.menuProvider = menuProvider
         self.clickHandler = clickHandler
@@ -51,7 +61,6 @@ final class DisplayNotch: NotchGestureDelegate {
         hostingView.gestureDelegate = self
         panel.contentView = hostingView
         lockRootView = rootView   // 잠금화면 노치 창은 잠겨 있는 동안에만 이 뷰를 붙여 그린다
-        lockPanel.ignoresMouseEvents = true
 
         reposition()
         panel.orderFrontRegardless()
@@ -60,10 +69,23 @@ final class DisplayNotch: NotchGestureDelegate {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in self?.reposition() }
             .store(in: &cancellables)
-        settings.$notchDisplays
-            .dropFirst()
-            .sink { [weak self] _ in DispatchQueue.main.async { self?.reposition() } }
-            .store(in: &cancellables)
+    }
+
+    /// 디스플레이에서 노치를 내린다. 호스팅 뷰를 떼어 내야 화면·메모리가 함께 돌아온다.
+    func tearDown() {
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
+        cancellables = []
+        longPressWork?.cancel()
+        hoverOpenWork?.cancel()
+        hideWork?.cancel()
+        panel.orderOut(nil)
+        panel.contentView = nil
+        lockRootView = nil
+        if lockPanelMade {
+            lockPanel.orderOut(nil)
+            lockPanel.contentView = nil
+        }
     }
 
     /// 숫자 입력이 끝나면 키보드 포커스를 원래 쓰던 앱으로 돌려준다.
@@ -162,14 +184,16 @@ final class DisplayNotch: NotchGestureDelegate {
         hostingView.needsLayout = true
         hostingView.layoutSubtreeIfNeeded()
         hostingView.display()
-        lockPanel.contentView?.needsLayout = true
-        lockPanel.contentView?.display()
+        if lockPanelMade {
+            lockPanel.contentView?.needsLayout = true
+            lockPanel.contentView?.display()
+        }
     }
 
     // MARK: - 배치
 
     func reposition() {
-        guard let screen = Displays.screen(for: settings.notchDisplays) else { return }
+        guard let screen = Displays.screens.first(where: { Displays.uuid(of: $0) == uuid }) else { return }
         let notch = NotchGeometry.notchRect(on: screen)
         vm.notchSize = notch.size
         vm.hasPhysicalNotch = NotchGeometry.hasPhysicalNotch(screen)
@@ -178,7 +202,7 @@ final class DisplayNotch: NotchGestureDelegate {
                            width: size.width, height: size.height)
         panel.setFrame(frame, display: true)
         lockPanelFrame = frame
-        if lockPanel.alphaValue > 0 { lockPanel.setFrame(frame, display: true) }
+        if lockPanelMade, lockPanel.alphaValue > 0 { lockPanel.setFrame(frame, display: true) }
     }
 
     /// 현재 보이는 노치 도형의 화면 좌표 사각형.
@@ -213,6 +237,14 @@ final class DisplayNotch: NotchGestureDelegate {
             guard let self, self.vm.isFileDragging else { return }
             // 노치 밖에 놓았으면 잠시 뒤 닫는다 (노치에 놓은 경우는 onDrop이 먼저 처리)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.vm.endFileDrag(dropped: false) }
+        }) {
+            monitors.append(m)
+        }
+        // 다른 디스플레이의 노치를 눌러도 '바깥 클릭'이다 (같은 앱이라 위의 전역 감시에는 오지 않는다)
+        if let m = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
+            guard let self, self.vm.isExpanded, event.window !== self.panel, !FilePicker.isChoosing else { return event }
+            self.collapse()
+            return event
         }) {
             monitors.append(m)
         }
