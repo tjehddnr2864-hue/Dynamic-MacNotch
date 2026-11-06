@@ -132,6 +132,18 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 ### Claude Code · Codex
 When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
+### Multiple displays
+The notch stays on one display until you choose otherwise. **Settings → General → Display** lists every connected display plus **All Displays**. Once two displays are connected, **Settings → Interaction → Basics** gains per-display options:
+
+- **Live activity by display:** all live activities, one chosen item, **Notch Only**, **No Notch**, or the same as the main display. A display set to No Notch is left out completely, including alerts and interactions.
+- **When the chosen item is inactive:** show the main display's live activity instead (on by default), or just the plain notch.
+- **Alerts:** on the main display only (default) or on all displays with a notch. **Important alerts** (calls, timer done, event alerts, low battery, screen recording) reach every display with a notch unless you turn them off, and you can edit that list.
+
+A long press opens the expanded notch only on that display, and only one can be open at a time. Music, tray files, hidden live activities and the last Home page are shared, so a file added on one display is there on the other. If the chosen display is disconnected, the notch moves to another one and returns when it reconnects. While locked, only the main display shows the lock notch.
+
+### Mission Control
+The notch shrinks away while Mission Control is open so it doesn't cover the Spaces bar, and comes back when it closes. Alerts that arrive meanwhile keep their full time. App Exposé and Show Desktop don't hide it.
+
 ### Lock screen
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
 - While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Drag the progress and volume bars to seek or change volume, and click the output icon to switch speakers or headphones. Song info can be hidden. The widget is hidden while the screen saver runs.
@@ -319,6 +331,18 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 
 ### Claude Code · Codex
 Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+
+### 여러 디스플레이
+따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 일반 → 표시 화면**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 **설정 → 상호작용 → 기본**에 디스플레이별 옵션이 나타납니다.
+
+- **디스플레이별 상시 표시:** 모든 상시 표시 컨텐츠, 항목 하나, **노치만**, **노치 없음**, 주 디스플레이의 설정을 따름 중에서 고릅니다. 노치 없음인 디스플레이는 알림과 상호작용에서도 완전히 빠집니다.
+- **선택한 항목이 비활성일 때:** 주 디스플레이의 상시 표시를 대신 보이거나(기본), 기본 노치만 보입니다.
+- **알림:** 주 디스플레이만(기본) 또는 노치를 켠 모든 디스플레이에 뜹니다. **중요한 알림**(통화, 타이머 완료, 일정 알림, 배터리 부족, 화면 녹화 중)은 끄지 않는 한 노치를 켠 모든 디스플레이에 뜨고, 목록을 바꿀 수 있습니다.
+
+길게 눌러 여는 확장 화면은 누른 디스플레이에만 뜨고 한 번에 하나만 열립니다. 음악, 트레이 파일, 상시 표시 숨김, 마지막으로 본 홈 페이지는 공유하므로 한 디스플레이에서 넣은 파일을 다른 디스플레이에서 볼 수 있습니다. 선택한 디스플레이의 연결이 끊기면 다른 디스플레이로 옮겨 가고, 다시 연결되면 돌아옵니다. 잠겨 있는 동안 잠금 노치는 주 디스플레이에만 뜹니다.
+
+### Mission Control
+Mission Control이 열려 있는 동안 노치가 Spaces 막대를 가리지 않도록 줄어들며 사라졌다가, 닫으면 돌아옵니다. 그 사이에 온 알림은 표시 시간이 줄지 않습니다. 앱 Exposé와 바탕화면 보기에서는 숨지 않습니다.
 
 ### 잠금화면
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.

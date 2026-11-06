@@ -361,6 +361,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             case let c where c.hasPrefix("devdisplay:"):   // 개발용: 이후 명령이 향할 디스플레이 (devdisplay:-1 = 평소처럼)
                 self.devDisplay = Int(c.dropFirst(11)) ?? -1
+            case "screenparams":   // 개발용: 화면 구성 변경 알림을 연달아 보낸다 (모아서 한 번만 처리하는지)
+                for _ in 0..<5 { NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp) }
+            case let c where c.hasPrefix("panelshidden:"):   // 개발용: 잠금 때처럼 모든 노치 숨김·보임
+                self.hub.setMainPanelsHidden(c.hasSuffix("1"), animated: false)
             case "displaystate":   // 개발용: 노치가 어느 디스플레이에 있는지 기록
                 let lines = ["selection=\(self.settings.notchDisplays) paused=\(self.center.paused)"]
                     + self.hub.displays.map { d in
