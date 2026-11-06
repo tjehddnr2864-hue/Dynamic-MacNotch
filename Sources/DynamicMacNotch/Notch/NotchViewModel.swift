@@ -604,6 +604,8 @@ final class NotchViewModel: ObservableObject {
     /// 파일 드래그가 노치에 가까워지면 트레이 페이지로 자동 확장한다.
     func beginFileDrag() {
         guard !isFileDragging, settings.trayMode != .off else { return }
+        // 채팅 페이지가 열려 있으면 그 파일은 첨부다 (페이지를 트레이로 바꾸지 않는다)
+        guard !(isExpanded && expandedPage == .home && homeOption == .chat) else { return }
         homeOption = .tray
         expandedPage = .home
         withAnimation(openSpring) { isFileDragging = true }

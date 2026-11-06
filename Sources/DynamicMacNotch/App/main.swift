@@ -11,6 +11,10 @@ if let agent = AgentNotify.source(from: CommandLine.arguments) {
     AgentNotify.runHook(agent, arguments: CommandLine.arguments)   // Claude Code·Codex 작업 완료 훅: 알리고 바로 종료
 }
 
+if let op = ChatAttachTool.op(from: CommandLine.arguments) {
+    ChatAttachTool.runHelper(op, arguments: CommandLine.arguments)   // 채팅 첨부 처리 도우미: 처리 후 바로 종료
+}
+
 if let op = ImageTool.op(from: CommandLine.arguments) {
     ImageTool.runHelper(op)   // 스크린샷 썸네일·변환 도우미: 처리 후 바로 종료
 }

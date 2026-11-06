@@ -64,9 +64,17 @@ struct ChatSettingsPage: View {
                     }
                 }
             } header: { Text(T("대화 저장", "Saved Conversations")) } footer: {
-                footnote(T("캐시 비우기는 저장된 모든 대화를 이 Mac에서 바로 삭제합니다. 메모·설정·API 키는 지우지 않습니다.",
-                           "Clear Cache deletes every saved conversation from this Mac right away. Memos, settings and API keys are kept."))
+                footnote(T("캐시 비우기는 저장된 모든 대화와 첨부 파일을 이 Mac에서 바로 삭제합니다. 메모·설정·API 키는 지우지 않습니다.",
+                           "Clear Cache deletes every saved conversation and attachment from this Mac right away. Memos, settings and API keys are kept."))
             }
+            Section {
+                footnote(T("이미지 \(ChatAttachLimit.images)장, PDF 1개(10MB·\(ChatAttachLimit.pdfPages)쪽), 텍스트 파일(200KB), 워드 파일을 질문에 첨부할 수 있습니다. 클립 버튼, ⌘V, 파일 끌어놓기로 붙입니다.",
+                           "You can attach up to \(ChatAttachLimit.images) images, one PDF (10 MB, \(ChatAttachLimit.pdfPages) pages), text files (200 KB) and Word files to a question, using the paperclip, ⌘V or drag and drop."))
+                footnote(T("첨부 파일은 대화와 함께 이 Mac에 암호화 없이 저장되어 앱을 다시 시작해도 후속 질문에 쓸 수 있습니다. 이미지는 긴 변 \(ChatAttachLimit.imageLongEdge)픽셀로 줄이고 위치 정보를 지우며, 워드 파일은 글자만 저장합니다.",
+                           "Attachments are saved unencrypted on this Mac with the conversation, so follow-up questions can use them even after a restart. Images are reduced to \(ChatAttachLimit.imageLongEdge) pixels on the long edge with location data removed, and Word files keep only their text."))
+                footnote(T("후속 질문에서는 파일을 매번 보내지 않습니다. 질문이 파일 이름이나 '이 사진', '첨부' 같은 말로 파일을 가리키면 함께 보내고, 그 밖에는 파일 이름만 알려서 AI가 꼭 필요하다고 판단할 때만 다시 보냅니다. 다시 보낸 파일은 질문 아래에 ↻로 표시되며, 그만큼 토큰(요금 또는 구독 한도)을 씁니다.",
+                           "Follow-up questions don't always resend files. A file is sent again when the question points to it, by its name or words like \"this photo\" or \"attached\". Otherwise the AI only sees the file names and asks for a file when it really needs it. Files sent again are marked ↻ under the question and use tokens (billing or subscription limits)."))
+            } header: { Text(T("첨부 파일", "Attachments")) }
             Section {
                 ZStack(alignment: .topLeading) {
                     if settings.chatInstructions.isEmpty {

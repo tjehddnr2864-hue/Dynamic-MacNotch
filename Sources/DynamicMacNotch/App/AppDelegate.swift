@@ -324,6 +324,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.chat.draft = String(c.dropFirst(9))
                 self.chat.send()
             case "chatlist": self.chat.toggleList()   // 개발용: 채팅 목록 열기·닫기
+            case let c where c.hasPrefix("chatattach:"):   // 개발용: 클릭 없이 파일 첨부
+                self.chat.attach([URL(fileURLWithPath: String(c.dropFirst(11)))])
+            case "chatdelete": self.chat.delete(self.chat.currentID)   // 개발용: 지금 채팅 삭제
+            case "chatpaste":   // 개발용: 시험용 클립보드에서 첨부
+                if let board = ChatAnswerTextView.testPasteboard { _ = self.chat.attachFromPasteboard(board) }
             case "devfocusanswer":   // 개발용: 첫 답변 본문을 전체 선택
                 func find(_ view: NSView) -> ChatAnswerTextView? {
                     if let tv = view as? ChatAnswerTextView { return tv }
@@ -375,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
         return !vm.isExpanded && !vm.isHovering && !vm.isFileDragging
             && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
-            && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming && chat.draft.isEmpty
+            && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming && chat.draft.isEmpty && chat.pending.isEmpty && chat.attaching == 0
             && lockScreen?.isLocked != true && helperProcess?.isRunning != true && !FilePicker.isRunning
             && !media.testActive && !call.previewActive && screenshot.shot == nil
     }

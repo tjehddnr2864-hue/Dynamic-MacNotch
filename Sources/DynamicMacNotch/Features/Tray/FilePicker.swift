@@ -1,10 +1,11 @@
 import AppKit
+import UniformTypeIdentifiers
 
 /// 에어드랍·트레이 칸을 클릭했을 때 여는 파일 선택 창.
 /// 열기 패널은 Finder 사이드바·미리보기 등 무거운 프레임워크를 불러와 본 앱 메모리를 크게 늘리고 돌려주지 않으므로,
 /// 같은 실행 파일을 `--pick=airdrop|tray`로 띄운 짧은 도우미 프로세스에서 열고, 고른 경로만 표준 출력(NUL 구분)으로 받는다.
 enum FilePicker {
-    enum Purpose: String { case airdrop, tray }
+    enum Purpose: String { case airdrop, tray, chat }
 
     static func purpose(from arguments: [String]) -> Purpose? {
         arguments.first { $0.hasPrefix("--pick=") }.flatMap { Purpose(rawValue: String($0.dropFirst("--pick=".count))) }
@@ -79,6 +80,14 @@ final class FilePickerDelegate: NSObject, NSApplicationDelegate {
             panel.title = T("트레이에 추가할 파일", "Files to Add to Tray")
             panel.message = T("트레이에 보관할 파일이나 폴더를 고르세요", "Choose files or folders to keep in the tray")
             panel.prompt = T("트레이에 추가", "Add to Tray")
+        case .chat:
+            panel.title = T("채팅에 첨부할 파일", "Files to Attach")
+            panel.message = T("이미지 \(ChatAttachLimit.images)장, PDF 10MB·\(ChatAttachLimit.pdfPages)쪽, 텍스트 200KB, 워드 파일까지 첨부할 수 있습니다",
+                              "Up to \(ChatAttachLimit.images) images, a PDF of 10 MB and \(ChatAttachLimit.pdfPages) pages, text up to 200 KB, and Word files")
+            panel.prompt = T("첨부", "Attach")
+            panel.canChooseDirectories = false
+            panel.allowedContentTypes = [.image, .pdf, .text, .sourceCode, .json, .commaSeparatedText, .xml, .rtf]
+                + ["docx", "doc", "odt"].compactMap { UTType(filenameExtension: $0) }
         }
         NSApp.activate(ignoringOtherApps: true)
         let response = panel.runModal()

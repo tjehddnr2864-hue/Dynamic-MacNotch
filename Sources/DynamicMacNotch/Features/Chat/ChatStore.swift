@@ -5,6 +5,10 @@ struct ChatRecord: Codable {
     struct Message: Codable {
         var role: String
         var text: String
+        /// 이 질문에 붙인 파일
+        var attachments: [ChatAttachment]?
+        /// 이 질문에 다시 보낸 지난 파일 이름
+        var reused: [String]?
     }
     var id: UUID
     var title: String
@@ -31,6 +35,8 @@ final class ChatStore: ObservableObject {
         let text: String
         /// 답변의 표시용 글자 (질문은 nil)
         let rendered: NSAttributedString?
+        var attachments: [ChatAttachment] = []
+        var reused: [String] = []
     }
 
     @Published private(set) var currentID = UUID()
@@ -42,6 +48,12 @@ final class ChatStore: ObservableObject {
     @Published private(set) var truncated = false
     @Published private(set) var showList = false
     @Published private(set) var summaries: [ChatSummary] = []
+    /// 보내기 전 첨부 (입력 칸 위 칩)
+    @Published private(set) var pending: [ChatAttachment] = []
+    /// 처리 중인 첨부 개수
+    @Published private(set) var attaching = 0
+    /// 첨부를 받지 못한 이유
+    @Published private(set) var attachNotice: String?
     /// 입력 중인 글. 글자마다 화면을 다시 계산하지 않도록 @Published가 아니다.
     var draft = ""
     /// 입력 칸 바깥에서 글을 바꿀 때마다 늘어난다 (입력 칸이 이때만 내용을 다시 맞춘다)
@@ -53,6 +65,10 @@ final class ChatStore: ObservableObject {
     var isLarge: Bool { !isStreaming && (!entries.isEmpty || error != nil || showList) }
 
     private let settings = AppSettings.shared
+    /// 지난 첨부를 알려 준 요청의 정보 (모델이 파일을 요청하면 같은 질문을 파일과 함께 다시 보낸다)
+    private var offered: [ChatAttachment] = []
+    /// 이번 질문에 실제로 파일을 보냈는지
+    private var sentFiles = false
     private var named = false
     private var loaded = false
     private var nextEntryID = 0
@@ -88,6 +104,112 @@ final class ChatStore: ObservableObject {
     }
 
     private static func file(_ id: UUID) -> URL { folder.appendingPathComponent(id.uuidString + ".json") }
+
+    init() {
+        DispatchQueue.global(qos: .utility).async { ChatFiles.sweep() }
+    }
+
+    // MARK: - 첨부
+
+    /// 파일을 받아 도우미에서 처리한다. 크기·개수는 내용을 읽기 전에 확인한다.
+    func attach(_ urls: [URL]) {
+        attachNotice = nil
+        var images = pending.filter { $0.kind == .image }.count
+        var pdfs = pending.filter { $0.kind == .pdf }.count
+        for url in urls {
+            let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
+            var isDirectory: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+            guard !isDirectory.boolValue, let op = ChatFiles.classify(url) else {
+                attachNotice = ChatAttachError.unsupported.message
+                continue
+            }
+            var problem: ChatAttachError?
+            switch op {
+            case .image:
+                if images >= ChatAttachLimit.images { problem = .tooManyImages }
+                else if size > ChatAttachLimit.imageSourceBytes { problem = .imageTooLarge }
+                else { images += 1 }
+            case .pdf:
+                if pdfs >= ChatAttachLimit.pdfs { problem = .tooManyPDFs }
+                else if size > ChatAttachLimit.pdfBytes { problem = .pdfTooLarge }
+                else { pdfs += 1 }
+            case .word:
+                if size > ChatAttachLimit.wordSourceBytes { problem = .wordTooLarge }
+            case .text:
+                if size > ChatAttachLimit.textBytes * 2 { problem = .textTooLarge }
+            }
+            if let problem {
+                attachNotice = problem.message
+                continue
+            }
+            process(op, source: url, name: url.lastPathComponent, removeSource: false)
+        }
+    }
+
+    /// 클립보드의 파일·이미지를 첨부한다. 첨부로 처리했으면 true (글자는 입력 칸이 붙여 넣는다).
+    func attachFromPasteboard(_ board: NSPasteboard) -> Bool {
+        if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            attach(urls)
+            return true
+        }
+        guard board.availableType(from: [.string]) == nil,
+              let type = board.availableType(from: [.png, .tiff]), let data = board.data(forType: type) else { return false }
+        attachNotice = nil
+        guard pending.filter({ $0.kind == .image }).count < ChatAttachLimit.images else {
+            attachNotice = ChatAttachError.tooManyImages.message
+            return true
+        }
+        guard Int64(data.count) <= ChatAttachLimit.imageSourceBytes else {
+            attachNotice = ChatAttachError.imageTooLarge.message
+            return true
+        }
+        let source = ChatFiles.prepare(ChatFiles.pending).appendingPathComponent(UUID().uuidString + (type == .png ? ".png" : ".tiff"))
+        guard (try? data.write(to: source, options: .atomic)) != nil else { return true }
+        process(.image, source: source, name: T("붙여넣은 이미지", "Pasted Image"), removeSource: true)
+        return true
+    }
+
+    private func process(_ op: ChatAttachTool.Op, source: URL, name: String, removeSource: Bool) {
+        attaching += 1
+        let folder = ChatFiles.pending
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = ChatAttachTool.process(op, source: source, folder: folder, name: name)
+            if removeSource { try? FileManager.default.removeItem(at: source) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.attaching -= 1
+                switch result {
+                case .success(let attachment):
+                    let text = self.pending.filter { $0.kind == .text }.reduce(Int64(0)) { $0 + $1.bytes } + attachment.bytes
+                    let request = self.pending.reduce(Int64(0)) { $0 + $1.requestBytes } + attachment.requestBytes
+                    if attachment.kind == .text, text > ChatAttachLimit.textTotalBytes {
+                        ChatFiles.remove(attachment, in: folder)
+                        self.attachNotice = ChatAttachError.textTotalTooLarge.message
+                    } else if request > ChatAttachLimit.requestBytes {
+                        ChatFiles.remove(attachment, in: folder)
+                        self.attachNotice = ChatAttachError.requestTooLarge.message
+                    } else {
+                        self.pending.append(attachment)
+                    }
+                case .failure(let error):
+                    self.attachNotice = error.message
+                }
+            }
+        }
+    }
+
+    func removePending(_ attachment: ChatAttachment) {
+        pending.removeAll { $0.id == attachment.id }
+        ChatFiles.remove(attachment, in: ChatFiles.pending)
+        attachNotice = nil
+    }
+
+    private func clearPending() {
+        for attachment in pending { ChatFiles.remove(attachment, in: ChatFiles.pending) }
+        pending = []
+        attachNotice = nil
+    }
 
     // MARK: - 페이지 열림·닫힘
 
@@ -166,7 +288,7 @@ final class ChatStore: ObservableObject {
         named = record.named
         entries = []
         for message in record.messages {
-            append(message.role == "user" ? .user : .assistant, message.text)
+            append(message.role == "user" ? .user : .assistant, message.text, attachments: message.attachments ?? [], reused: message.reused ?? [])
         }
     }
 
@@ -180,8 +302,9 @@ final class ChatStore: ObservableObject {
     // MARK: - 보내기·중지
 
     func send() {
-        let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !isStreaming, !question.isEmpty else { return }
+        let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isStreaming, attaching == 0, !typed.isEmpty || !pending.isEmpty else { return }
+        let question = typed.isEmpty ? Self.attachmentOnlyQuestion : typed
         let service = settings.chatService
         let model = settings.chatModel(for: service).trimmingCharacters(in: .whitespaces)
         guard !model.isEmpty else {
@@ -189,12 +312,30 @@ final class ChatStore: ObservableObject {
             return
         }
         setDraft("")
-        append(.user, question)
+        // 이번 질문의 파일을 이 채팅의 폴더로 옮기고, 지난 파일을 다시 보낼지 정한다
+        let current = pending
+        pending = []
+        attachNotice = nil
+        for attachment in current { ChatFiles.move(attachment, from: ChatFiles.pending, to: ChatFiles.folder(currentID)) }
+        let earlier = entries.flatMap(\.attachments).filter { FileManager.default.fileExists(atPath: ChatFiles.folder(currentID).appendingPathComponent($0.file).path) }
+        let budget = ChatAttachLimit.requestBytes - current.reduce(Int64(0)) { $0 + $1.requestBytes }
+        let plan = ChatAttachPolicy.plan(question: typed, earlier: earlier, budget: budget)
+        append(.user, question, attachments: current, reused: plan.direct.map(\.name))
         if !named, title.isEmpty { title = Self.automaticTitle(question) }
-        let turns = contextTurns()
+        offered = plan.offered
+        sentFiles = !current.isEmpty || !plan.direct.isEmpty
         save()
         error = nil
         truncated = false
+        startRequest(turns: contextTurns(extra: plan.direct), notice: ChatAttachPolicy.notice(plan.offered))
+    }
+
+    /// 파일만 첨부하고 글을 쓰지 않았을 때의 질문
+    private static var attachmentOnlyQuestion: String { T("첨부한 파일을 봐 주세요.", "Please look at the attached file.") }
+
+    private func startRequest(turns: [ChatTurn], notice: String?) {
+        let service = settings.chatService
+        let model = settings.chatModel(for: service).trimmingCharacters(in: .whitespaces)
         answer = ""
         isStreaming = true
         generation &+= 1
@@ -208,7 +349,7 @@ final class ChatStore: ObservableObject {
                     self.fail(.missingKey)
                     return
                 }
-                self.task = ChatClient.stream(service: service, model: model, key: key, turns: turns, search: self.settings.chatWebSearch) { [weak self] event in
+                self.task = ChatClient.stream(service: service, model: model, key: key, turns: turns, search: self.settings.chatWebSearch, notice: notice) { [weak self] event in
                     DispatchQueue.main.async { self?.handle(event, generation: current) }
                 }
             }
@@ -246,8 +387,14 @@ final class ChatStore: ObservableObject {
         case .delta(let text):
             answer += text
         case .done(let wasTruncated):
-            truncated = wasTruncated
             task = nil
+            if resendRequestedFiles() { return }
+            answer = ChatAttachPolicy.withoutMarker(answer)
+            if answer.isEmpty {
+                fail(.unexpectedEnd)
+                return
+            }
+            truncated = wasTruncated
             isStreaming = false
             keepAnswer()
             save()
@@ -257,18 +404,42 @@ final class ChatStore: ObservableObject {
         }
     }
 
+    /// 모델이 지난 파일을 요청했으면 같은 질문을 파일과 함께 한 번 더 보낸다
+    private func resendRequestedFiles() -> Bool {
+        guard !offered.isEmpty, let numbers = ChatAttachPolicy.requested(in: answer), !entries.isEmpty else { return false }
+        var chosen: [ChatAttachment] = []
+        var left = ChatAttachLimit.requestBytes
+        for number in Set(numbers).sorted() where number >= 1 && number <= offered.count {
+            let item = offered[number - 1]
+            if item.requestBytes <= left {
+                chosen.append(item)
+                left -= item.requestBytes
+            }
+        }
+        offered = []   // 한 질문에 한 번만
+        guard !chosen.isEmpty else { return false }
+        entries[entries.count - 1].reused += chosen.map(\.name)
+        sentFiles = true
+        save()
+        startRequest(turns: contextTurns(extra: chosen), notice: nil)
+        return true
+    }
+
     private func fail(_ failure: ChatError) {
         task = nil
         isStreaming = false
+        answer = ChatAttachPolicy.withoutMarker(answer)
         if answer.isEmpty, let last = entries.last, last.role == .user {
-            // 답변이 하나도 오지 않았으면 질문을 입력 칸으로 되돌려 다시 보낼 수 있게 한다
+            // 답변이 하나도 오지 않았으면 질문을 입력 칸으로 되돌려 다시 보낼 수 있게 한다 (첨부도 함께)
             entries.removeLast()
-            if draft.isEmpty { setDraft(last.text) }
+            if draft.isEmpty, last.text != Self.attachmentOnlyQuestion { setDraft(last.text) }
+            for attachment in last.attachments { ChatFiles.move(attachment, from: ChatFiles.folder(currentID), to: ChatFiles.pending) }
+            pending = last.attachments + pending
             if entries.isEmpty, !named { title = "" }
         } else {
             keepAnswer()
         }
-        error = failure
+        error = failure == .badRequest && sentFiles ? .attachmentRejected : failure
         save()
         finished(failure)
     }
@@ -284,24 +455,37 @@ final class ChatStore: ObservableObject {
     }
 
     private func keepAnswer() {
+        answer = ChatAttachPolicy.withoutMarker(answer)
         guard !answer.isEmpty else { return }
         append(.assistant, answer)
         answer = ""
     }
 
-    private func append(_ role: ChatTurn.Role, _ text: String) {
+    private func append(_ role: ChatTurn.Role, _ text: String, attachments: [ChatAttachment] = [], reused: [String] = []) {
         nextEntryID += 1
-        entries.append(Entry(id: nextEntryID, role: role, text: text, rendered: role == .assistant ? ChatMarkdown.render(text, maxWidth: Self.answerWidth) : nil))
+        entries.append(Entry(id: nextEntryID, role: role, text: text, rendered: role == .assistant ? ChatMarkdown.render(text, maxWidth: Self.answerWidth) : nil,
+                             attachments: attachments, reused: reused))
     }
 
     /// 최근 대화만 보낸다 (비용을 줄인다). 질문으로 시작해야 한다.
-    private func contextTurns() -> [ChatTurn] {
+    /// 파일은 마지막 질문에만 싣는다 (extra: 다시 보내기로 한 지난 파일). 지난 질문에는 이름만 남긴다.
+    private func contextTurns(extra: [ChatAttachment] = []) -> [ChatTurn] {
         var turns: [ChatTurn] = []
         var characters = 0
-        for entry in entries.reversed() {
+        let folder = ChatFiles.folder(currentID)
+        for (index, entry) in entries.enumerated().reversed() {
             characters += entry.text.count
             if !turns.isEmpty, turns.count >= Self.maxContextTurns || characters > Self.maxContextCharacters { break }
-            turns.append(ChatTurn(role: entry.role, text: entry.text))
+            if index == entries.count - 1 {
+                var text = entry.text
+                if !extra.isEmpty { text += "\n\n(Files attached again from earlier: " + extra.map(\.safeName).joined(separator: ", ") + ")" }
+                let files = (extra + entry.attachments).map { ChatTurn.File(kind: $0.kind, name: $0.safeName, mime: $0.mime, url: folder.appendingPathComponent($0.file)) }
+                turns.append(ChatTurn(role: entry.role, text: text, files: files))
+            } else if entry.attachments.isEmpty {
+                turns.append(ChatTurn(role: entry.role, text: entry.text))
+            } else {
+                turns.append(ChatTurn(role: entry.role, text: entry.text + "\n\n(Attached with this message: " + entry.attachments.map(\.safeName).joined(separator: ", ") + ")"))
+            }
         }
         while turns.last?.role == .assistant { turns.removeLast() }
         return turns.reversed()
@@ -333,6 +517,7 @@ final class ChatStore: ObservableObject {
         error = nil
         truncated = false
         setDraft("")
+        clearPending()
         UserDefaults.standard.removeObject(forKey: Self.currentKey)
     }
 
@@ -354,6 +539,7 @@ final class ChatStore: ObservableObject {
 
     func delete(_ id: UUID) {
         try? FileManager.default.removeItem(at: Self.file(id))
+        try? FileManager.default.removeItem(at: ChatFiles.folder(id))
         if id == currentID, !isStreaming {
             titleSaveWork?.cancel()
             titleSaveWork = nil
@@ -366,6 +552,7 @@ final class ChatStore: ObservableObject {
     /// 지금 채팅의 파일이 실제로 사라졌을 때만 메모리에서 지운다 (다른 프로그램이 알림만 보내서는 지워지지 않는다).
     func storedChatsCleared() {
         if showList { reloadList() }
+        pending.removeAll { !FileManager.default.fileExists(atPath: ChatFiles.pending.appendingPathComponent($0.file).path) }
         guard !FileManager.default.fileExists(atPath: Self.file(currentID).path) else { return }
         UserDefaults.standard.removeObject(forKey: Self.currentKey)
         guard !entries.isEmpty || isStreaming else { return }
@@ -381,18 +568,21 @@ final class ChatStore: ObservableObject {
         truncated = false
     }
 
-    /// 저장된 대화의 개수와 크기 (설정 화면용. 내용은 읽지 않는다)
+    /// 저장된 대화의 개수와 크기, 첨부 포함 (설정 화면용. 내용은 읽지 않는다)
     static func storedUsage() -> (count: Int, bytes: Int64) {
-        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? []
-        let chats = files.filter { $0.pathExtension == "json" }
-        let bytes = chats.reduce(Int64(0)) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0) }
+        let manager = FileManager.default
+        let chats = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.filter { $0.pathExtension == "json" } ?? []
+        var bytes = Int64(0)
+        if let all = manager.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey]) {
+            for case let file as URL in all { bytes += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0) }
+        }
         return (chats.count, bytes)
     }
 
-    /// 저장된 대화 파일을 모두 지운다 (폴더 안의 .json만)
+    /// 저장된 대화와 첨부 파일을 모두 지운다
     static func deleteAllStored() {
-        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-        for file in files where file.pathExtension == "json" { try? FileManager.default.removeItem(at: file) }
+        let items = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        for item in items { try? FileManager.default.removeItem(at: item) }
     }
 
     func toggleList() {
@@ -417,12 +607,15 @@ final class ChatStore: ObservableObject {
         // 질문이 없는 채팅은 남기지 않는다 (답을 못 받고 첫 질문을 되돌린 경우 포함)
         guard !entries.isEmpty else {
             try? FileManager.default.removeItem(at: Self.file(currentID))
+            try? FileManager.default.removeItem(at: ChatFiles.folder(currentID))
             summaries.removeAll { $0.id == currentID }
             return
         }
         let now = Date()
         let record = ChatRecord(id: currentID, title: title, named: named,
-                                messages: entries.map { .init(role: $0.role.rawValue, text: $0.text) }, updated: now)
+                                messages: entries.map { .init(role: $0.role.rawValue, text: $0.text,
+                                                              attachments: $0.attachments.isEmpty ? nil : $0.attachments,
+                                                              reused: $0.reused.isEmpty ? nil : $0.reused) }, updated: now)
         // 내 대화이므로 폴더를 나만 읽을 수 있게 만든다
         let manager = FileManager.default
         try? manager.createDirectory(at: Self.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

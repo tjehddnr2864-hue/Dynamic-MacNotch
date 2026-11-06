@@ -19,6 +19,7 @@ struct ChatPage: View {
     private enum Field { case title, input }
     private let editingState = State(initialValue: Field?.none)
     private let inputHeightState = State(initialValue: ChatInputView.lineHeight)
+    private let dropTargetState = State(initialValue: false)
 
     private var editing: Field? {
         get { editingState.wrappedValue }
@@ -31,9 +32,25 @@ struct ChatPage: View {
         VStack(spacing: 6) {
             header
             if store.isLarge { content }
+            if showsAttachmentRow { attachmentRow }
             bottom
         }
         .padding(.top, 2)
+        .overlay {
+            if dropTargetState.wrappedValue {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .overlay(Text(T("여기에 놓아 첨부", "Drop to Attach")).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white))
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: dropTargetState.projectedValue) { providers in
+            TrayStore.loadURLs(providers) { store.attach($0) }
+            return true
+        }
+        .onChange(of: showsAttachmentRow) { _, _ in reportExtra() }
+        .onChange(of: store.attachNotice) { _, _ in reportExtra() }
         .onAppear { store.pageAppeared() }
         .onChange(of: active) { _, isActive in
             if !isActive { stopEditing() }
@@ -140,14 +157,18 @@ struct ChatPage: View {
     @ViewBuilder
     private func bubble(_ entry: ChatStore.Entry) -> some View {
         if entry.role == .user {
-            HStack {
-                Spacer(minLength: 32)
-                Text(entry.text)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .trailing, spacing: 3) {
+                HStack {
+                    Spacer(minLength: 32)
+                    Text(entry.text)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                ForEach(entry.attachments) { fileLine("paperclip", $0.name) }
+                ForEach(entry.reused, id: \.self) { fileLine("arrow.clockwise", $0) }
             }
         } else {
             VStack(alignment: .leading, spacing: 2) {
@@ -155,6 +176,19 @@ struct ChatPage: View {
                 ChatCopyButton(text: entry.text)
             }
         }
+    }
+
+    /// 질문 아래의 파일 이름. 대화에 그림을 띄우지 않아 메모리가 늘지 않는다.
+    private func fileLine(_ symbol: String, _ name: String) -> some View {
+        HStack(spacing: 3) {
+            ChatIcon.image(symbol, size: 8.5, weight: .semibold)
+            Text(name)
+                .font(.system(size: 9.5))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .foregroundStyle(.white.opacity(0.5))
+        .help(symbol == "paperclip" ? T("이 질문에 첨부함", "Attached to this question") : T("지난 첨부를 다시 보냄", "Sent again from earlier"))
     }
 
     @ViewBuilder
@@ -178,10 +212,57 @@ struct ChatPage: View {
         }
     }
 
+    // MARK: - 첨부 줄
+
+    private static let attachmentRowHeight: CGFloat = 36
+    private static let attachmentNoticeHeight: CGFloat = 15
+
+    private var showsAttachmentRow: Bool {
+        !store.isStreaming && (!store.pending.isEmpty || store.attaching > 0 || store.attachNotice != nil)
+    }
+
+    private var attachmentRow: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if !store.pending.isEmpty || store.attaching > 0 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        ForEach(store.pending) { ChatAttachmentChip(attachment: $0) { item in store.removePending(item) } }
+                        if store.attaching > 0 {
+                            SpinnerRing(tint: .white.opacity(0.75)).frame(width: 13, height: 13).padding(.horizontal, 6)
+                        }
+                    }
+                }
+                .frame(height: Self.attachmentRowHeight - 4)
+            }
+            if let notice = store.attachNotice {
+                Text(notice)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: Self.attachmentNoticeHeight - 2)
+            }
+        }
+    }
+
+    private func pickFiles() {
+        FilePicker.choose(.chat) { store.attach($0) }
+    }
+
     // MARK: - 아래 줄 (입력 칸 또는 생각 중)
 
     private var bottom: some View {
         HStack(alignment: .bottom, spacing: 6) {
+            if !store.isStreaming {
+                Button(action: pickFiles) {
+                    ChatIcon.image("paperclip", size: 12, weight: .semibold)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .frame(width: 22, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(T("이미지·PDF·텍스트·워드 파일 첨부", "Attach an image, PDF, text or Word file"))
+            }
             Group {
                 if store.isStreaming {
                     HStack(spacing: 7) {
@@ -197,7 +278,8 @@ struct ChatPage: View {
                                   onChange: { store.draft = $0 },
                                   onHeightChange: inputHeightChanged,
                                   onSend: store.send,
-                                  onEscape: collapse)
+                                  onEscape: collapse,
+                                  onPaste: { store.attachFromPasteboard($0) })
                 } else {
                     Text(store.draft.isEmpty ? T("무엇이든 물어보세요", "Ask anything") : store.draft)
                         .font(.system(size: 12))
@@ -230,7 +312,17 @@ struct ChatPage: View {
 
     private func inputHeightChanged(_ height: CGFloat) {
         inputHeightState.wrappedValue = height
-        setInputExtra(height - ChatInputView.lineHeight)
+        reportExtra()
+    }
+
+    /// 입력 칸이 늘어난 만큼과 첨부 줄만큼 작은 노치를 키운다
+    private func reportExtra() {
+        var extra = inputHeightState.wrappedValue - ChatInputView.lineHeight
+        if showsAttachmentRow {
+            if !store.pending.isEmpty || store.attaching > 0 { extra += Self.attachmentRowHeight }
+            if store.attachNotice != nil { extra += Self.attachmentNoticeHeight }
+        }
+        setInputExtra(extra)
     }
 
     private func startEditing(_ field: Field) {
@@ -243,6 +335,51 @@ struct ChatPage: View {
         editing = nil
         inputHeightChanged(ChatInputView.lineHeight)
         NSApp.keyWindow?.makeFirstResponder(nil)
+    }
+}
+
+/// 입력 칸 위의 첨부 칩. 그림은 96px 미리보기만 읽는다.
+private struct ChatAttachmentChip: View {
+    let attachment: ChatAttachment
+    var remove: (ChatAttachment) -> Void
+
+    private let previewState = State(initialValue: NSImage?.none)
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Group {
+                if let image = previewState.wrappedValue {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else {
+                    ChatIcon.image(attachment.kind == .pdf ? "doc.richtext" : (attachment.kind == .image ? "photo" : "doc.text"), size: 11, weight: .regular)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .frame(width: 24, height: 24)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            Text(attachment.name)
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 72, alignment: .leading)
+            Button { remove(attachment) } label: {
+                ChatIcon.image("xmark", size: 8, weight: .bold)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .frame(width: 14, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(T("첨부 빼기", "Remove"))
+        }
+        .padding(.leading, 3)
+        .padding(.trailing, 2)
+        .frame(height: 30)
+        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .onAppear {
+            guard attachment.hasPreview, previewState.wrappedValue == nil else { return }
+            previewState.wrappedValue = NSImage(contentsOf: ChatFiles.pending.appendingPathComponent(attachment.previewFile))
+        }
     }
 }
 
@@ -302,6 +439,8 @@ struct ChatInputView: NSViewRepresentable {
     var onHeightChange: (CGFloat) -> Void
     var onSend: () -> Void
     var onEscape: () -> Void
+    /// ⌘V: 클립보드의 파일·그림을 첨부로 처리했으면 true
+    var onPaste: (NSPasteboard) -> Bool = { _ in false }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ChatInputView
@@ -359,8 +498,9 @@ struct ChatInputView: NSViewRepresentable {
         scroll.contentInsets = NSEdgeInsetsZero
 
         // 가벼운 TextKit 1 + 맞춤법·예측 끔 (메모와 같은 이유)
-        let tv = MemoNSTextView(usingTextLayoutManager: false)
+        let tv = ChatInputTextView(usingTextLayoutManager: false)
         MemoNSTextView.disableExtras(tv)
+        tv.onPaste = onPaste
         tv.isRichText = false
         tv.allowsUndo = true
         tv.drawsBackground = false
@@ -394,6 +534,7 @@ struct ChatInputView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
+        (scroll.documentView as? ChatInputTextView)?.onPaste = onPaste
         // 보낸 뒤 비우기 등 바깥에서 바뀐 경우만 반영한다 (다시 그려질 때 입력 중인 글을 덮어쓰지 않게)
         guard context.coordinator.revision != revision, let tv = scroll.documentView as? NSTextView else { return }
         context.coordinator.revision = revision
@@ -401,5 +542,19 @@ struct ChatInputView: NSViewRepresentable {
         context.coordinator.reportHeight(tv)
         // 제목을 쓰다가 새 채팅을 눌러도 커서가 입력 칸으로 오게 한다
         if focus { DispatchQueue.main.async { [weak tv] in tv?.window?.makeFirstResponder(tv) } }
+    }
+}
+
+/// 입력 칸: 클립보드에 파일·그림이 있으면 글자 대신 첨부한다
+final class ChatInputTextView: MemoNSTextView {
+    var onPaste: ((NSPasteboard) -> Bool)?
+
+    override func paste(_ sender: Any?) {
+        var board = NSPasteboard.general
+        #if DEV
+        if let test = ChatAnswerTextView.testPasteboard { board = test }
+        #endif
+        if onPaste?(board) == true { return }
+        super.paste(sender)
     }
 }
