@@ -93,12 +93,22 @@ struct ChatPage: View {
     // MARK: - 대화
 
     private var content: some View {
+        // 목록은 본문 위에 덮는다 (본문 폭이 줄면 표·수식·줄바꿈이 모두 나빠진다). 고르거나 바깥을 누르면 닫힌다.
         GeometryReader { geo in
-            HStack(spacing: 8) {
+            ZStack(alignment: .trailing) {
                 conversation
                 if store.showList {
+                    Color.black.opacity(0.55)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) { store.toggleList() }
+                        }
+                        .transition(.opacity)
                     ChatListView(store: store)
-                        .frame(width: (geo.size.width - 8) / 3)
+                        .padding(5)
+                        .frame(width: geo.size.width * 0.56)
+                        .frame(maxHeight: .infinity)
+                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -236,7 +246,7 @@ struct ChatPage: View {
     }
 }
 
-/// 채팅 목록 (오른쪽 1/3). 누르면 불러오고, 우클릭으로 삭제.
+/// 채팅 목록 (본문 위에 덮음). 누르면 불러오고, 우클릭으로 삭제.
 private struct ChatListView: View {
     @ObservedObject var store: ChatStore
 
@@ -244,7 +254,9 @@ private struct ChatListView: View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 3) {
                 ForEach(store.summaries) { chat in
-                    Button { store.open(chat.id) } label: {
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) { store.open(chat.id) }
+                    } label: {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(chat.title.isEmpty ? T("제목 없음", "Untitled") : chat.title)
                                 .font(.system(size: 10.5, weight: .semibold))

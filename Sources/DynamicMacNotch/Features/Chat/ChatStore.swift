@@ -337,7 +337,10 @@ final class ChatStore: ObservableObject {
     }
 
     func open(_ id: UUID) {
-        guard !isStreaming, id != currentID else { return }
+        guard !isStreaming else { return }
+        showList = false
+        summaries = []
+        guard id != currentID else { return }
         saveTitleNow()
         guard let record = Self.read(id) else {
             reloadList()
