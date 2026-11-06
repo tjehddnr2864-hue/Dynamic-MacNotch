@@ -24,28 +24,17 @@ final class LockScreenManager: ObservableObject {
     /// 숨김 애니메이션이 끝나기 전에 다시 보이게 되면 이전 숨김 완료 처리를 무시한다.
     private var playerHideToken = 0
 
-    /// 잠금화면 노치 창 보이기/숨기기, 미리 준비 (AppDelegate가 NotchHub에 연결)
-    var setLockNotchVisible: ((Bool) -> Void)?
-    /// 평소 노치 창 숨기기/보이기 (숨김, 서서히)
-    var setMainNotchHidden: ((Bool, Bool) -> Void)?
-    /// 잠금화면 전용 노치 창을 쓸 수 있는지 (SkyLight 이동 성공 여부)
-    var lockNotchAvailable: (() -> Bool)?
-    var prepareLockNotch: (() -> Void)?
-
     init(center: ActivityCenter, hub: NotchHub, media: MediaController) {
         self.center = center
         self.hub = hub
         self.media = media
     }
 
-    /// 노치를 강제로 다시 그리는 처리기 (AppDelegate가 연결)
-    var refreshNotch: (() -> Void)?
-
     func start() {
         // 잠기는 순간 옮기면 첫 프레임이 늦어 노치가 덜 펼쳐진 채 보일 수 있어, 앱 시작 때 미리 준비한다.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self, self.settings.lockNotchEnabled else { return }
-            self.prepareLockNotch?()
+            self.hub.prepareLockPanel()
         }
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
@@ -88,20 +77,20 @@ final class LockScreenManager: ObservableObject {
         isLocked = true
         swapWork?.cancel()
         hub.collapseAll()
-        let independent = !preview && settings.lockNotchEnabled && (lockNotchAvailable?() ?? false)
-        if !preview { setMainNotchHidden?(true, false) }
+        let independent = !preview && settings.lockNotchEnabled && hub.lockPanelReady
+        if !preview { hub.setMainPanelsHidden(true, animated: false) }
         // 화면 보호기 상태는 잠글 때 실제 상태로 다시 맞춘다 (끝남 알림을 놓쳐 '실행 중'으로 남는 일 방지)
         screenSaverActive = !preview && Self.screenSaverRunning()
         if settings.lockNotchEnabled {
             center.lockActivity = NotchActivity(kind: .lock, priority: ActivityPriority.lock,
                                                 symbol: "lock", tint: .white, value: .none, wing: 38)
         }
-        if independent { setLockNotchVisible?(true) }
+        if independent { hub.setLockPanelVisible(true) }
         // 잠금 전환 중에는 가려진 창의 화면 갱신이 멈출 수 있어, 잠금화면이 뜬 뒤 다시 그리게 한다.
         for delay in [0.3, 0.8, 1.6] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self, self.isLocked else { return }
-                self.refreshNotch?()
+                self.hub.forceRefresh()
             }
         }
         updatePlayerVisibility(hasMedia: media.nowPlaying != nil)
@@ -114,7 +103,7 @@ final class LockScreenManager: ObservableObject {
         isLocked = false
         screenSaverActive = false
         hidePlayer()
-        let independent = !preview && settings.lockNotchEnabled && (lockNotchAvailable?() ?? false)
+        let independent = !preview && settings.lockNotchEnabled && hub.lockPanelReady
 
         if preview || independent, center.lockActivity != nil {
             center.lockActivity?.symbol = "lock.open"
@@ -132,10 +121,10 @@ final class LockScreenManager: ObservableObject {
         let work = DispatchWorkItem { [weak self] in
             guard let self, !self.isLocked else { return }
             // 평소 노치를 먼저 그대로(페이드 없이) 보이고, 다음 프레임에 잠금화면 노치를 치운다 → 깜빡임 없음
-            self.setMainNotchHidden?(false, false)
+            self.hub.setMainPanelsHidden(false, animated: false)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 guard !self.isLocked else { return }
-                self.setLockNotchVisible?(false)
+                self.hub.setLockPanelVisible(false)
             }
         }
         swapWork = work
@@ -238,8 +227,6 @@ final class LockScreenManager: ObservableObject {
     func closeFull() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { playerState.isFull = false }
     }
-
-    // MARK: - 개발용
 
     func openFull() {
         lyrics.load(for: media.nowPlaying)

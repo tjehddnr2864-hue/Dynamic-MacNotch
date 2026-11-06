@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 설정 → AI 채팅: 서비스, 서비스별 모델과 API 키, 연결 테스트.
+/// 설정 → AI 채팅: 표시, 서비스별 모델과 API 키, 답변, 저장된 대화.
 struct ChatSettingsPage: View {
     @ObservedObject var settings: AppSettings
 
@@ -34,63 +34,10 @@ struct ChatSettingsPage: View {
     var body: some View {
         let hasKey = hasKeyState.wrappedValue
         Form {
-            Section {
-                Toggle(T("노치 홈에 AI 채팅 페이지 표시", "Show the AI Chat page in the notch's Home"), isOn: $settings.chatEnabled)
-                Toggle(T("필요할 때만 웹 검색 (최근 소식, 확실하지 않은 내용)", "Use web search only when needed (recent or uncertain topics)"), isOn: $settings.chatWebSearch)
-                Picker(T("다시 열 때 보여 줄 화면", "When Reopened, Show"), selection: $settings.chatReopen) {
-                    ForEach(ChatReopen.allCases) { Text($0.label).tag($0) }
-                }
-            } header: { Text(T("표시", "Show")) } footer: {
-                footnote(T("간단한 질문을 가볍게 쓰는 기능입니다. 입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. 채팅 내용은 메모처럼 이 Mac에 저장되며, 노치의 채팅 목록에서 삭제할 수 있습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다. 웹 검색은 각 서비스의 검색 도구를 쓰며 API 키 방식에서는 별도 요금이 붙을 수 있습니다.",
-                           "Meant for quick, light questions. Your questions, recent messages and files you attach are sent to the company you choose below. The clipboard, screen and files are never sent on their own. Chats are saved on this Mac like memos, and you can delete them from the chat list in the notch. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer. Web search uses each service's search tool and may cost extra with an API key."))
-            }
-            Section {
-                Label {
-                    Text(T("대화 내용은 내부 저장소에 저장됩니다.", "Conversations are saved to internal storage."))
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                }
-                LabeledContent(T("저장된 대화", "Saved Conversations")) {
-                    HStack(spacing: 8) {
-                        let usage = usageState.wrappedValue
-                        Text(T("\(usage.count)개 · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))",
-                               "\(usage.count) · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))"))
-                            .foregroundStyle(.secondary)
-                        Button(T("캐시 비우기", "Clear Cache")) {
-                            refreshUsage()   // 노치에서 대화하는 동안 설정 창은 활성 상태 그대로라 개수가 낡을 수 있다
-                            confirmClearState.wrappedValue = true
-                        }
-                            .disabled(usageState.wrappedValue.count == 0)
-                    }
-                }
-            } header: { Text(T("대화 저장", "Saved Conversations")) } footer: {
-                footnote(T("캐시 비우기는 저장된 모든 대화와 첨부 파일을 이 Mac에서 바로 삭제합니다. 메모·설정·API 키는 지우지 않습니다.",
-                           "Clear Cache deletes every saved conversation and attachment from this Mac right away. Memos, settings and API keys are kept."))
-            }
-            Section {
-                footnote(T("이미지 \(ChatAttachLimit.images)장, PDF 1개(10MB·\(ChatAttachLimit.pdfPages)쪽), 텍스트 파일(200KB), 워드 파일을 질문에 첨부할 수 있습니다. 클립 버튼, ⌘V, 파일 끌어놓기로 붙입니다.",
-                           "You can attach up to \(ChatAttachLimit.images) images, one PDF (10 MB, \(ChatAttachLimit.pdfPages) pages), text files (200 KB) and Word files to a question, using the paperclip, ⌘V or drag and drop."))
-                footnote(T("첨부 파일은 대화와 함께 이 Mac에 암호화 없이 저장되어 앱을 다시 시작해도 후속 질문에 쓸 수 있습니다. 이미지는 긴 변 \(ChatAttachLimit.imageLongEdge)픽셀로 줄이고 위치 정보를 지우며, 워드 파일은 글자만 저장합니다.",
-                           "Attachments are saved unencrypted on this Mac with the conversation, so follow-up questions can use them even after a restart. Images are reduced to \(ChatAttachLimit.imageLongEdge) pixels on the long edge with location data removed, and Word files keep only their text."))
-                footnote(T("후속 질문에서는 파일을 매번 보내지 않습니다. 질문이 파일 이름이나 '이 사진', '첨부' 같은 말로 파일을 가리키면 함께 보내고, 그 밖에는 파일 이름만 알려서 AI가 꼭 필요하다고 판단할 때만 다시 보냅니다. 다시 보낸 파일은 질문 아래에 ↻로 표시되며, 그만큼 토큰(요금 또는 구독 한도)을 씁니다.",
-                           "Follow-up questions don't always resend files. A file is sent again when the question points to it, by its name or words like \"this photo\" or \"attached\". Otherwise the AI only sees the file names and asks for a file when it really needs it. Files sent again are marked ↻ under the question and use tokens (billing or subscription limits)."))
-            } header: { Text(T("첨부 파일", "Attachments")) }
-            Section {
-                ZStack(alignment: .topLeading) {
-                    if settings.chatInstructions.isEmpty {
-                        Text(T("예: 항상 존댓말로 짧게 답해 줘. 코드는 Swift로 보여 줘.", "e.g. Keep answers short. Show code in Swift."))
-                            .foregroundStyle(.tertiary)
-                            .padding(.leading, 5)
-                            .allowsHitTesting(false)
-                    }
-                    TextEditor(text: instructionsBinding)
-                        .scrollContentBackground(.hidden)
-                        .frame(height: 84)
-                }
-            } header: { Text(T("답변 지침", "Answer Instructions")) } footer: {
-                let count = settings.chatInstructions.count
-                footnote(T("모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 최대 \(AppSettings.chatInstructionsLimit)자입니다 (지금 \(count)자).",
-                           "Applies to answers from every service and is sent to the company you choose with each question. Up to \(AppSettings.chatInstructionsLimit) characters (now \(count))."))
+            SettingsSection(SectionTitle.show, footer: T("입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다.",
+                                                        "Your questions, recent messages and files you attach are sent to the company you choose below. The clipboard, screen and files are never sent on their own. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer.")) {
+                HomePageToggle(settings: settings, key: "chat", title: T("홈에 AI 채팅 페이지 표시", "Show AI Chat in Home"))
+                SegmentedChoice(T("다시 열 때 보여 줄 화면", "When reopened, show"), selection: $settings.chatReopen)
             }
             Section {
                 Picker(T("서비스", "Service"), selection: $settings.chatService) {
@@ -169,6 +116,48 @@ struct ChatSettingsPage: View {
                 footnote(T("키는 이 Mac의 키체인에만 저장되고, 질문할 때 \(service.company)에만 전송됩니다. API 사용 요금은 월정액 구독과 별도로 \(service.company)가 키 주인에게 청구합니다. 연결 테스트는 키와 모델만 확인하며 요금이 들지 않습니다.",
                            "Your key is stored only in this Mac's Keychain and is sent only to \(service.company) when you ask a question. API usage is billed to the key's owner by \(service.company), separately from any subscription. The connection test only checks the key and model, at no cost."))
             }
+            SettingsSection(T("답변", "Answers"), footer: T("웹 검색은 각 서비스의 검색 도구를 쓰며 별도 요금이 붙을 수 있습니다. 답변 지침은 모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 최대 \(AppSettings.chatInstructionsLimit)자입니다 (지금 \(settings.chatInstructions.count)자).",
+                                                           "Web search uses each service's search tool and may cost extra. Answer instructions apply to every service and are sent to the company you choose with each question. Up to \(AppSettings.chatInstructionsLimit) characters (now \(settings.chatInstructions.count)).")) {
+                Toggle(T("필요할 때만 웹 검색 (최근 소식, 확실하지 않은 내용)", "Use web search only when needed (recent or uncertain topics)"), isOn: $settings.chatWebSearch)
+                ZStack(alignment: .topLeading) {
+                    if settings.chatInstructions.isEmpty {
+                        Text(T("답변 지침 예: 항상 존댓말로 짧게 답해 줘. 코드는 Swift로 보여 줘.", "Answer instructions, e.g. Keep answers short. Show code in Swift."))
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: instructionsBinding)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: 84)
+                }
+            }
+            SettingsSection(T("저장된 대화", "Saved Conversations"), footer: T("대화와 첨부 파일은 메모처럼 이 Mac에 암호화 없이 저장되며, 노치의 채팅 목록에서 하나씩 지울 수도 있습니다. 모두 삭제해도 메모·설정·API 키는 지우지 않습니다.",
+                                                                          "Conversations and attachments are saved unencrypted on this Mac like memos, and you can delete them one by one from the chat list in the notch. Delete All keeps memos, settings and API keys.")) {
+                LabeledContent(T("저장 용량", "Storage")) {
+                    HStack(spacing: 8) {
+                        let usage = usageState.wrappedValue
+                        Text(T("\(usage.count)개 · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))",
+                               "\(usage.count) · \(ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file))"))
+                            .foregroundStyle(.secondary)
+                        Button(T("모두 삭제…", "Delete All…")) {
+                            refreshUsage()   // 노치에서 대화하는 동안 설정 창은 활성 상태 그대로라 개수가 낡을 수 있다
+                            confirmClearState.wrappedValue = true
+                        }
+                        .disabled(usageState.wrappedValue.count == 0)
+                    }
+                }
+            }
+            Section {
+                DisclosureGroup(T("첨부 파일 안내", "About Attachments")) {
+                    footnote(T("이미지 \(ChatAttachLimit.images)장, PDF 1개(10MB·\(ChatAttachLimit.pdfPages)쪽), 텍스트 파일(200KB), 워드 파일을 질문에 첨부할 수 있습니다. 클립 버튼, ⌘V, 파일 끌어놓기로 붙입니다.",
+                               "You can attach up to \(ChatAttachLimit.images) images, one PDF (10 MB, \(ChatAttachLimit.pdfPages) pages), text files (200 KB) and Word files to a question, using the paperclip, ⌘V or drag and drop."))
+                    footnote(T("앱을 다시 시작해도 후속 질문에 쓸 수 있습니다. 이미지는 긴 변 \(ChatAttachLimit.imageLongEdge)픽셀로 줄이고 위치 정보를 지우며, 워드 파일은 글자만 저장합니다.",
+                               "Follow-up questions can use them even after a restart. Images are reduced to \(ChatAttachLimit.imageLongEdge) pixels on the long edge with location data removed, and Word files keep only their text."))
+                    footnote(T("후속 질문에서는 파일을 매번 보내지 않습니다. 질문이 파일 이름이나 '이 사진', '첨부' 같은 말로 파일을 가리키면 함께 보내고, 그 밖에는 파일 이름만 알려서 AI가 꼭 필요하다고 판단할 때만 다시 보냅니다. 다시 보낸 파일은 질문 아래에 ↻로 표시되며, 그만큼 토큰(요금 또는 구독 한도)을 씁니다.",
+                               "Follow-up questions don't always resend files. A file is sent again when the question points to it, by its name or words like \"this photo\" or \"attached\". Otherwise the AI only sees the file names and asks for a file when it really needs it. Files sent again are marked ↻ under the question and use tokens (billing or subscription limits)."))
+                }
+            }
+            PreviewSection([(.chatDone, T("답변 완료 알림", "Answer Ready Alert"))])
         }
         .settingsForm()
         .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
@@ -289,6 +278,8 @@ struct ChatSettingsPage: View {
     private var modelBinding: Binding<String> {
         Binding(get: { settings.chatModel(for: service) },
                 set: {
+                    // 입력 칸이 포커스를 잃을 때도 불린다: 그대로면 기본 모델을 저장값으로 굳히지 않는다
+                    guard $0 != settings.chatModel(for: service) else { return }
                     settings.setChatModel($0, for: service)
                     test = .idle
                 })
@@ -337,9 +328,5 @@ struct ChatSettingsPage: View {
                 test = error.map(TestState.failed) ?? .passed
             }
         }
-    }
-
-    private func footnote(_ text: String) -> some View {
-        Text(text).font(.caption).foregroundStyle(.secondary)
     }
 }

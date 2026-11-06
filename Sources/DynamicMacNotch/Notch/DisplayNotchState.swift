@@ -1,62 +1,6 @@
 import SwiftUI
 import Combine
 
-enum NotchState: Int, Equatable {
-    case idle, compact, detail, expanded
-}
-
-/// 홈의 네 가지 옵션. 한 번에 하나씩 표시하고 점·스와이프로 넘긴다.
-enum HomeOption: Int, CaseIterable {
-    case camera, timer, usage, memo, calendar, tray, chat
-
-    /// 설정·저장에 쓰는 이름 (순서를 바꿔도 변하지 않음)
-    var key: String {
-        switch self {
-        case .camera: return "camera"
-        case .timer: return "timer"
-        case .usage: return "usage"
-        case .memo: return "memo"
-        case .calendar: return "calendar"
-        case .tray: return "tray"
-        case .chat: return "chat"
-        }
-    }
-
-    init?(key: String) {
-        guard let o = HomeOption.allCases.first(where: { $0.key == key }) else { return nil }
-        self = o
-    }
-
-    var title: String {
-        switch self {
-        case .camera: return T("카메라", "Camera")
-        case .timer: return T("타이머", "Timer")
-        case .usage: return T("AI 사용량", "AI Usage")
-        case .memo: return T("메모", "Memo")
-        case .calendar: return T("오늘 일정", "Today")
-        case .tray: return T("에어드랍 · 트레이", "AirDrop · Tray")
-        case .chat: return T("AI 채팅", "AI Chat")
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .camera: return "camera.fill"
-        case .timer: return "timer"
-        case .usage: return "gauge.medium"
-        case .memo: return "note.text"
-        case .calendar: return "calendar"
-        case .tray: return "tray.and.arrow.down.fill"
-        case .chat: return "bubble.left.and.text.bubble.right.fill"
-        }
-    }
-}
-
-enum ExpandedPage: Equatable {
-    case home
-    case activity(ActivityKind)
-}
-
 /// 디스플레이 하나의 노치 크기·상태. 상태는 액티비티 센터와 확장 여부에서 계산된다 (가이드라인 3장).
 /// 디스플레이끼리 같아야 하는 값은 SharedNotchState에 있다.
 final class DisplayNotchState: ObservableObject {
@@ -91,9 +35,9 @@ final class DisplayNotchState: ObservableObject {
 
     private func saveHomeOption() { shared.saveHomeOption() }
 
-    // MARK: - 홈 페이지 목록 (설정 → 상호작용 → 기본)
+    // MARK: - 홈 페이지 목록 (설정 → 상호작용 → 홈 기능)
 
-    /// 보이는 홈 페이지 (설정한 순서, 끈 기능·노치에서 가린 트레이는 빠짐)
+    /// 보이는 홈 페이지 (설정한 순서, 끈 기능·홈에서 가린 트레이는 빠짐)
     var homePages: [HomeOption] {
         settings.homeOrder.compactMap(HomeOption.init(key:)).filter(settings.homeEnabled)
     }
@@ -211,8 +155,6 @@ final class DisplayNotchState: ObservableObject {
         return animationOverride ?? (state == .idle ? closeSpring : openSpring)
     }
 
-    /// 액티비티가 바뀐 뒤 호출: 컴팩트 → 다른 컴팩트면 잠깐 들어갔다가 새 항목으로 나온다.
-    /// 상세 알림·확장 팝업이 끼면 기존처럼 바로 바뀐다.
     /// 상시 표시 우선순위를 바꾼 뒤(설정에서 5초 동안 더 바뀌지 않으면) 지금 보이는 항목을 새 순서로 다시 맞춘다.
     /// 교체 애니메이션 대기 중이던 항목·이전 항목 기억을 버리고, 현재 우선순위가 가장 높은 항목으로 갱신한다.
     func resyncPersistentOrder() {
@@ -222,6 +164,8 @@ final class DisplayNotchState: ObservableObject {
         withAnimation(openSpring) { objectWillChange.send() }
     }
 
+    /// 액티비티가 바뀐 뒤 호출: 컴팩트 → 다른 컴팩트면 잠깐 들어갔다가 새 항목으로 나온다.
+    /// 상세 알림·확장 팝업이 끼면 기존처럼 바로 바뀐다.
     private func updateCompactSwap() {
         guard baseState == .compact, let kind = displayed?.kind else {
             swapWork?.cancel()
@@ -631,7 +575,7 @@ final class DisplayNotchState: ObservableObject {
         // 이미 그 화면이 열려 있으면 그대로 두고, 아니면 설정한 화면으로 연다
         if !(bothOn && isExpanded && expandedPage == .home && (homeOption == .tray || homeOption == .chat)) {
             if bothOn {
-                homeOption = settings.fileDragPage == "chat" ? .chat : .tray
+                homeOption = settings.fileDragPage == .chat ? .chat : .tray
             } else {
                 homeOption = settings.chatEnabled ? .chat : .tray
             }

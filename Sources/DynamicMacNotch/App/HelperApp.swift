@@ -5,7 +5,7 @@ import ApplicationServices
 /// 설정·권한 창 전용 도우미 프로세스.
 /// 본 앱이 `--helper=settings|permissions|onboarding`으로 같은 실행 파일을 띄우고,
 /// 창이 모두 닫히면 프로세스가 끝나 그 메모리(SwiftUI 폼, 시스템 글꼴·아이콘 캐시 약 20MB)가 통째로 반환된다.
-/// 설정 변경은 AppSettings가, 미리보기·재시작은 디버그 채널로 본 앱에 전달한다.
+/// 설정 변경은 AppSettings가, 미리보기·재시작은 명령 채널로 본 앱에 전달한다.
 enum Helper {
     static let commandNotification = Notification.Name("com.dynamicmacnotch.app.command")
     static let helperNotification = Notification.Name("com.dynamicmacnotch.app.helper")
@@ -96,6 +96,44 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             try? "handled=\(handled) count=\(count)\n".write(toFile: path, atomically: true, encoding: .utf8)
         }
     }
+
+    private func runWindowTests(_ window: NSWindow) {
+        // 개발용: DMN_SETTINGS_HEIGHT=<높이>면 창을 키워 화면 밖에 둔다 (페이지 전체를 캡처해 확인)
+        if let height = ProcessInfo.processInfo.environment["DMN_SETTINGS_HEIGHT"].flatMap(Double.init) {
+            window.setContentSize(CGSize(width: SettingsView.windowSize.width, height: height))
+            window.setFrameOrigin(NSPoint(x: -6000, y: 0))
+        }
+        // 개발용: DMN_SCROLL="x,y,dy"면 열린 뒤 그 자리에서 스크롤 (제목·창 버튼과 겹치는지 시험)
+        if let spec = ProcessInfo.processInfo.environment["DMN_SCROLL"]?.split(separator: ",").compactMap({ Double($0) }), spec.count == 3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
+                guard let window else { return }
+                let origin = window.frame.origin, h = window.frame.height
+                for _ in 0..<40 {
+                    guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(spec[2]), wheel2: 0, wheel3: 0) else { continue }
+                    let top = NSScreen.screens.first?.frame.maxY ?? 0
+                    cg.location = CGPoint(x: origin.x + spec[0], y: top - (origin.y + h) + spec[1])
+                    if let e = NSEvent(cgEvent: cg), let view = window.contentView?.hitTest(NSPoint(x: spec[0], y: h - spec[1])) {
+                        view.scrollWheel(with: e)
+                    }
+                }
+            }
+        }
+        // 개발용: DMN_DRAG="x,y1,y2[,hold]"(창 왼쪽 위 기준 pt, hold면 놓지 않음)면 열린 뒤 그 자리를 눌러 끄는 마우스 이벤트를 보낸다 (순서 끌기 시험)
+        if let spec = ProcessInfo.processInfo.environment["DMN_DRAG"]?.split(separator: ",").compactMap({ Double($0) }), spec.count >= 3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
+                guard let window else { return }
+                let h = window.contentView?.bounds.height ?? 620
+                func send(_ type: NSEvent.EventType, _ y: Double) {
+                    if let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: spec[0], y: h - y), modifierFlags: [],
+                                                  timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                                  context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { window.sendEvent(e) }
+                }
+                send(.leftMouseDown, spec[1])
+                for i in 1...10 { send(.leftMouseDragged, spec[1] + (spec[2] - spec[1]) * Double(i) / 10) }
+                if spec.count == 3 { send(.leftMouseUp, spec[2]) }
+            }
+        }
+    }
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -136,7 +174,7 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         if settingsWindow == nil {
-            let view = SettingsView(hud: hud, preview: { which in Helper.sendToMain("preview:" + which) })
+            let view = SettingsView(hud: hud)
             let window = makeWindow(title: T("Dynamic MacNotch 설정", "Dynamic MacNotch Settings"), content: view)
             // 유리 창: 제목 막대를 숨기고 내용이 창 전체를 채워, 뒤 화면이 비치게 한다.
             window.styleMask.insert(.fullSizeContentView)
@@ -157,36 +195,7 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             center(window)
             settingsWindow = window
             #if DEV
-            // 개발용: DMN_SCROLL="x,y,dy"면 열린 뒤 그 자리에서 스크롤 (제목·창 버튼과 겹치는지 시험)
-            if let spec = ProcessInfo.processInfo.environment["DMN_SCROLL"]?.split(separator: ",").compactMap({ Double($0) }), spec.count == 3 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
-                    guard let window else { return }
-                    let origin = window.frame.origin, h = window.frame.height
-                    for _ in 0..<40 {
-                        guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(spec[2]), wheel2: 0, wheel3: 0) else { continue }
-                        let top = NSScreen.screens.first?.frame.maxY ?? 0
-                        cg.location = CGPoint(x: origin.x + spec[0], y: top - (origin.y + h) + spec[1])
-                        if let e = NSEvent(cgEvent: cg), let view = window.contentView?.hitTest(NSPoint(x: spec[0], y: h - spec[1])) {
-                            view.scrollWheel(with: e)
-                        }
-                    }
-                }
-            }
-            // 개발용: DMN_DRAG="x,y1,y2[,hold]"(창 왼쪽 위 기준 pt, hold면 놓지 않음)면 열린 뒤 그 자리를 눌러 끄는 마우스 이벤트를 보낸다 (순서 끌기 시험)
-            if let spec = ProcessInfo.processInfo.environment["DMN_DRAG"]?.split(separator: ",").compactMap({ Double($0) }), spec.count >= 3 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
-                    guard let window else { return }
-                    let h = window.contentView?.bounds.height ?? 620
-                    func send(_ type: NSEvent.EventType, _ y: Double) {
-                        if let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: spec[0], y: h - y), modifierFlags: [],
-                                                      timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                                                      context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { window.sendEvent(e) }
-                    }
-                    send(.leftMouseDown, spec[1])
-                    for i in 1...10 { send(.leftMouseDragged, spec[1] + (spec[2] - spec[1]) * Double(i) / 10) }
-                    if spec.count == 3 { send(.leftMouseUp, spec[2]) }
-                }
-            }
+            runWindowTests(window)
             #endif
         }
         present(settingsWindow)
@@ -224,6 +233,12 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func present(_ window: NSWindow?) {
+        #if DEV
+        if ProcessInfo.processInfo.environment["DMN_SETTINGS_HEIGHT"] != nil {
+            window?.orderFrontRegardless()
+            return
+        }
+        #endif
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()

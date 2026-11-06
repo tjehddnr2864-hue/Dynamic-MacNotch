@@ -1,127 +1,61 @@
 import SwiftUI
+import Combine
 
-enum HapticStrength: String, CaseIterable, Identifiable {
-    case off, weak, strong
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .off: return T("끄기", "Off")
-        case .weak: return T("약", "Light")
-        case .strong: return T("강", "Strong")
-        }
-    }
-}
-
-enum AlertStyle: String, CaseIterable, Identifiable {
-    case compact, detail
-    var id: String { rawValue }
-    var label: String { self == .compact ? T("컴팩트", "Compact") : T("상세", "Detailed") }
-}
-
-enum BatteryDisplay: String, CaseIterable, Identifiable {
-    case percent, ring, both
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .percent: return T("백분율", "Percent")
-        case .ring: return T("원형", "Ring")
-        case .both: return T("둘 다", "Both")
-        }
-    }
-}
-
-enum HUDStyle: String, CaseIterable, Identifiable {
-    case number, bar, ring
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .number: return T("숫자", "Number")
-        case .bar: return T("가로 바", "Bar")
-        case .ring: return T("원형", "Ring")
-        }
-    }
-}
-
-enum ProgressStyle: String, CaseIterable, Identifiable {
-    case percent, ring
-    var id: String { rawValue }
-    var label: String { self == .percent ? T("백분율", "Percent") : T("원형", "Ring") }
-}
-
-enum ScreenshotSource: String, CaseIterable, Identifiable {
-    case clipboard, file, both
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .clipboard: return T("클립보드", "Clipboard")
-        case .file: return T("파일", "File")
-        case .both: return T("둘 다", "Both")
-        }
-    }
-}
-
-/// UserDefaults에 저장되는 앱 설정. SwiftUI는 @ObservedObject로, AppKit 코드는 AppSettings.shared로 읽는다.
-/// 화면 녹화 표시: 잠깐 알림 후 들어감 / 녹화 내내 노치에 표시(왼쪽 녹화 시간)
-enum RecordingStyle: String, CaseIterable, Identifiable {
-    case brief, persistent
-    var id: String { rawValue }
-    var label: String { self == .brief ? T("잠깐 알림", "Brief Alert") : T("계속 표시 (녹화 시간)", "Keep Showing (Elapsed Time)") }
-}
-
-/// 에어드랍·트레이: 사용 / 노치 홈에서 가림(파일을 끌어오면 여전히 동작) / 끄기(끌어와도 동작 안 함)
-enum TrayMode: String, CaseIterable, Identifiable {
-    case on, hidden, off
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .on: return T("사용", "On")
-        case .hidden: return T("노치에서 가림", "Hide in Notch")
-        case .off: return T("끄기", "Off")
-        }
-    }
-}
-
-/// AI 채팅 페이지로 돌아왔을 때: 마지막 답변 / 처음 화면(입력 칸만, 목록 닫힘)
-enum ChatReopen: String, CaseIterable, Identifiable {
-    case lastAnswer, fresh
-    var id: String { rawValue }
-    var label: String { self == .lastAnswer ? T("마지막 답변", "Last Answer") : T("처음 화면", "New Chat Screen") }
-}
-
-/// AI 사용량 표시 형태
-enum UsageStyle: String, CaseIterable, Identifiable {
-    case text, ring
-    var id: String { rawValue }
-    var label: String { self == .text ? T("텍스트", "Text") : T("원형", "Ring") }
-}
-
+/// 앱 설정. SwiftUI는 @ObservedObject로, AppKit 코드는 AppSettings.shared로 읽는다.
+/// 새 설정은 `@Setting("키", default: 값) var 이름: 타입` 한 줄이면 저장·다시 읽기·변경 알림까지 된다.
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
-    private let defaults = UserDefaults.standard
+    let defaults = UserDefaults.standard
+    /// @Published 없이 직접 알리므로 발행자를 직접 둔다
+    let objectWillChange = ObservableObjectPublisher()
 
-    // 일반
+    private init() {}
+
+    // MARK: - 일반
+
+    /// 앱 언어. 실제 표시는 앱을 다시 시작할 때 바뀐다 (L10n.isEnglish).
+    @Setting(L10n.languageKey, default: AppLanguage.system) var language: AppLanguage
+    @Setting("showStatusItem", default: true) var showStatusItem: Bool
+    @Setting("autoUpdate", default: true) var autoUpdate: Bool
+    @Setting("memoryGuard", default: true) var memoryGuard: Bool
+    /// 메모리 자동 최적화 기준 (MB)
+    @Setting("memoryLimitMB", default: 70.0, sanitize: { min(150, max(70, $0)) }) var memoryLimitMB: Double
+    @Setting("onboardingDone", default: false) var onboardingDone: Bool
+    /// 설정 창 유리 배경: 흐림 정도와 투명도
+    @Setting("settingsBlur", default: 1.0, sanitize: { min(1, max(0, $0)) }) var settingsBlur: Double
+    @Setting("settingsTransparency", default: 0.35, sanitize: { min(0.9, max(0, $0)) }) var settingsTransparency: Double
+
+    // MARK: - 노치 조작
+
+    /// 일회성 알림의 기본 표시 시간. 기능별 표시 시간이 0이면 이 값을 쓴다.
+    @Setting("transientDuration", default: 2.5) var transientDuration: Double
+    @Setting("longPressDuration", default: 0.35) var longPressDuration: Double
+    @Setting("forceTouchEnabled", default: true) var forceTouchEnabled: Bool
+    @Setting("hapticStrength", default: HapticStrength.weak) var hapticStrength: HapticStrength
+    @Setting("hoverPreview", default: true) var hoverPreview: Bool
+    @Setting("hoverToOpen", default: false) var hoverToOpen: Bool
+
+    // MARK: - 디스플레이
+
     /// 노치를 보일 디스플레이: one:<UUID> / builtIn / main / all (Displays 참고)
-    @Published var notchDisplays: String { didSet { save(notchDisplays, "notchDisplays") } }
-
+    @Setting("notchDisplays", read: AppSettings.savedNotchDisplays) var notchDisplays: String
     /// 디스플레이별 상시 표시 선택 (UUID → DisplayChoice). 없으면 주 디스플레이는 모든 항목, 나머지는 주 디스플레이를 따름.
-    @Published var displayContent: [String: String] { didSet { save(displayContent, "displayContent") } }
-
+    @Setting("displayContent", default: [:]) var displayContent: [String: String]
     /// 선택한 상시 표시가 비활성이면 주 디스플레이의 상시 표시를 대신 보인다
-    @Published var displayFallbackToMain: Bool { didSet { save(displayFallbackToMain, "displayFallbackToMain") } }
-    /// 일회성 알림 범위: main(주 디스플레이만) / all(노치를 켠 모든 디스플레이)
-    @Published var alertScope: String { didSet { save(alertScope, "alertScope") } }
+    @Setting("displayFallbackToMain", default: true) var displayFallbackToMain: Bool
+    @Setting("alertScope", default: AlertScope.main) var alertScope: AlertScope
     /// 중요한 알림은 노치를 켠 모든 디스플레이에 보인다
-    @Published var criticalAlertsEnabled: Bool { didSet { save(criticalAlertsEnabled, "criticalAlertsEnabled") } }
+    @Setting("criticalAlertsEnabled", default: true) var criticalAlertsEnabled: Bool
     /// 중요한 알림 구성은 기본 목록과의 차이만 저장한다
-    @Published var criticalAlertAdded: [String] { didSet { save(criticalAlertAdded, "criticalAlertAdded") } }
-    @Published var criticalAlertRemoved: [String] { didSet { save(criticalAlertRemoved, "criticalAlertRemoved") } }
+    @Setting("criticalAlertAdded", default: []) var criticalAlertAdded: [String]
+    @Setting("criticalAlertRemoved", default: []) var criticalAlertRemoved: [String]
 
     var criticalAlerts: Set<String> {
         CriticalAlert.defaults.union(criticalAlertAdded).subtracting(criticalAlertRemoved)
     }
 
     var displayRules: DisplayRules {
-        DisplayRules(content: displayContent, fallbackToMain: displayFallbackToMain, alertScopeAll: alertScope == "all",
+        DisplayRules(content: displayContent, fallbackToMain: displayFallbackToMain, alertScopeAll: alertScope == .all,
                      criticalEnabled: criticalAlertsEnabled, critical: criticalAlerts)
     }
 
@@ -131,98 +65,105 @@ final class AppSettings: ObservableObject {
         if let old = d.string(forKey: "displayTarget") { return old }
         return d.bool(forKey: "onboardingDone") ? "builtIn" : "main"
     }
-    /// 앱 언어. 실제 표시는 앱을 다시 시작할 때 바뀐다 (L10n.isEnglish).
-    @Published var language: AppLanguage { didSet { save(language.rawValue, L10n.languageKey) } }
-    @Published var transientDuration: Double { didSet { save(transientDuration, "transientDuration") } }
-    @Published var showStatusItem: Bool { didSet { save(showStatusItem, "showStatusItem") } }
-    @Published var autoUpdate: Bool { didSet { save(autoUpdate, "autoUpdate") } }
-    @Published var memoryGuard: Bool { didSet { save(memoryGuard, "memoryGuard") } }
-    /// 메모리 자동 최적화 기준 (MB, 70~150)
-    @Published var memoryLimitMB: Double { didSet { save(memoryLimitMB, "memoryLimitMB") } }
-    @Published var onboardingDone: Bool { didSet { save(onboardingDone, "onboardingDone") } }
-    /// 설정 창 유리 배경: 흐림 정도(0~1)와 투명도(0~0.9)
-    @Published var settingsBlur: Double { didSet { save(settingsBlur, "settingsBlur") } }
-    @Published var settingsTransparency: Double { didSet { save(settingsTransparency, "settingsTransparency") } }
 
-    // 상호작용
-    @Published var longPressDuration: Double { didSet { save(longPressDuration, "longPressDuration") } }
-    @Published var forceTouchEnabled: Bool { didSet { save(forceTouchEnabled, "forceTouchEnabled") } }
-    @Published var hapticStrength: HapticStrength { didSet { save(hapticStrength.rawValue, "hapticStrength") } }
-    @Published var hoverPreview: Bool { didSet { save(hoverPreview, "hoverPreview") } }
-    @Published var hoverToOpen: Bool { didSet { save(hoverToOpen, "hoverToOpen") } }
-
-    // 배터리
-    @Published var batteryChargerAlert: Bool { didSet { save(batteryChargerAlert, "batteryChargerAlert") } }
-    @Published var batteryFullAlert: Bool { didSet { save(batteryFullAlert, "batteryFullAlert") } }
-    @Published var batteryLowAlert: Bool { didSet { save(batteryLowAlert, "batteryLowAlert") } }
-    @Published var batteryLowThreshold: Double { didSet { save(batteryLowThreshold, "batteryLowThreshold") } }
-
-    // 네트워크 (가이드라인 5.3)
-    @Published var netWifiPower: Bool { didSet { save(netWifiPower, "netWifiPower") } }
-    @Published var netWifiConnection: Bool { didSet { save(netWifiConnection, "netWifiConnection") } }
-    @Published var netVPN: Bool { didSet { save(netVPN, "netVPN") } }
-    @Published var netHotspot: Bool { didSet { save(netHotspot, "netHotspot") } }
-    /// 0 = 일반 설정 따름
-    @Published var netDuration: Double { didSet { save(netDuration, "netDuration") } }
-    @Published var hotspotPinned: Bool { didSet { save(hotspotPinned, "hotspotPinned") } }
-    /// VPN 연결 중 상시 표시 (아이콘만)
-    @Published var vpnPinned: Bool { didSet { save(vpnPinned, "vpnPinned") } }
-    /// 핫스팟으로 간주할 SSID (쉼표 구분)
-    @Published var hotspotSSIDs: String { didSet { save(hotspotSSIDs, "hotspotSSIDs") } }
-
-    // 블루투스 (5.4)
-    @Published var btEnabled: Bool { didSet { save(btEnabled, "btEnabled") } }
-    @Published var btStyle: AlertStyle { didSet { save(btStyle.rawValue, "btStyle") } }
-    @Published var btBattery: BatteryDisplay { didSet { save(btBattery.rawValue, "btBattery") } }
-    @Published var btShowDisconnect: Bool { didSet { save(btShowDisconnect, "btShowDisconnect") } }
-    /// 알림을 끌 기기 이름 (쉼표 구분)
-    @Published var btBlocklist: String { didSet { save(btBlocklist, "btBlocklist") } }
-
-    // 집중 모드 (5.5)
-    @Published var focusEnabled: Bool { didSet { save(focusEnabled, "focusEnabled") } }
-    @Published var focusDuration: Double { didSet { save(focusDuration, "focusDuration") } }
-    @Published var focusPinned: Bool { didSet { save(focusPinned, "focusPinned") } }
-    /// 표시하지 않을 모드 이름 (쉼표 구분)
-    @Published var focusExcluded: String { didSet { save(focusExcluded, "focusExcluded") } }
-
-    // HUD (5.9)
-    @Published var hudVolume: Bool { didSet { save(hudVolume, "hudVolume") } }
-    @Published var hudDisplay: Bool { didSet { save(hudDisplay, "hudDisplay") } }
-    @Published var hudKeyboard: Bool { didSet { save(hudKeyboard, "hudKeyboard") } }
-    @Published var hudStyle: HUDStyle { didSet { save(hudStyle.rawValue, "hudStyle") } }
-    @Published var hudDuration: Double { didSet { save(hudDuration, "hudDuration") } }
-    @Published var hudOutputIcon: Bool { didSet { save(hudOutputIcon, "hudOutputIcon") } }
-    /// 키 없이 바뀐 화면 밝기(제어 센터·자동 밝기)도 표시
-    @Published var hudDisplayExternal: Bool { didSet { save(hudDisplayExternal, "hudDisplayExternal") } }
-    /// 키 없이 바뀐 키보드 밝기(제어 센터)도 표시
-    @Published var hudKeyboardExternal: Bool { didSet { save(hudKeyboardExternal, "hudKeyboardExternal") } }
-
-    // 잠깐 표시 스타일 (컴팩트: 좌우로만 넓어지며 아이콘+짧은 단어 / 상세: 좌우·아래로 커지며 이름 등 세부 정보)
-    @Published var netStyle: AlertStyle { didSet { save(netStyle.rawValue, "netStyle") } }
-    @Published var focusStyle: AlertStyle { didSet { save(focusStyle.rawValue, "focusStyle") } }
-    @Published var batteryStyle: AlertStyle { didSet { save(batteryStyle.rawValue, "batteryStyle") } }
+    // MARK: - 우선순위 · 홈
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
-    @Published var persistentOrder: [String] { didSet { save(persistentOrder, "persistentOrder") } }
+    @Setting("persistentOrder", default: AppSettings.defaultPersistentOrder, sanitize: AppSettings.fixedPersistentOrder) var persistentOrder: [String]
     static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
 
-    // 미디어 (5.7)
-    @Published var mediaSource: MediaSource { didSet { save(mediaSource.rawValue, "mediaSource") } }
-    /// 일시정지 후 숨김까지 초 (0 = 숨기지 않음)
-    @Published var mediaHideAfterPause: Double { didSet { save(mediaHideAfterPause, "mediaHideAfterPause") } }
-    @Published var mediaShowTrackChange: Bool { didSet { save(mediaShowTrackChange, "mediaShowTrackChange") } }
-    /// 곡 변경 팝업을 Apple Music·Spotify에서만
-    @Published var mediaTrackChangeMusicOnly: Bool { didSet { save(mediaTrackChangeMusicOnly, "mediaTrackChangeMusicOnly") } }
+    /// 새로 생긴 항목은 기본 순서대로 뒤에 붙인다. 통화는 기존 사용자도 맨 위로.
+    private static func fixedPersistentOrder(_ saved: [String]) -> [String] {
+        (saved.contains("call") ? [] : ["call"])
+            + saved.filter(defaultPersistentOrder.contains)
+            + defaultPersistentOrder.filter { !saved.contains($0) && $0 != "call" }
+    }
 
-    // 다운로드 (5.8)
-    @Published var downloadEnabled: Bool { didSet { save(downloadEnabled, "downloadEnabled") } }
-    @Published var downloadStyle: ProgressStyle { didSet { save(downloadStyle.rawValue, "downloadStyle") } }
+    /// 홈 페이지 순서와 끈 기능
+    @Setting("homeOrder", default: AppSettings.defaultHomeOrder, sanitize: AppSettings.fixedHomeOrder) var homeOrder: [String]
+    @Setting("homeDisabled", default: []) var homeDisabled: [String]
+    @Setting("trayMode", default: TrayMode.on) var trayMode: TrayMode
+    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray", "chat"]
+
+    private static func fixedHomeOrder(_ saved: [String]) -> [String] {
+        saved.filter(defaultHomeOrder.contains) + defaultHomeOrder.filter { !saved.contains($0) }
+    }
+
+    func isHomeFeatureOn(_ key: String) -> Bool {
+        switch key {
+        case "tray": return trayMode != .off
+        case "chat": return chatEnabled
+        default: return !homeDisabled.contains(key)
+        }
+    }
+
+    /// 홈에 페이지로 보이는지 (트레이는 '홈에서 가림'이면 페이지만 숨김)
+    func homeEnabled(_ option: HomeOption) -> Bool {
+        option == .tray ? trayMode == .on : isHomeFeatureOn(option.key)
+    }
+
+    /// 스위치로 켜고 끄는 홈 기능 (트레이는 trayMode로 고른다)
+    func setHomeFeature(_ key: String, on: Bool) {
+        if key == "chat" {
+            chatEnabled = on
+        } else {
+            homeDisabled = homeDisabled.filter { $0 != key } + (on ? [] : [key])
+        }
+    }
+
+    // MARK: - 네트워크
+
+    @Setting("netWifiPower", default: true) var netWifiPower: Bool
+    @Setting("netWifiConnection", default: true) var netWifiConnection: Bool
+    @Setting("netVPN", default: true) var netVPN: Bool
+    @Setting("netHotspot", default: true) var netHotspot: Bool
+    @Setting("netStyle", default: AlertStyle.compact) var netStyle: AlertStyle
+    /// 0 = 일반 설정 따름
+    @Setting("netDuration", default: 0.0) var netDuration: Double
+    @Setting("hotspotPinned", default: false) var hotspotPinned: Bool
+    @Setting("vpnPinned", default: false) var vpnPinned: Bool
+    /// 핫스팟으로 간주할 SSID (쉼표 구분)
+    @Setting("hotspotSSIDs", default: "") var hotspotSSIDs: String
+
+    // MARK: - 블루투스
+
+    @Setting("btEnabled", default: true) var btEnabled: Bool
+    @Setting("btStyle", default: AlertStyle.compact) var btStyle: AlertStyle
+    @Setting("btBattery", default: BatteryDisplay.percent) var btBattery: BatteryDisplay
+    /// 알림을 끌 기기 이름 (쉼표 구분)
+    @Setting("btBlocklist", default: "") var btBlocklist: String
+
+    // MARK: - 집중 모드
+
+    @Setting("focusEnabled", default: true) var focusEnabled: Bool
+    @Setting("focusStyle", default: AlertStyle.compact) var focusStyle: AlertStyle
+    /// 0 = 일반 설정 따름
+    @Setting("focusDuration", default: 0.0) var focusDuration: Double
+    @Setting("focusPinned", default: false) var focusPinned: Bool
+    /// 표시하지 않을 모드 이름 (쉼표 구분)
+    @Setting("focusExcluded", default: "") var focusExcluded: String
+
+    // MARK: - 통화
+
+    @Setting("callEnabled", default: true) var callEnabled: Bool
+
+    // MARK: - 미디어
+
+    @Setting("mediaSource", default: MediaSource.all) var mediaSource: MediaSource
+    /// 일시정지 후 숨김까지 초 (0 = 숨기지 않음)
+    @Setting("mediaHideAfterPause", default: 30.0) var mediaHideAfterPause: Double
+    @Setting("mediaShowTrackChange", default: true) var mediaShowTrackChange: Bool
+    /// 곡 변경 팝업을 Apple Music·Spotify에서만
+    @Setting("mediaTrackChangeMusicOnly", default: true) var mediaTrackChangeMusicOnly: Bool
+
+    // MARK: - 다운로드
+
+    @Setting("downloadEnabled", default: true) var downloadEnabled: Bool
+    @Setting("downloadStyle", default: ProgressStyle.ring) var downloadStyle: ProgressStyle
+    /// 다운로드 폴더 (감시하고, 완료 후 Finder로 여는 곳)
+    @Setting("downloadFolder", default: AppSettings.defaultDownloadFolder) var downloadFolder: String
     /// 추가 감시 폴더 (쉼표 구분 경로)
-    @Published var downloadFolders: String { didSet { save(downloadFolders, "downloadFolders") } }
-    /// 다운로드 폴더 (감시하고, 완료 후 Finder로 여는 곳). 기본은 다운로드 폴더
-    @Published var downloadFolder: String { didSet { save(downloadFolder, "downloadFolder") } }
-    /// 화면 녹화 저장 폴더 (완료 후 Finder로 여는 곳). 기본은 데스크탑
-    @Published var recordingFolder: String { didSet { save(recordingFolder, "recordingFolder") } }
+    @Setting("downloadFolders", default: "") var downloadFolders: String
 
     static var defaultDownloadFolder: String { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0].path }
     static var defaultRecordingFolder: String { FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0].path }
@@ -232,69 +173,104 @@ final class AppSettings: ObservableObject {
         return URL(fileURLWithPath: p, isDirectory: true)
     }
 
-    // 트레이·에어드랍 (5.2)
-    @Published var trayKeepCopies: Bool { didSet { save(trayKeepCopies, "trayKeepCopies") } }
+    // MARK: - 에어드랍·트레이
+
+    @Setting("airdropStyle", default: ProgressStyle.ring) var airdropStyle: ProgressStyle
+    @Setting("trayKeepCopies", default: false) var trayKeepCopies: Bool
     /// 자동 정리 일수 (0 = 끄기)
-    @Published var trayCleanupDays: Double { didSet { save(trayCleanupDays, "trayCleanupDays") } }
-    @Published var dragZoneHeight: Double { didSet { save(dragZoneHeight, "dragZoneHeight") } }
+    @Setting("trayCleanupDays", default: 0.0) var trayCleanupDays: Double
+    @Setting("dragZoneHeight", default: 120.0) var dragZoneHeight: Double
     /// 파일을 끌어왔을 때 먼저 보일 화면 (트레이·AI 채팅이 모두 켜져 있을 때)
-    @Published var fileDragPage: String { didSet { save(fileDragPage, "fileDragPage") } }
-    @Published var airdropStyle: ProgressStyle { didSet { save(airdropStyle.rawValue, "airdropStyle") } }
+    @Setting("fileDragPage", default: FileDragPage.tray) var fileDragPage: FileDragPage
 
-    // 스크린샷 (5.11)
-    @Published var screenshotEnabled: Bool { didSet { save(screenshotEnabled, "screenshotEnabled") } }
-    @Published var screenshotSource: ScreenshotSource { didSet { save(screenshotSource.rawValue, "screenshotSource") } }
+    // MARK: - 스크린샷
+
+    @Setting("screenshotEnabled", default: true) var screenshotEnabled: Bool
+    @Setting("screenshotSource", default: ScreenshotSource.clipboard) var screenshotSource: ScreenshotSource
     /// 비어 있으면 데스크탑
-    @Published var screenshotFolder: String { didSet { save(screenshotFolder, "screenshotFolder") } }
-    @Published var screenshotJPEG: Bool { didSet { save(screenshotJPEG, "screenshotJPEG") } }
-    @Published var screenshotAutoClose: Double { didSet { save(screenshotAutoClose, "screenshotAutoClose") } }
+    @Setting("screenshotFolder", default: "") var screenshotFolder: String
+    @Setting("screenshotJPEG", default: false) var screenshotJPEG: Bool
+    @Setting("screenshotAutoClose", default: 10.0) var screenshotAutoClose: Double
 
-    // 화면 녹화·카메라·캘린더
-    @Published var recordingEnabled: Bool { didSet { save(recordingEnabled, "recordingEnabled") } }
-    @Published var callEnabled: Bool { didSet { save(callEnabled, "callEnabled") } }
-    @Published var recordingStyle: RecordingStyle { didSet { save(recordingStyle.rawValue, "recordingStyle") } }
-    @Published var cameraMirror: Bool { didSet { save(cameraMirror, "cameraMirror") } }
-    /// 일정 시작 N분 전 알림 (0 = 끄기)
-    @Published var calendarAlertMinutes: Double { didSet { save(calendarAlertMinutes, "calendarAlertMinutes") } }
+    // MARK: - 화면 녹화
 
-    // 잠금화면 (5.12, 5.13)
-    @Published var lockNotchEnabled: Bool { didSet { save(lockNotchEnabled, "lockNotchEnabled") } }
-    @Published var lockMediaWidget: Bool { didSet { save(lockMediaWidget, "lockMediaWidget") } }
-    @Published var lockHideTrackInfo: Bool { didSet { save(lockHideTrackInfo, "lockHideTrackInfo") } }
-    @Published var lockWidgetBottom: Bool { didSet { save(lockWidgetBottom, "lockWidgetBottom") } }
-    @Published var lyricsEnabled: Bool { didSet { save(lyricsEnabled, "lyricsEnabled") } }
+    @Setting("recordingEnabled", default: true) var recordingEnabled: Bool
+    @Setting("recordingStyle", default: RecordingStyle.persistent) var recordingStyle: RecordingStyle
+    /// 화면 녹화 저장 폴더 (완료 후 Finder로 여는 곳)
+    @Setting("recordingFolder", default: AppSettings.defaultRecordingFolder) var recordingFolder: String
+
+    // MARK: - 배터리
+
+    @Setting("batteryChargerAlert", default: true) var batteryChargerAlert: Bool
+    @Setting("batteryFullAlert", default: true) var batteryFullAlert: Bool
+    @Setting("batteryLowAlert", default: true) var batteryLowAlert: Bool
+    @Setting("batteryLowThreshold", default: 20.0) var batteryLowThreshold: Double
+    @Setting("batteryStyle", default: AlertStyle.compact) var batteryStyle: AlertStyle
+    /// 충전 중 상시 표시 (배터리 %·완충까지 남은 시간). 완충·충전 멈춤(어댑터로만 동작) 중에는 표시 안 함
+    @Setting("batteryChargingPinned", default: true) var batteryChargingPinned: Bool
+
+    // MARK: - HUD
+
+    @Setting("hudVolume", default: true) var hudVolume: Bool
+    @Setting("hudDisplay", default: true) var hudDisplay: Bool
+    @Setting("hudKeyboard", default: true) var hudKeyboard: Bool
+    @Setting("hudStyle", default: HUDStyle.bar) var hudStyle: HUDStyle
+    @Setting("hudDuration", default: 1.5) var hudDuration: Double
+    @Setting("hudOutputIcon", default: true) var hudOutputIcon: Bool
+    /// 키 없이 바뀐 화면 밝기(제어 센터)도 표시
+    @Setting("hudDisplayExternal", default: true) var hudDisplayExternal: Bool
+    /// 키 없이 바뀐 키보드 밝기(제어 센터)도 표시
+    @Setting("hudKeyboardExternal", default: true) var hudKeyboardExternal: Bool
+
+    // MARK: - 잠금화면
+
+    @Setting("lockNotchEnabled", default: true) var lockNotchEnabled: Bool
+    @Setting("lockMediaWidget", default: true) var lockMediaWidget: Bool
+    @Setting("lockHideTrackInfo", default: false) var lockHideTrackInfo: Bool
+    @Setting("lyricsEnabled", default: true) var lyricsEnabled: Bool
     /// 외부 가사 DB(LRCLIB) 조회 동의. 곡 제목·아티스트가 외부로 전송되므로 기본 꺼짐.
-    @Published var lyricsOnline: Bool { didSet { save(lyricsOnline, "lyricsOnline") } }
+    @Setting("lyricsOnline", default: false) var lyricsOnline: Bool
     /// 0 = 작게, 1 = 보통, 2 = 크게
-    @Published var lyricsSize: Int { didSet { save(lyricsSize, "lyricsSize") } }
+    @Setting("lyricsSize", default: 1) var lyricsSize: Int
 
-    // AI 사용량 (Claude · ChatGPT · Gemini)
+    // MARK: - 카메라 · 일정
+
+    @Setting("cameraMirror", default: true) var cameraMirror: Bool
+    /// 일정 시작 N분 전 알림 (0 = 끄기)
+    @Setting("calendarAlertMinutes", default: 10.0) var calendarAlertMinutes: Double
+    /// 다음(진행 중) 일정 상시 표시
+    @Setting("calendarPinned", default: false) var calendarPinned: Bool
+
+    // MARK: - AI 사용량
+
     /// 노치에 상시 표시 (켜져 있을 때만 백그라운드에서 새로고침)
-    @Published var aiUsagePinned: Bool { didSet { save(aiUsagePinned, "aiUsagePinned") } }
-    @Published var aiUsageStyle: UsageStyle { didSet { save(aiUsageStyle.rawValue, "aiUsageStyle") } }
+    @Setting("aiUsagePinned", default: false) var aiUsagePinned: Bool
+    @Setting("aiUsageStyle", default: UsageStyle.text) var aiUsageStyle: UsageStyle
     /// 상시 표시할 서비스 (AIService rawValue)
-    @Published var aiUsageService: String { didSet { save(aiUsageService, "aiUsageService") } }
+    @Setting("aiUsageService", default: "claude") var aiUsageService: String
+    /// 새로고침 간격 (분). 예전 15~60분 값은 10분으로.
+    @Setting("aiRefreshMinutes", default: 5.0, sanitize: { [1, 2, 5, 10].contains($0) ? $0 : 10 }) var aiRefreshMinutes: Double
+    /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
+    @Setting("aiConnected", default: "") var aiConnected: String
+
+    // MARK: - AI 채팅
+
     /// 노치 홈의 AI 채팅 페이지 (외부로 질문을 보내는 기능이라 기본 꺼짐)
-    @Published var chatEnabled: Bool { didSet { save(chatEnabled, "chatEnabled") } }
+    @Setting("chatEnabled", default: false) var chatEnabled: Bool
     /// 노치를 나갔다가 채팅 페이지로 돌아왔을 때 보여 줄 화면
-    @Published var chatReopen: ChatReopen { didSet { save(chatReopen.rawValue, "chatReopen") } }
+    @Setting("chatReopen", default: ChatReopen.lastAnswer) var chatReopen: ChatReopen
     /// 모르는 내용·최근 일은 웹 검색으로 답하게 한다 (서비스의 검색 도구, 별도 요금이 붙을 수 있음)
-    @Published var chatWebSearch: Bool { didSet { save(chatWebSearch, "chatWebSearch") } }
-    /// 사용자가 적은 답변 지침 (모든 서비스의 공통 지시 뒤에 붙는다)
+    @Setting("chatWebSearch", default: true) var chatWebSearch: Bool
+    /// 사용자가 적은 답변 지침 (모든 서비스의 공통 지시 뒤에 붙는다).
     /// 질문할 때 저장값을 직접 읽으므로 본 앱에 알리지 않는다 (글자마다 본 앱의 설정을 다시 읽지 않게)
-    @Published var chatInstructions: String {
-        didSet {
-            guard !loading else { return }
-            defaults.set(chatInstructions, forKey: AppSettings.chatInstructionsKey)
-        }
-    }
+    @Setting(AppSettings.chatInstructionsKey, default: "", notifiesMainApp: false) var chatInstructions: String
     static let chatInstructionsKey = "chatInstructions"
     static let chatInstructionsLimit = 2000
-    @Published var chatService: ChatService { didSet { save(chatService.rawValue, "chatService") } }
+    @Setting("chatService", default: ChatService.claude) var chatService: ChatService
     /// 서비스별 모델 (비어 있으면 그 서비스의 기본 모델)
-    @Published var chatModelClaude: String { didSet { save(chatModelClaude, "chatModelClaude") } }
-    @Published var chatModelOpenAI: String { didSet { save(chatModelOpenAI, "chatModelOpenAI") } }
-    @Published var chatModelGemini: String { didSet { save(chatModelGemini, "chatModelGemini") } }
+    @Setting("chatModelClaude", default: "") var chatModelClaude: String
+    @Setting("chatModelOpenAI", default: "") var chatModelOpenAI: String
+    @Setting("chatModelGemini", default: "") var chatModelGemini: String
 
     func chatModel(for service: ChatService) -> String {
         switch service {
@@ -311,42 +287,15 @@ final class AppSettings: ObservableObject {
         case .gemini: chatModelGemini = model
         }
     }
-    /// 새로고침 간격 (분)
-    @Published var aiRefreshMinutes: Double { didSet { save(aiRefreshMinutes, "aiRefreshMinutes") } }
-    /// 충전 중 상시 표시 (배터리 %·완충까지 남은 시간). 완충·충전 멈춤(어댑터로만 동작) 중에는 표시 안 함
-    @Published var batteryChargingPinned: Bool { didSet { save(batteryChargingPinned, "batteryChargingPinned") } }
-    /// 다음(진행 중) 일정 상시 표시
-    @Published var calendarPinned: Bool { didSet { save(calendarPinned, "calendarPinned") } }
 
-    // 기본 노치 (홈) 기능: 순서, 끈 기능, 트레이 방식
-    @Published var homeOrder: [String] { didSet { save(homeOrder, "homeOrder") } }
-    @Published var homeDisabled: [String] { didSet { save(homeDisabled, "homeDisabled") } }
-    @Published var trayMode: TrayMode { didSet { save(trayMode.rawValue, "trayMode") } }
-    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray", "chat"]
+    // MARK: - Claude Code · Codex
 
-    func isHomeFeatureOn(_ key: String) -> Bool {
-        switch key {
-        case "tray": return trayMode != .off
-        case "chat": return chatEnabled
-        default: return !homeDisabled.contains(key)
-        }
-    }
-
-    /// 홈에 페이지로 보이는지 (트레이는 '노치에서 가림'이면 페이지만 숨김)
-    func homeEnabled(_ option: HomeOption) -> Bool {
-        switch option {
-        case .tray: return trayMode == .on
-        case .chat: return chatEnabled
-        default: return !homeDisabled.contains(option.key)
-        }
-    }
-
-    /// Claude Code·Codex 작업 완료 알림
-    @Published var agentAlerts: Bool { didSet { save(agentAlerts, "agentAlerts") } }
+    /// 작업 완료 알림
+    @Setting("agentAlerts", default: true) var agentAlerts: Bool
     /// 작업 완료 알림 형태 (상세: 끝난 작업 이름까지)
-    @Published var agentStyle: AlertStyle { didSet { save(agentStyle.rawValue, "agentStyle") } }
-    /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
-    @Published var aiConnected: String { didSet { save(aiConnected, "aiConnected") } }
+    @Setting("agentStyle", default: AlertStyle.compact) var agentStyle: AlertStyle
+
+    // MARK: - 도우미
 
     /// 0이면 nil(일반 설정 따름).
     static func duration(_ value: Double) -> TimeInterval? { value > 0 ? value : nil }
@@ -355,284 +304,25 @@ final class AppSettings: ObservableObject {
         csv.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
-    private init() {
-        let d = UserDefaults.standard
-        func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
-
-        notchDisplays = Self.savedNotchDisplays(d)
-        displayContent = value("displayContent", [:])
-        displayFallbackToMain = value("displayFallbackToMain", true)
-        alertScope = value("alertScope", "main")
-        criticalAlertsEnabled = value("criticalAlertsEnabled", true)
-        criticalAlertAdded = value("criticalAlertAdded", [])
-        criticalAlertRemoved = value("criticalAlertRemoved", [])
-        language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
-        transientDuration = value("transientDuration", 2.5)
-        showStatusItem = value("showStatusItem", true)
-        autoUpdate = value("autoUpdate", true)
-        memoryGuard = value("memoryGuard", true)
-        memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
-        onboardingDone = value("onboardingDone", false)
-        settingsBlur = min(1, max(0, value("settingsBlur", 1.0)))
-        settingsTransparency = min(0.9, max(0, value("settingsTransparency", 0.35)))
-
-        longPressDuration = value("longPressDuration", 0.35)
-        forceTouchEnabled = value("forceTouchEnabled", true)
-        hapticStrength = HapticStrength(rawValue: value("hapticStrength", "")) ?? .weak
-        hoverPreview = value("hoverPreview", true)
-        hoverToOpen = value("hoverToOpen", false)
-
-        batteryChargerAlert = value("batteryChargerAlert", true)
-        batteryFullAlert = value("batteryFullAlert", true)
-        batteryLowAlert = value("batteryLowAlert", true)
-        batteryLowThreshold = value("batteryLowThreshold", 20.0)
-
-        netWifiPower = value("netWifiPower", true)
-        netWifiConnection = value("netWifiConnection", true)
-        netVPN = value("netVPN", true)
-        netHotspot = value("netHotspot", true)
-        netDuration = value("netDuration", 0.0)
-        hotspotPinned = value("hotspotPinned", false)
-        vpnPinned = value("vpnPinned", false)
-        hotspotSSIDs = value("hotspotSSIDs", "")
-
-        btEnabled = value("btEnabled", true)
-        btStyle = AlertStyle(rawValue: value("btStyle", "")) ?? .compact
-        btBattery = BatteryDisplay(rawValue: value("btBattery", "")) ?? .percent
-        btShowDisconnect = value("btShowDisconnect", false)
-        btBlocklist = value("btBlocklist", "")
-
-        focusEnabled = value("focusEnabled", true)
-        focusDuration = value("focusDuration", 0.0)
-        focusPinned = value("focusPinned", false)
-        focusExcluded = value("focusExcluded", "")
-
-        hudVolume = value("hudVolume", true)
-        hudDisplay = value("hudDisplay", true)
-        hudKeyboard = value("hudKeyboard", true)
-        hudStyle = HUDStyle(rawValue: value("hudStyle", "")) ?? .bar
-        hudDuration = value("hudDuration", 1.5)
-        hudOutputIcon = value("hudOutputIcon", true)
-        hudDisplayExternal = value("hudDisplayExternal", true)
-        hudKeyboardExternal = value("hudKeyboardExternal", true)
-
-        netStyle = AlertStyle(rawValue: value("netStyle", "")) ?? .compact
-        focusStyle = AlertStyle(rawValue: value("focusStyle", "")) ?? .compact
-        batteryStyle = AlertStyle(rawValue: value("batteryStyle", "")) ?? .compact
-        let savedOrder: [String] = value("persistentOrder", AppSettings.defaultPersistentOrder)
-        // 새로 생긴 항목은 기본 순서대로 뒤에 붙인다.
-        persistentOrder = (savedOrder.contains("call") ? [] : ["call"])   // 통화는 기존 사용자도 맨 위로
-            + savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
-            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) && $0 != "call" }
-
-        lockNotchEnabled = value("lockNotchEnabled", true)
-        lockMediaWidget = value("lockMediaWidget", true)
-        lockHideTrackInfo = value("lockHideTrackInfo", false)
-        lockWidgetBottom = value("lockWidgetBottom", false)
-        lyricsEnabled = value("lyricsEnabled", true)
-        lyricsOnline = value("lyricsOnline", false)
-        lyricsSize = value("lyricsSize", 1)
-        aiUsagePinned = value("aiUsagePinned", false)
-        aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
-        aiUsageService = value("aiUsageService", "claude")
-        chatEnabled = value("chatEnabled", false)
-        chatWebSearch = value("chatWebSearch", true)
-        chatInstructions = value(AppSettings.chatInstructionsKey, "")
-        chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
-        chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
-        chatModelClaude = value("chatModelClaude", "")
-        chatModelOpenAI = value("chatModelOpenAI", "")
-        chatModelGemini = value("chatModelGemini", "")
-        // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
-        aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
-        aiConnected = value("aiConnected", "")
-        agentAlerts = value("agentAlerts", true)
-        agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
-        batteryChargingPinned = value("batteryChargingPinned", true)
-        calendarPinned = value("calendarPinned", false)
-        // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
-        let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
-        homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
-        homeDisabled = value("homeDisabled", [String]())
-        trayMode = TrayMode(rawValue: value("trayMode", "")) ?? .on
-
-        mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
-        mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
-        mediaShowTrackChange = value("mediaShowTrackChange", true)
-        mediaTrackChangeMusicOnly = value("mediaTrackChangeMusicOnly", true)
-
-        downloadEnabled = value("downloadEnabled", true)
-        downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring
-        downloadFolders = value("downloadFolders", "")
-        downloadFolder = value("downloadFolder", AppSettings.defaultDownloadFolder)
-        recordingFolder = value("recordingFolder", AppSettings.defaultRecordingFolder)
-
-        trayKeepCopies = value("trayKeepCopies", false)
-        trayCleanupDays = value("trayCleanupDays", 0.0)
-        dragZoneHeight = value("dragZoneHeight", 120.0)
-        fileDragPage = value("fileDragPage", "tray")
-        airdropStyle = ProgressStyle(rawValue: value("airdropStyle", "")) ?? .ring
-
-        screenshotEnabled = value("screenshotEnabled", true)
-        screenshotSource = ScreenshotSource(rawValue: value("screenshotSource", "")) ?? .clipboard
-        screenshotFolder = value("screenshotFolder", "")
-        screenshotJPEG = value("screenshotJPEG", false)
-        screenshotAutoClose = value("screenshotAutoClose", 10.0)
-
-        recordingEnabled = value("recordingEnabled", true)
-        callEnabled = value("callEnabled", true)
-        recordingStyle = RecordingStyle(rawValue: value("recordingStyle", "")) ?? .persistent
-        cameraMirror = value("cameraMirror", true)
-        calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
-    }
-
-    /// 다른 프로세스(설정 창 도우미)가 바꾼 값을 다시 읽는다. 읽는 동안에는 저장·알림을 하지 않는다.
-    func reload() {
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
-        loading = true
-        defer { loading = false }
-        let d = UserDefaults.standard
-        func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
-
-        notchDisplays = Self.savedNotchDisplays(d)
-        displayContent = value("displayContent", [:])
-        displayFallbackToMain = value("displayFallbackToMain", true)
-        alertScope = value("alertScope", "main")
-        criticalAlertsEnabled = value("criticalAlertsEnabled", true)
-        criticalAlertAdded = value("criticalAlertAdded", [])
-        criticalAlertRemoved = value("criticalAlertRemoved", [])
-        language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
-        transientDuration = value("transientDuration", 2.5)
-        showStatusItem = value("showStatusItem", true)
-        autoUpdate = value("autoUpdate", true)
-        memoryGuard = value("memoryGuard", true)
-        memoryLimitMB = min(150, max(70, value("memoryLimitMB", 70.0)))
-        onboardingDone = value("onboardingDone", false)
-        settingsBlur = min(1, max(0, value("settingsBlur", 1.0)))
-        settingsTransparency = min(0.9, max(0, value("settingsTransparency", 0.35)))
-
-        longPressDuration = value("longPressDuration", 0.35)
-        forceTouchEnabled = value("forceTouchEnabled", true)
-        hapticStrength = HapticStrength(rawValue: value("hapticStrength", "")) ?? .weak
-        hoverPreview = value("hoverPreview", true)
-        hoverToOpen = value("hoverToOpen", false)
-
-        batteryChargerAlert = value("batteryChargerAlert", true)
-        batteryFullAlert = value("batteryFullAlert", true)
-        batteryLowAlert = value("batteryLowAlert", true)
-        batteryLowThreshold = value("batteryLowThreshold", 20.0)
-
-        netWifiPower = value("netWifiPower", true)
-        netWifiConnection = value("netWifiConnection", true)
-        netVPN = value("netVPN", true)
-        netHotspot = value("netHotspot", true)
-        netDuration = value("netDuration", 0.0)
-        hotspotPinned = value("hotspotPinned", false)
-        vpnPinned = value("vpnPinned", false)
-        hotspotSSIDs = value("hotspotSSIDs", "")
-
-        btEnabled = value("btEnabled", true)
-        btStyle = AlertStyle(rawValue: value("btStyle", "")) ?? .compact
-        btBattery = BatteryDisplay(rawValue: value("btBattery", "")) ?? .percent
-        btShowDisconnect = value("btShowDisconnect", false)
-        btBlocklist = value("btBlocklist", "")
-
-        focusEnabled = value("focusEnabled", true)
-        focusDuration = value("focusDuration", 0.0)
-        focusPinned = value("focusPinned", false)
-        focusExcluded = value("focusExcluded", "")
-
-        hudVolume = value("hudVolume", true)
-        hudDisplay = value("hudDisplay", true)
-        hudKeyboard = value("hudKeyboard", true)
-        hudStyle = HUDStyle(rawValue: value("hudStyle", "")) ?? .bar
-        hudDuration = value("hudDuration", 1.5)
-        hudOutputIcon = value("hudOutputIcon", true)
-        hudDisplayExternal = value("hudDisplayExternal", true)
-        hudKeyboardExternal = value("hudKeyboardExternal", true)
-
-        netStyle = AlertStyle(rawValue: value("netStyle", "")) ?? .compact
-        focusStyle = AlertStyle(rawValue: value("focusStyle", "")) ?? .compact
-        batteryStyle = AlertStyle(rawValue: value("batteryStyle", "")) ?? .compact
-        let savedOrder: [String] = value("persistentOrder", AppSettings.defaultPersistentOrder)
-        // 새로 생긴 항목은 기본 순서대로 뒤에 붙인다.
-        persistentOrder = (savedOrder.contains("call") ? [] : ["call"])   // 통화는 기존 사용자도 맨 위로
-            + savedOrder.filter { AppSettings.defaultPersistentOrder.contains($0) }
-            + AppSettings.defaultPersistentOrder.filter { !savedOrder.contains($0) && $0 != "call" }
-
-        lockNotchEnabled = value("lockNotchEnabled", true)
-        lockMediaWidget = value("lockMediaWidget", true)
-        lockHideTrackInfo = value("lockHideTrackInfo", false)
-        lockWidgetBottom = value("lockWidgetBottom", false)
-        lyricsEnabled = value("lyricsEnabled", true)
-        lyricsOnline = value("lyricsOnline", false)
-        lyricsSize = value("lyricsSize", 1)
-        aiUsagePinned = value("aiUsagePinned", false)
-        aiUsageStyle = UsageStyle(rawValue: value("aiUsageStyle", "")) ?? .text
-        aiUsageService = value("aiUsageService", "claude")
-        chatEnabled = value("chatEnabled", false)
-        chatWebSearch = value("chatWebSearch", true)
-        chatInstructions = value(AppSettings.chatInstructionsKey, "")
-        chatReopen = ChatReopen(rawValue: value("chatReopen", "")) ?? .lastAnswer
-        chatService = ChatService(rawValue: value("chatService", "")) ?? .claude
-        chatModelClaude = value("chatModelClaude", "")
-        chatModelOpenAI = value("chatModelOpenAI", "")
-        chatModelGemini = value("chatModelGemini", "")
-        // 1·2·5·10분 중 하나 (예전 15~60분 값은 10분으로)
-        aiRefreshMinutes = [1.0, 2.0, 5.0, 10.0].contains(value("aiRefreshMinutes", 5.0)) ? value("aiRefreshMinutes", 5.0) : 10
-        aiConnected = value("aiConnected", "")
-        agentAlerts = value("agentAlerts", true)
-        agentStyle = AlertStyle(rawValue: value("agentStyle", "")) ?? .compact
-        batteryChargingPinned = value("batteryChargingPinned", true)
-        calendarPinned = value("calendarPinned", false)
-        // 새로 생긴 홈 기능은 기본 순서대로 뒤에 붙인다
-        let savedHome: [String] = value("homeOrder", AppSettings.defaultHomeOrder)
-        homeOrder = savedHome.filter(AppSettings.defaultHomeOrder.contains) + AppSettings.defaultHomeOrder.filter { !savedHome.contains($0) }
-        homeDisabled = value("homeDisabled", [String]())
-        trayMode = TrayMode(rawValue: value("trayMode", "")) ?? .on
-
-        mediaSource = MediaSource(rawValue: value("mediaSource", "")) ?? .all
-        mediaHideAfterPause = value("mediaHideAfterPause", 30.0)
-        mediaShowTrackChange = value("mediaShowTrackChange", true)
-        mediaTrackChangeMusicOnly = value("mediaTrackChangeMusicOnly", true)
-
-        downloadEnabled = value("downloadEnabled", true)
-        downloadStyle = ProgressStyle(rawValue: value("downloadStyle", "")) ?? .ring
-        downloadFolders = value("downloadFolders", "")
-        downloadFolder = value("downloadFolder", AppSettings.defaultDownloadFolder)
-        recordingFolder = value("recordingFolder", AppSettings.defaultRecordingFolder)
-
-        trayKeepCopies = value("trayKeepCopies", false)
-        trayCleanupDays = value("trayCleanupDays", 0.0)
-        dragZoneHeight = value("dragZoneHeight", 120.0)
-        fileDragPage = value("fileDragPage", "tray")
-        airdropStyle = ProgressStyle(rawValue: value("airdropStyle", "")) ?? .ring
-
-        screenshotEnabled = value("screenshotEnabled", true)
-        screenshotSource = ScreenshotSource(rawValue: value("screenshotSource", "")) ?? .clipboard
-        screenshotFolder = value("screenshotFolder", "")
-        screenshotJPEG = value("screenshotJPEG", false)
-        screenshotAutoClose = value("screenshotAutoClose", 10.0)
-
-        recordingEnabled = value("recordingEnabled", true)
-        callEnabled = value("callEnabled", true)
-        recordingStyle = RecordingStyle(rawValue: value("recordingStyle", "")) ?? .persistent
-        cameraMirror = value("cameraMirror", true)
-        calendarAlertMinutes = value("calendarAlertMinutes", 10.0)
-    }
+    // MARK: - 프로세스 간 동기화
 
     /// 설정 창은 별도 도우미 프로세스에서 열린다(창을 닫으면 프로세스째 메모리가 반환됨).
     /// 도우미가 값을 바꾸면 본 앱에 알려 다시 읽게 한다.
     static var isHelper = false
     static let changedNotification = Notification.Name("com.dynamicmacnotch.app.settingsChanged")
-    private var loading = false
 
-    private func save(_ value: Any, _ key: String) {
-        guard !loading else { return }
-        defaults.set(value, forKey: key)
-        if Self.isHelper {
-            DistributedNotificationCenter.default().postNotificationName(Self.changedNotification, object: key,
-                                                                         userInfo: nil, deliverImmediately: true)
-        }
+    private lazy var slots: [SettingSlot] = Mirror(reflecting: self).children.compactMap { $0.value as? SettingSlot }
+    var settingCount: Int { slots.count }
+
+    /// 다른 프로세스가 바꾼 값을 다시 읽는다. 실제로 바뀐 설정만 알림을 보낸다.
+    func reload() {
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication)
+        slots.forEach { $0.refresh(from: defaults, owner: self) }
+    }
+
+    func didSave(key: String, notifiesMainApp: Bool) {
+        guard Self.isHelper, notifiesMainApp else { return }
+        DistributedNotificationCenter.default().postNotificationName(Self.changedNotification, object: key,
+                                                                     userInfo: nil, deliverImmediately: true)
     }
 }

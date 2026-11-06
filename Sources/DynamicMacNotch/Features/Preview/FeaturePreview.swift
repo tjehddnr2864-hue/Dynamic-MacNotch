@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 설정 → 테스트에서 고를 수 있는 미리보기. 설정 창(도우미 프로세스)은 이 이름만 보낼 수 있다(허용 목록).
+/// 설정 → 미리보기에서 고를 수 있는 미리보기. 설정 창(도우미 프로세스)은 이 이름만 보낼 수 있다(허용 목록).
 enum PreviewID: String, CaseIterable {
     // 네트워크
     case wifiOn = "wifi-on", wifiOff = "wifi-off", wifiConnected = "wifi-connected", wifiDisconnected = "wifi-disconnected"
@@ -38,7 +38,7 @@ enum PreviewID: String, CaseIterable {
 
 /// 미리보기 알림의 표시 형태. 실제 기능과 똑같이 분류한다.
 enum PreviewLayout {
-    /// 설정의 '컴팩트/상세'를 따르는 알림 (테스트에서 골라 볼 수 있음)
+    /// 설정의 '컴팩트/상세'를 따르는 알림 (미리보기에서 골라 볼 수 있음)
     case selectable
     /// 항상 컴팩트 (노치 양옆)
     case compactOnly
@@ -60,7 +60,7 @@ extension PreviewID {
         }
     }
 
-    /// 노치 우클릭 메뉴 '알림 미리보기'에 넣는 대표 항목 (전체는 설정 → 테스트)
+    /// 노치 우클릭 메뉴 '알림 미리보기'에 넣는 대표 항목 (전체는 설정 → 미리보기)
     static let menuItems: [PreviewID] = [.wifiConnected, .vpnOff, .airpods, .focusOn, .hudVolume, .charger, .low,
                                           .download, .recording, .callIncoming, .mediaStart]
 
@@ -76,7 +76,7 @@ extension PreviewID {
         case .download: return T("다운로드", "Download")
         case .recording: return T("화면 녹화", "Screen Recording")
         case .callIncoming: return T("수신 전화", "Incoming Call")
-        case .mediaStart: return T("음악 재생 테스트", "Music Playback Test")
+        case .mediaStart: return T("미디어 재생 테스트", "Media Playback Test")
         default: return rawValue
         }
     }

@@ -11,7 +11,7 @@ struct HomePager: View {
         ZStack {
             if vm.homePages.isEmpty && !vm.isFileDragging {
                 // 설정에서 홈 기능을 모두 껐을 때
-                Text(T("설정 → 상호작용 → 기본에서 기능을 켜세요", "Turn on features in Settings → Interactions → Basics"))
+                Text(T("설정 → 상호작용 → 홈 기능에서 기능을 켜세요", "Turn on features in Settings → Interactions → Home Features"))
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.5))
                     .multilineTextAlignment(.center)

@@ -42,23 +42,11 @@ final class ActivityCenter: ObservableObject {
     }
     private var heldTime: TimeInterval = 1.5
 
-    /// 노치에 표시할 주 액티비티.
-    var displayed: NotchActivity? {
-        // 잠금 상태에서는 자물쇠만 보인다 (다른 정보는 잠금화면에 노출하지 않는다).
-        lockActivity ?? transient ?? topPersistent
-    }
-
     /// 잠금/잠금 해제 표시 (가이드라인 5.12). 설정되면 다른 모든 표시보다 앞선다.
     @Published var lockActivity: NotchActivity?
 
     /// 두 손가락 위로 제스처로 상시 표시 항목을 숨긴 상태 (아래로 제스처 시 다시 표시).
     @Published private(set) var persistentHidden = false
-
-    /// 설정의 우선순위 순서로 고른 상시 표시 항목 (숨김 상태면 nil).
-    var topPersistent: NotchActivity? {
-        guard !persistentHidden else { return nil }
-        return orderedPersistent.first
-    }
 
     var orderedPersistent: [NotchActivity] {
         let order = AppSettings.shared.persistentOrder
@@ -72,12 +60,6 @@ final class ActivityCenter: ObservableObject {
     func setPersistentHidden(_ hidden: Bool) {
         guard hidden != persistentHidden, hasPersistent || !hidden else { return }
         persistentHidden = hidden
-    }
-
-    /// 주 액티비티 외에 진행 중인 지속 액티비티 (보조 원형 표시용).
-    var secondary: NotchActivity? {
-        guard let main = displayed else { return nil }
-        return orderedPersistent.first { $0.kind != main.kind }
     }
 
     // MARK: - 일회성
