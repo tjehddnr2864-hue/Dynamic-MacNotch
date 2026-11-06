@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var notch: NotchController?
     private var lockScreen: LockScreenManager?
+    private let missionControl = MissionControlMonitor()
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
 
@@ -162,6 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.media.noteTestInteraction() }
             .store(in: &previewObservers)
         Updater.shared.start()
+        missionControl.onChange = { [weak self] active in self?.notch?.setMissionControlActive(active) }
+        missionControl.start()
         // AI 채팅: 대화가 있으면 큰 노치, 입력·생각 중이면 작은 노치. 페이지를 닫은 동안 답변이 끝나면 알린다.
         chat.objectWillChange
             .receive(on: RunLoop.main)
@@ -342,6 +345,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     tv.window?.makeFirstResponder(tv)
                     tv.selectAll(nil)
                 }
+            case "mcstate":   // 개발용: Mission Control 숨김 상태 기록
+                let panel = self.notch?.panel
+                try? "active=\(self.missionControl.isActive) hidden=\(self.vm.missionControlHidden) alpha=\(panel?.alphaValue ?? -1) mouseThrough=\(panel?.ignoresMouseEvents ?? false) expanded=\(self.vm.isExpanded)\n"
+                    .write(toFile: NSTemporaryDirectory() + "dmn-mc.txt", atomically: true, encoding: .utf8)
             case "devdraftcount":   // 개발용: 입력 칸 글자 수만 기록 (내용은 남기지 않음)
                 try? "\(self.chat.draft.count)\n".write(toFile: NSTemporaryDirectory() + "dmn-draft.txt", atomically: true, encoding: .utf8)
             case let c where c.hasPrefix("devcmd:"):   // 개발용: 이 앱에만 ⌘+키 (가상 키 코드, 예: devcmd:0 = ⌘A)

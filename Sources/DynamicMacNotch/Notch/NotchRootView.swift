@@ -31,6 +31,7 @@ struct NotchRootView: View {
                 shape
                     .fill(Color.black)
                     .frame(width: size.width, height: size.height)
+                    .opacity(vm.missionControlHidden && vm.reduceMotion ? 0 : 1)
                     .shadow(color: .black.opacity(state == .expanded || state == .detail ? 0.4 : 0), radius: 14, y: 6)
 
                 ZStack(alignment: .topLeading) {
@@ -38,6 +39,7 @@ struct NotchRootView: View {
                         .frame(width: size.width, height: size.height, alignment: .top)
                     mediaArtLayer
                 }
+                    .opacity(vm.missionControlHidden ? 0 : 1)
                     .frame(width: size.width, height: size.height, alignment: .topLeading)
                     // 사라지는 중인 이전 내용도 노치 도형 밖으로 삐져나오지 않게 한 묶음으로 잘라낸다.
                     .compositingGroup()

@@ -84,7 +84,17 @@ final class NotchController: NotchGestureDelegate {
 
     /// 평소 노치 창을 숨기거나 다시 보인다 (잠금 전환 동안 데스크탑과 함께 움직이지 않게).
     func setMainPanelHidden(_ hidden: Bool, animated: Bool) {
-        if hidden {
+        lockHidden = hidden
+        applyPanelVisibility(animated: animated)
+    }
+
+    // 창을 숨기는 이유가 여럿이다. 알파는 여기서만 정해 서로 덮어쓰지 않게 한다.
+    private var lockHidden = false
+    private var missionControlHidden = false
+    private var hideWork: DispatchWorkItem?
+
+    private func applyPanelVisibility(animated: Bool) {
+        if lockHidden || missionControlHidden {
             panel.alphaValue = 0
             panel.ignoresMouseEvents = true
         } else if animated {
@@ -94,6 +104,39 @@ final class NotchController: NotchGestureDelegate {
             }
         } else {
             panel.alphaValue = 1
+        }
+    }
+
+    /// Mission Control이 열리면 노치의 양쪽이 줄어들며 사라지고, 끝나면 돌아온다.
+    /// 창을 내리지 않고 투명하게만 한다 (내리면 Space 전환 때 깜빡이고 순서가 틀어질 수 있다).
+    func setMissionControlActive(_ active: Bool) {
+        hideWork?.cancel()
+        hideWork = nil
+        let reduce = vm.reduceMotion
+        if active {
+            cancelPress()
+            hoverOpenWork?.cancel()
+            vm.endPress()
+            vm.center.hiddenFromScreen = true
+            vm.isHovering = false
+            vm.center.paused = false
+            if vm.isFileDragging { vm.endFileDrag(dropped: false) }
+            collapse()
+            panel.ignoresMouseEvents = true   // 그 자리의 Mission Control 창을 누를 수 있게
+            withAnimation(reduce ? .easeOut(duration: 0.1) : .easeIn(duration: 0.2)) { vm.missionControlHidden = true }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.missionControlHidden = true
+                self.applyPanelVisibility(animated: false)
+            }
+            hideWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + (reduce ? 0.1 : 0.2), execute: work)
+        } else {
+            missionControlHidden = false
+            applyPanelVisibility(animated: false)
+            withAnimation(reduce ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.85)) { vm.missionControlHidden = false }
+            vm.center.hiddenFromScreen = false
+            updateHover()
         }
     }
 
@@ -195,7 +238,7 @@ final class NotchController: NotchGestureDelegate {
 
     private func checkFileDrag() {
         // 에어드랍·트레이를 끄면 파일을 노치로 끌어와도 아무 일도 하지 않는다
-        guard !vm.isFileDragging, vm.acceptsFileDrag else { return }
+        guard !vm.isFileDragging, !vm.missionControlHidden, vm.acceptsFileDrag else { return }
         // 먼저 커서 위치(계산만)로 거르고, 노치 근처일 때만 드래그 페이스트보드(프로세스 간 통신)를 확인한다.
         let loc = NSEvent.mouseLocation
         let f = panel.frame
@@ -210,6 +253,7 @@ final class NotchController: NotchGestureDelegate {
     }
 
     private func updateHover() {
+        guard !vm.missionControlHidden else { return }
         let loc = NSEvent.mouseLocation
         checkFileDragBar(loc)
         // 빠른 거르기: 노치 패널 높이보다 아래에 있고 이미 호버 상태가 아니면 아무것도 계산하지 않는다.
@@ -235,7 +279,7 @@ final class NotchController: NotchGestureDelegate {
     // MARK: - 제스처
 
     private func expand(haptic: Bool) {
-        guard !isLocked(), !vm.isExpanded, Date().timeIntervalSince(lastCollapse) > 0.3 else { return }
+        guard !isLocked(), !vm.missionControlHidden, !vm.isExpanded, Date().timeIntervalSince(lastCollapse) > 0.3 else { return }
         // 알림은 확장 화면 대신 앱이 처리한다 (컴팩트 → 상세 카드, 상세 → 반응 없음)
         if let decide = vm.longPressShouldExpand, !decide(vm.center.displayed) {
             vm.endPress()

@@ -79,6 +79,8 @@ final class NotchViewModel: ObservableObject {
     /// 음량 줄이 더하는 높이
     static let mediaVolumeRowHeight: CGFloat = 26
     @Published var isHovering = false
+    /// Mission Control 동안 노치를 숨긴 상태 (양쪽이 줄어들며 사라진다)
+    @Published var missionControlHidden = false
     /// 길게누르기 진행도 (0...1). 누르는 동안 노치가 최대 6% 부풀어 오른다.
     @Published var pressProgress: CGFloat = 0
     /// 포스터치 stage 1 압력 (0...1).
@@ -341,6 +343,10 @@ final class NotchViewModel: ObservableObject {
     /// 누르기 피드백까지 반영한 실제 표시 크기.
     var displaySize: CGSize {
         let size = targetSize
+        if missionControlHidden, !reduceMotion {
+            // 물리 노치가 있으면 그 폭까지(화면 테두리와 이어진다), 없으면 가운데로 모아 사라진다
+            return CGSize(width: hasPhysicalNotch ? notchSize.width : 0, height: size.height)
+        }
         guard state != .expanded else { return size }
         let p = 1 + 0.06 * max(pressProgress, forcePressure)
         return CGSize(width: size.width * p, height: size.height * p)

@@ -16,7 +16,7 @@ final class ActivityCenter: ObservableObject {
     /// 마우스가 노치 위에 있는 동안 표시 타이머를 멈춘다.
     var paused = false {
         didSet {
-            guard paused != oldValue, let t = transient, !t.ignoresHoverPause else { return }
+            guard paused != oldValue, !hiddenFromScreen, let t = transient, !t.ignoresHoverPause else { return }
             if paused {
                 expireWork?.cancel()
             } else {
@@ -25,6 +25,22 @@ final class ActivityCenter: ObservableObject {
             }
         }
     }
+
+    /// 노치가 화면에서 숨겨진 동안(Mission Control) 모든 알림의 표시 시간을 멈춘다. 돌아왔을 때 남은 시간만큼 보인다.
+    var hiddenFromScreen = false {
+        didSet {
+            guard hiddenFromScreen != oldValue, transient != nil else { return }
+            if hiddenFromScreen {
+                expireWork?.cancel()
+                heldTime = max(1.5, expireDate.map { $0.timeIntervalSinceNow } ?? 1.5)
+            } else if paused, transient?.ignoresHoverPause != true {
+                expireDate = Date().addingTimeInterval(heldTime)
+            } else {
+                scheduleExpire(after: heldTime)
+            }
+        }
+    }
+    private var heldTime: TimeInterval = 1.5
 
     /// 노치에 표시할 주 액티비티.
     var displayed: NotchActivity? {
@@ -165,7 +181,10 @@ final class ActivityCenter: ObservableObject {
                 DispatchQueue.main.asyncAfter(deadline: .now() + detailTime, execute: work)
             }
         }
-        if !paused || activity.ignoresHoverPause {
+        if hiddenFromScreen {
+            expireWork?.cancel()
+            heldTime = duration
+        } else if !paused || activity.ignoresHoverPause {
             scheduleExpire(after: duration)
         } else {
             expireDate = Date().addingTimeInterval(duration)
