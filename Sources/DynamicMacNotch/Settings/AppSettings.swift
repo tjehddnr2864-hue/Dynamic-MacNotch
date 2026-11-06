@@ -106,6 +106,25 @@ final class AppSettings: ObservableObject {
     /// 디스플레이별 상시 표시 선택 (UUID → DisplayChoice). 없으면 주 디스플레이는 모든 항목, 나머지는 주 디스플레이를 따름.
     @Published var displayContent: [String: String] { didSet { save(displayContent, "displayContent") } }
 
+    /// 선택한 상시 표시가 비활성이면 주 디스플레이의 상시 표시를 대신 보인다
+    @Published var displayFallbackToMain: Bool { didSet { save(displayFallbackToMain, "displayFallbackToMain") } }
+    /// 일회성 알림 범위: main(주 디스플레이만) / all(노치를 켠 모든 디스플레이)
+    @Published var alertScope: String { didSet { save(alertScope, "alertScope") } }
+    /// 중요한 알림은 노치를 켠 모든 디스플레이에 보인다
+    @Published var criticalAlertsEnabled: Bool { didSet { save(criticalAlertsEnabled, "criticalAlertsEnabled") } }
+    /// 중요한 알림 구성은 기본 목록과의 차이만 저장한다
+    @Published var criticalAlertAdded: [String] { didSet { save(criticalAlertAdded, "criticalAlertAdded") } }
+    @Published var criticalAlertRemoved: [String] { didSet { save(criticalAlertRemoved, "criticalAlertRemoved") } }
+
+    var criticalAlerts: Set<String> {
+        CriticalAlert.defaults.union(criticalAlertAdded).subtracting(criticalAlertRemoved)
+    }
+
+    var displayRules: DisplayRules {
+        DisplayRules(content: displayContent, fallbackToMain: displayFallbackToMain, alertScopeAll: alertScope == "all",
+                     criticalEnabled: criticalAlertsEnabled, critical: criticalAlerts)
+    }
+
     /// 저장된 값이 없으면 예전 설정을 이어 받는다. 신규 설치는 주 디스플레이, 예전 사용자는 지금 자리 그대로.
     private static func savedNotchDisplays(_ d: UserDefaults) -> String {
         if let saved = d.string(forKey: "notchDisplays") { return saved }
@@ -342,6 +361,11 @@ final class AppSettings: ObservableObject {
 
         notchDisplays = Self.savedNotchDisplays(d)
         displayContent = value("displayContent", [:])
+        displayFallbackToMain = value("displayFallbackToMain", true)
+        alertScope = value("alertScope", "main")
+        criticalAlertsEnabled = value("criticalAlertsEnabled", true)
+        criticalAlertAdded = value("criticalAlertAdded", [])
+        criticalAlertRemoved = value("criticalAlertRemoved", [])
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)
@@ -472,6 +496,11 @@ final class AppSettings: ObservableObject {
 
         notchDisplays = Self.savedNotchDisplays(d)
         displayContent = value("displayContent", [:])
+        displayFallbackToMain = value("displayFallbackToMain", true)
+        alertScope = value("alertScope", "main")
+        criticalAlertsEnabled = value("criticalAlertsEnabled", true)
+        criticalAlertAdded = value("criticalAlertAdded", [])
+        criticalAlertRemoved = value("criticalAlertRemoved", [])
         language = AppLanguage(rawValue: value(L10n.languageKey, "")) ?? .system
         transientDuration = value("transientDuration", 2.5)
         showStatusItem = value("showStatusItem", true)

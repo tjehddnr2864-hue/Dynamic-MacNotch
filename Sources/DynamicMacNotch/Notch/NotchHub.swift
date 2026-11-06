@@ -89,6 +89,14 @@ final class NotchHub {
             .dropFirst(2)
             .sink { [weak self] in DispatchQueue.main.async { self?.sync() } }
             .store(in: &cancellables)
+        // 무엇을 보일지 정하는 설정이 바뀌면 지금 보이는 항목을 다시 맞춘다
+        settings.$displayContent.map { _ in () }
+            .merge(with: settings.$displayFallbackToMain.map { _ in () }, settings.$alertScope.map { _ in () },
+                   settings.$criticalAlertsEnabled.map { _ in () }, settings.$criticalAlertAdded.map { _ in () },
+                   settings.$criticalAlertRemoved.map { _ in () })
+            .dropFirst(6)
+            .sink { [weak self] in DispatchQueue.main.async { self?.resyncPersistentOrder() } }
+            .store(in: &cancellables)
     }
 
     // MARK: - 디스플레이 맞추기
@@ -108,7 +116,10 @@ final class NotchHub {
             guard displays.isEmpty else { return }
             wanted = [""]
         }
-        guard wanted != displays.map(\.uuid) else { return }
+        guard wanted != displays.map(\.uuid) else {
+            updateContexts()
+            return
+        }
         let wasLockDisplay = lockDisplay
         for display in displays where !wanted.contains(display.uuid) {
             observers[display.uuid] = nil
@@ -116,9 +127,22 @@ final class NotchHub {
             display.tearDown()
         }
         displays = wanted.map { uuid in displays.first { $0.uuid == uuid } ?? makeDisplay(uuid) }
+        updateContexts()
         center.paused = anyHovering
         // 잠금 중에 잠금 노치가 있던 디스플레이가 사라지면 새 주 디스플레이로 옮긴다
         if lockPanelShown, lockDisplay !== wasLockDisplay { lockDisplay?.setLockPanelVisible(true) }
+    }
+
+    /// 각 노치에 자기 상황을 알려 주고, 바뀌었으면 보이는 항목을 다시 맞춘다
+    private func updateContexts() {
+        let enabled = displays.map(\.uuid)
+        let main = Displays.screens.first.flatMap(Displays.uuid(of:)) ?? enabled[0]
+        for display in displays {
+            let context = DisplayContext(uuid: display.uuid, main: main, enabled: enabled)
+            guard context != display.vm.context else { continue }
+            display.vm.context = context
+            display.vm.resyncPersistentOrder()
+        }
     }
 
     private func wantedUUIDs() -> [String] {

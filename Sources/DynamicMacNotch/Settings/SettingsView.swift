@@ -475,6 +475,7 @@ struct SettingsView: View {
                 footnote(T("위에서부터 홈 페이지 순서입니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다(일정 감시·알림, 진행 중인 타이머, AI 사용량 새로고침 등). 에어드랍·트레이의 '노치에서 가림'은 홈 페이지에서만 숨기고 파일을 노치로 끌어오면 그대로 동작하며, '끄기'는 파일을 끌어와도 동작하지 않습니다.",
                            "Top to bottom is the Home page order. A feature that's off disappears from the notch and stops running in the background (calendar watching and alerts, a running timer, AI usage refresh…). For AirDrop & Tray, Hide in Notch only removes the Home page — dragging files to the notch still works — while Off ignores dragged files too."))
             }
+            DisplaySettingsSection(settings: settings)
         }
         .settingsForm()
     }

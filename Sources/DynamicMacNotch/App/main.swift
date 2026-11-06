@@ -19,6 +19,10 @@ if let op = ImageTool.op(from: CommandLine.arguments) {
     ImageTool.runHelper(op)   // 스크린샷 썸네일·변환 도우미: 처리 후 바로 종료
 }
 
+#if DEV
+DisplayProbe.runIfRequested()
+#endif
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 

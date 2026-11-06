@@ -77,7 +77,7 @@ struct NotchRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(vm.stateAnimation, value: state)
         .animation(vm.isRetracting ? vm.stateAnimation : (vm.animationOverride ?? vm.openSpring), value: vm.targetSize)
-        .animation(vm.valueSpring, value: vm.center.displayed?.value)
+        .animation(vm.valueSpring, value: vm.displayed?.value)
         .environment(\.colorScheme, .dark)
     }
 
@@ -109,13 +109,13 @@ struct NotchRootView: View {
         case .idle:
             Color.clear
         case .compact:
-            if let a = vm.center.displayed {
+            if let a = vm.displayed {
                 CompactActivityView(activity: a, notchSize: vm.notchSize)
                     .id(a.kind)
                     .transition(appear)
             }
         case .detail:
-            if let a = vm.center.displayed {
+            if let a = vm.displayed {
                 Group {
                     if a.kind == .screenshot {
                         ScreenshotCard(monitor: features.screenshot, notchSize: vm.notchSize)
@@ -223,7 +223,7 @@ struct ExpandedView: View {
         case .update:
             UpdateNotesPage()
         case .download:
-            if let a = vm.center.displayed, a.kind == .download {
+            if let a = vm.displayed, a.kind == .download {
                 DownloadPage(activity: a)
             }
         default:

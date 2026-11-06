@@ -148,12 +148,38 @@ final class DisplayNotchState: ObservableObject {
             .store(in: &cancellables)
     }
 
+    // MARK: - 이 디스플레이에 보일 것 (가이드라인 3.6)
+
+    /// 이 디스플레이의 상황. NotchHub가 정한다. 디스플레이가 하나면 모든 알림이 이곳에 온다.
+    var context = DisplayContext(uuid: "", main: "", enabled: [""])
+
+    /// 이 디스플레이에 뜨는 일회성 알림
+    var visibleTransient: NotchActivity? {
+        guard let t = center.transient, settings.displayRules.alertReaches(t, context) else { return nil }
+        return t
+    }
+
+    /// 이 디스플레이의 상시 표시 항목 (우선순위 순)
+    var visiblePersistent: [NotchActivity] {
+        let kinds = settings.displayRules.persistentKinds(context, active: center.persistentKinds)
+        return center.orderedPersistent.filter { kinds.contains($0.kind) }
+    }
+
+    var topPersistent: NotchActivity? {
+        center.persistentHidden ? nil : visiblePersistent.first
+    }
+
+    /// 노치에 표시할 주 액티비티. 잠금 상태에서는 자물쇠만 보인다.
+    var displayed: NotchActivity? {
+        center.lockActivity ?? visibleTransient ?? topPersistent
+    }
+
     // MARK: - 상태
 
     /// 액티비티만 보고 정한 상태 (교체 애니메이션 반영 전)
     private var baseState: NotchState {
         if isExpanded { return .expanded }
-        guard let a = center.displayed else { return .idle }
+        guard let a = displayed else { return .idle }
         if center.showingDetail, center.transient?.id == a.id { return .detail }
         return .compact
     }
@@ -161,7 +187,7 @@ final class DisplayNotchState: ObservableObject {
     var state: NotchState {
         let s = baseState
         // 컴팩트끼리 다른 항목으로 바뀌는 순간(예: 음악 → 블루투스)에는 먼저 노치 안으로 들어갔다가 나온다.
-        if s == .compact, let shown = shownCompactKind, let kind = center.displayed?.kind, kind != shown {
+        if s == .compact, let shown = shownCompactKind, let kind = displayed?.kind, kind != shown {
             return .idle
         }
         return s
@@ -176,7 +202,7 @@ final class DisplayNotchState: ObservableObject {
     static let retractDuration: TimeInterval = 0.24
 
     var isRetracting: Bool {
-        baseState == .compact && shownCompactKind != nil && center.displayed?.kind != shownCompactKind
+        baseState == .compact && shownCompactKind != nil && displayed?.kind != shownCompactKind
     }
 
     /// 상태가 바뀔 때 노치 도형에 쓸 애니메이션
@@ -192,12 +218,12 @@ final class DisplayNotchState: ObservableObject {
     func resyncPersistentOrder() {
         swapWork?.cancel()
         swapWork = nil
-        shownCompactKind = baseState == .compact ? center.displayed?.kind : nil
+        shownCompactKind = baseState == .compact ? displayed?.kind : nil
         withAnimation(openSpring) { objectWillChange.send() }
     }
 
     private func updateCompactSwap() {
-        guard baseState == .compact, let kind = center.displayed?.kind else {
+        guard baseState == .compact, let kind = displayed?.kind else {
             swapWork?.cancel()
             swapWork = nil
             shownCompactKind = nil
@@ -212,7 +238,7 @@ final class DisplayNotchState: ObservableObject {
             guard let self else { return }
             self.swapWork = nil
             withAnimation(self.openSpring) {
-                self.shownCompactKind = self.center.displayed?.kind
+                self.shownCompactKind = self.displayed?.kind
                 self.objectWillChange.send()
             }
         }
@@ -228,11 +254,11 @@ final class DisplayNotchState: ObservableObject {
             let bump: CGFloat = settings.hoverPreview && isHovering ? 1 : 0
             return CGSize(width: n.width + 14 * bump, height: n.height + 4 * bump)
         case .compact:
-            let wing = NotchActivity.wing(for: center.displayed)
+            let wing = NotchActivity.wing(for: displayed)
             return CGSize(width: n.width + wing * 2, height: n.height)
         case .detail:
             // 상세(확장) 알림: 컴팩트보다 좌우·아래로 조금 더 커진다. 스크린샷처럼 전용 높이가 있으면 넓게.
-            if let extra = center.displayed?.detailHeight {
+            if let extra = displayed?.detailHeight {
                 return CGSize(width: max(n.width + 190, 390), height: n.height + extra)
             }
             return CGSize(width: max(n.width + 150, 330), height: n.height + 58)
@@ -419,11 +445,11 @@ final class DisplayNotchState: ObservableObject {
             // MediaPage: 좌우 여백(위쪽 모서리 + 22), 위 여백 6 + 4
             return CGRect(x: topRadius + 22, y: n.height + 10, width: 50, height: 50)
         case .detail:
-            guard let a = center.displayed, a.kind == .media, a.artwork != nil else { return nil }
+            guard let a = displayed, a.kind == .media, a.artwork != nil else { return nil }
             // DetailActivityView: 좌 35, 노치 아래 남은 높이(58 - 10)의 가운데
             return CGRect(x: 35, y: n.height + 6, width: 36, height: 36)
         case .compact:
-            guard let a = center.displayed, a.kind == .media, a.artwork != nil else { return nil }
+            guard let a = displayed, a.kind == .media, a.artwork != nil else { return nil }
             let s = min(19, n.height - 11)
             return CGRect(x: 4 + (a.wing - s) / 2, y: (n.height - s) / 2, width: s, height: s)
         case .idle:
@@ -531,7 +557,7 @@ final class DisplayNotchState: ObservableObject {
     }
 
     /// 넘겨 볼 수 있는 상시 표시 항목 (우선순위 순)
-    var persistentPages: [ActivityKind] { center.orderedPersistent.map(\.kind) }
+    var persistentPages: [ActivityKind] { visiblePersistent.map(\.kind) }
 
     /// 지금 상시 항목 팝업을 보고 있고, 넘길 항목이 둘 이상인지
     var showsPersistentDots: Bool {

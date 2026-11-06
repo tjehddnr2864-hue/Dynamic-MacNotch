@@ -364,7 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "displaystate":   // 개발용: 노치가 어느 디스플레이에 있는지 기록
                 let lines = ["selection=\(self.settings.notchDisplays) paused=\(self.center.paused)"]
                     + self.hub.displays.map { d in
-                        "notch uuid=\(d.uuid.prefix(8)) panel=\(d.panel.frame) screen=\((d.panel.screen.flatMap(Displays.uuid(of:)) ?? "-").prefix(8)) alpha=\(d.panel.alphaValue) size=\(d.vm.notchSize) expanded=\(d.vm.isExpanded) state=\(d.vm.state) page=\(d.vm.homeOption.key) shown=\(d.vm.center.displayed?.kind.rawValue ?? "-")"
+                        "notch uuid=\(d.uuid.prefix(8)) panel=\(d.panel.frame) screen=\((d.panel.screen.flatMap(Displays.uuid(of:)) ?? "-").prefix(8)) alpha=\(d.panel.alphaValue) size=\(d.vm.notchSize) expanded=\(d.vm.isExpanded) state=\(d.vm.state) page=\(d.vm.homeOption.key) shown=\(d.vm.displayed?.kind.rawValue ?? "-")"
                     }
                     + Displays.all().map { "display \($0.uuid) \($0.label) builtIn=\($0.isBuiltIn) notch=\($0.hasNotch)" }
                 try? (lines.joined(separator: "\n") + "\n").write(toFile: NSTemporaryDirectory() + "dmn-display.txt", atomically: true, encoding: .utf8)

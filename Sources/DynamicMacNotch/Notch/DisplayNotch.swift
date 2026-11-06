@@ -313,11 +313,11 @@ final class DisplayNotch: NotchGestureDelegate {
     private func expand(haptic: Bool) {
         guard !isLocked(), !vm.missionControlHidden, !vm.isExpanded, Date().timeIntervalSince(lastCollapse) > 0.3 else { return }
         // 알림은 확장 화면 대신 앱이 처리한다 (컴팩트 → 상세 카드, 상세 → 반응 없음)
-        if let decide = vm.shared.longPressShouldExpand, !decide(vm.center.displayed) {
+        if let decide = vm.shared.longPressShouldExpand, !decide(vm.displayed) {
             vm.endPress()
             return
         }
-        vm.expand(page: vm.longPressPage(for: vm.center.displayed))
+        vm.expand(page: vm.longPressPage(for: vm.displayed))
         if haptic { Haptics.perform() }
     }
 
@@ -340,7 +340,7 @@ final class DisplayNotch: NotchGestureDelegate {
         pressFired = false
         pressOrigin = NSEvent.mouseLocation
         // 상세 알림처럼 길게누르기가 없는 경우: 누름 반응·길게누르기 없이 클릭만 받는다
-        pressBlocked = !(vm.shared.allowsPressFeedback?(vm.center.displayed) ?? true)
+        pressBlocked = !(vm.shared.allowsPressFeedback?(vm.displayed) ?? true)
         guard !pressBlocked else { return }
         let duration = settings.longPressDuration
         vm.beginPress(duration: duration)
@@ -370,7 +370,7 @@ final class DisplayNotch: NotchGestureDelegate {
         vm.endPress()
         if wasPressing, !pressFired {
             // 짧은 클릭: 액티비티 소스 열기. Idle에서는 아무것도 하지 않는다.
-            clickHandler(vm, vm.center.displayed, leftSide)
+            clickHandler(vm, vm.displayed, leftSide)
         }
     }
 
@@ -462,7 +462,7 @@ final class DisplayNotch: NotchGestureDelegate {
         case .ended, .cancelled:
             defer { scrollAccum = .zero }
             // 음악이 작은 노치에 떠 있을 때 두 손가락 좌우: 다음/이전 곡
-            if abs(scrollAccum.width) > abs(scrollAccum.height) * 1.5, vm.center.displayed?.kind == .media {
+            if abs(scrollAccum.width) > abs(scrollAccum.height) * 1.5, vm.displayed?.kind == .media {
                 let contentDX = natural ? scrollAccum.width : -scrollAccum.width
                 if abs(contentDX) > 50 { vm.shared.onMediaSwipe?(contentDX < 0) }
                 return
@@ -476,7 +476,7 @@ final class DisplayNotch: NotchGestureDelegate {
                 Haptics.perform()
                 return
             }
-            if fingerUp > 30, center.transient == nil, center.topPersistent != nil {
+            if fingerUp > 30, vm.visibleTransient == nil, vm.topPersistent != nil {
                 withAnimation(vm.closeSpring) { center.setPersistentHidden(true) }
                 Haptics.perform()
             } else if fingerUp < -30, center.persistentHidden {
