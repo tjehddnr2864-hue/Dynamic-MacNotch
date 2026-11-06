@@ -77,7 +77,7 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Hover** | Optional: grow slightly, or open on hover (Settings → General) |
 
 ### Home (6 pages)
-Reorder the pages or turn features off in **Settings → Interactions → Basics**. A feature that's off disappears from the notch and stops running in the background. AirDrop & Tray can also be hidden from Home while dragging files to the notch still works.
+Reorder the pages or turn features off in **Settings → Interactions → Home Features**. A feature that's off disappears from the notch and stops running in the background. AirDrop & Tray can also be hidden from Home while dragging files to the notch still works.
 
 1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages.
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
@@ -109,7 +109,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 - **Incoming** — the notch expands with the caller (saved contact name, otherwise the number; long numbers scroll) and red **Decline** / green **Accept** buttons. **Swipe up with two fingers** to tuck the card away without declining — a small ringing indicator stays; click it to bring the card back.
 - **On a call** — call time on the left, a voice waveform on the right.
 - **Long-press** — the caller's avatar and name, **Mute** and **End** buttons. While muted the waveform stops, like paused music.
-- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Interactions → Phone Calls.
+- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Interactions → Calls.
 
 ### System HUD replacement
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
@@ -133,13 +133,13 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
 ### Multiple displays
-The notch stays on one display until you choose otherwise. **Settings → General → Display** lists every connected display plus **All Displays**. Once two displays are connected, **Settings → Interaction → Basics** gains per-display options:
+The notch stays on one display until you choose otherwise. **Settings → Displays** lists every connected display plus **All Displays**. Once two displays are connected, the same page gains per-display options:
 
-- **Live activity by display:** all live activities, one chosen item, **Notch Only**, **No Notch**, or the same as the main display. A display set to No Notch is left out completely, including alerts and interactions.
-- **When the chosen item is inactive:** show the main display's live activity instead (on by default), or just the plain notch.
+- **Live Activity by display:** all Live Activities, one chosen item, **Notch Only**, **No Notch**, or the same as the main display. A display set to No Notch is left out completely, including alerts and interactions.
+- **When the chosen item is inactive:** show the main display's Live Activity instead (on by default), or just the plain notch.
 - **Alerts:** on the main display only (default) or on all displays with a notch. **Important alerts** (calls, timer done, event alerts, low battery, screen recording) reach every display with a notch unless you turn them off, and you can edit that list.
 
-A long press opens the expanded notch only on that display, and only one can be open at a time. Music, tray files, hidden live activities and the last Home page are shared, so a file added on one display is there on the other. If the chosen display is disconnected, the notch moves to another one and returns when it reconnects. While locked, only the main display shows the lock notch.
+A long press opens the expanded notch only on that display, and only one can be open at a time. Music, tray files, hidden Live Activities and the last Home page are shared, so a file added on one display is there on the other. If the chosen display is disconnected, the notch moves to another one and returns when it reconnects. While locked, only the main display shows the lock notch.
 
 ### Mission Control
 The notch shrinks away while Mission Control is open so it doesn't cover the Spaces bar, and comes back when it closes. Alerts that arrive meanwhile keep their full time. App Exposé and Show Desktop don't hide it.
@@ -148,13 +148,13 @@ The notch shrinks away while Mission Control is open so it doesn't cover the Spa
 - Locking shows a padlock in the notch; unlocking swings the shackle open.
 - While music plays, a **media widget** appears above your profile picture and password field. Click the artwork for a full-screen player with the album art, controls and **lyrics** (Apple Music; time-synced lyrics from LRCLIB are opt-in). Drag the progress and volume bars to seek or change volume, and click the output icon to switch speakers or headphones. Song info can be hidden. The widget is hidden while the screen saver runs.
 
-### Test & preview
-**Settings → Test** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls. Alerts that can be compact or detailed have a Compact/Detailed switch; the rest are grouped as Compact Only or Detailed Only.
-- **Music playback test** plays a test song you can control from the player. Stop it with **Stop Test**; it also stops by itself after 30 seconds without interaction.
+### Preview
+**Settings → Preview** previews every feature in the notch — network, Bluetooth, Focus, HUDs, battery, downloads, AirDrop, screenshots, screen recording, timer, events, phone calls and the lock screen — without touching your real settings, files or calls. Alerts that can be compact or detailed have a Compact/Detailed switch; the rest are grouped as Compact Only or Detailed Only.
+- **Media playback test** plays a test song you can control from the player. Stop it with **Stop Test**; it also stops by itself after 30 seconds without interaction.
 - **Stop All Previews** ends everything at once. Each preview fully cleans up after itself (timers, fake items), so nothing keeps running.
 
 ### Settings window
-A sidebar with **General**, **Priority**, **Interactions**, **Test**, **Permissions** and **About**. Click the arrow next to Interactions to expand one page per feature (Network, Bluetooth, Focus, Phone Calls, Media, Downloads, AirDrop & File Tray, Screenshots, Screen Recording, Battery & Charging, HUD, Lock Screen). Every feature page uses the same order: Show → Appearance → Details → Preview. The sidebar uses Liquid Glass on macOS 26 and later, and you can set the window's blur and transparency in Settings → General.
+A sidebar with **General**, **Displays**, **Priority**, **Interactions**, **Preview**, **Permissions** and **About**. Click the arrow next to Interactions to expand one page per feature (Home Features, Network, Bluetooth, Focus, Calls, Media, Downloads, AirDrop & Tray, Screenshots, Screen Recording, Battery, HUD, Lock Screen, Calendar, AI Usage, AI Chat, Claude Code · Codex). Every feature page uses the same order: Show → Live Activity → Appearance → Details → Preview. The sidebar uses Liquid Glass on macOS 26 and later, and you can set the window's blur and transparency in Settings → General.
 
 ### Language
 Korean and English. Settings → General → Language (System default / 한국어 / English), then **Restart Now**.
@@ -277,7 +277,7 @@ scripts/build.sh --install --run  # install to /Applications
 | **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 일반) |
 
 ### 홈 (6페이지)
-**설정 → 상호작용 → 기본**에서 페이지 순서를 바꾸거나 기능을 끌 수 있습니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다. 에어드랍·트레이는 홈에서만 가리고 파일을 노치로 끌어오면 동작하게 할 수도 있습니다.
+**설정 → 상호작용 → 홈 기능**에서 페이지 순서를 바꾸거나 기능을 끌 수 있습니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다. 에어드랍·트레이는 홈에서만 가리고 파일을 노치로 끌어오면 동작하게 할 수도 있습니다.
 
 1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다.
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
@@ -309,7 +309,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **수신** — 노치가 확장되며 상대(저장된 연락처면 이름, 아니면 번호. 긴 번호는 흐름)와 빨간 **거절** / 초록 **받기** 버튼이 뜹니다. **두 손가락으로 위로 올리면** 거절하지 않고 카드만 접히고 작은 수신 표시가 남습니다. 누르면 다시 펼쳐집니다.
 - **통화 중** — 왼쪽에 통화 시간, 오른쪽에 음성 파형.
 - **길게 누르기** — 상대 아이콘과 이름, **음소거**·**끊기** 버튼. 음소거하면 파형이 일시정지한 음악처럼 멈춥니다.
-- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 상호작용 → 전화에서 끌 수 있습니다.
+- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 상호작용 → 통화에서 끌 수 있습니다.
 
 ### 시스템 HUD 대체
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
@@ -333,9 +333,9 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
 
 ### 여러 디스플레이
-따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 일반 → 표시 화면**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 **설정 → 상호작용 → 기본**에 디스플레이별 옵션이 나타납니다.
+따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 디스플레이**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 같은 페이지에 디스플레이별 옵션이 나타납니다.
 
-- **디스플레이별 상시 표시:** 모든 상시 표시 컨텐츠, 항목 하나, **노치만**, **노치 없음**, 주 디스플레이의 설정을 따름 중에서 고릅니다. 노치 없음인 디스플레이는 알림과 상호작용에서도 완전히 빠집니다.
+- **디스플레이별 상시 표시:** 모든 상시 표시, 항목 하나, **노치만**, **노치 없음**, 주 디스플레이와 같게 중에서 고릅니다. 노치 없음인 디스플레이는 알림과 상호작용에서도 완전히 빠집니다.
 - **선택한 항목이 비활성일 때:** 주 디스플레이의 상시 표시를 대신 보이거나(기본), 기본 노치만 보입니다.
 - **알림:** 주 디스플레이만(기본) 또는 노치를 켠 모든 디스플레이에 뜹니다. **중요한 알림**(통화, 타이머 완료, 일정 알림, 배터리 부족, 화면 녹화 중)은 끄지 않는 한 노치를 켠 모든 디스플레이에 뜨고, 목록을 바꿀 수 있습니다.
 
@@ -348,13 +348,13 @@ Mission Control이 열려 있는 동안 노치가 Spaces 막대를 가리지 않
 - 잠그면 노치에 자물쇠가, 풀면 고리가 열리는 애니메이션이 나옵니다.
 - 음악 재생 중에는 프로필 사진·암호 입력란 위에 **미디어 위젯**이 뜹니다. 앨범아트를 누르면 전체화면 플레이어(앨범아트, 조작 버튼, **가사**: Apple Music, LRCLIB 실시간 가사는 선택)로 커집니다. 진행 바·음량 바를 끌어 이동·조절하고, 출력 아이콘을 눌러 스피커·이어폰을 바꿀 수 있습니다. 곡 정보 숨기기 가능. 화면 보호기가 도는 동안에는 숨겨집니다.
 
-### 테스트·미리보기
-**설정 → 테스트**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다. 컴팩트·상세를 고를 수 있는 알림은 묶음마다 형태를 골라 볼 수 있고, 나머지는 "컴팩트로만 표시"·"상세로만 표시"로 나뉘어 있습니다.
-- **음악 재생 테스트**는 테스트 곡을 재생하며 플레이어 조작을 시험할 수 있습니다. **테스트 중지**로 끝내거나, 30초 동안 조작이 없으면 자동으로 중지됩니다.
+### 미리보기
+**설정 → 미리보기**에서 모든 기능(네트워크, 블루투스, 집중 모드, HUD, 배터리, 다운로드, 에어드랍, 스크린샷, 화면 녹화, 타이머, 일정, 전화, 잠금화면)을 노치에 미리 띄워 볼 수 있습니다. 실제 설정·파일·통화에는 영향이 없습니다. 컴팩트·상세를 고를 수 있는 알림은 묶음마다 형태를 골라 볼 수 있고, 나머지는 "컴팩트로만 표시"·"상세로만 표시"로 나뉘어 있습니다.
+- **미디어 재생 테스트**는 테스트 곡을 재생하며 플레이어 조작을 시험할 수 있습니다. **테스트 중지**로 끝내거나, 30초 동안 조작이 없으면 자동으로 중지됩니다.
 - **모든 미리보기 중지**로 한 번에 끝낼 수 있습니다. 미리보기는 끝나면 타이머·가짜 항목을 모두 정리해 계속 실행되는 것이 남지 않습니다.
 
 ### 설정 창
-왼쪽 사이드바에 **일반**, **우선순위**, **상호작용**, **테스트**, **권한 관리**, **정보**가 있습니다. 상호작용 옆 화살표를 누르면 기능별 페이지(네트워크, 블루투스, 방해금지 모드, 전화, 미디어, 다운로드, 에어드랍 및 파일 트레이, 스크린샷, 화면 녹화, 배터리 및 충전, HUD, 잠금화면)가 펼쳐집니다. 모든 기능 페이지는 표시 → 표시 방식 → 세부 설정 → 미리보기 순서로 같습니다. 사이드바는 macOS 26 이상에서 Liquid Glass로 그려지고, 창의 흐림과 투명도는 설정 → 일반에서 조절합니다.
+왼쪽 사이드바에 **일반**, **디스플레이**, **우선순위**, **상호작용**, **미리보기**, **권한 관리**, **정보**가 있습니다. 상호작용 옆 화살표를 누르면 기능별 페이지(홈 기능, 네트워크, 블루투스, 집중 모드, 통화, 미디어, 다운로드, 에어드랍·트레이, 스크린샷, 화면 녹화, 배터리, HUD, 잠금화면, 일정, AI 사용량, AI 채팅, Claude Code · Codex)가 펼쳐집니다. 모든 기능 페이지는 표시 → 상시 표시 → 표시 방식 → 세부 설정 → 미리보기 순서로 같습니다. 사이드바는 macOS 26 이상에서 Liquid Glass로 그려지고, 창의 흐림과 투명도는 설정 → 일반에서 조절합니다.
 
 ### 언어
 한국어와 영어. 설정 → 일반 → 언어(시스템 설정 따름 / 한국어 / English) 선택 후 **지금 다시 시작**.
