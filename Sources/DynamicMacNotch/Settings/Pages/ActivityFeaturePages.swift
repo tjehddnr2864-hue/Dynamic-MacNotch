@@ -70,17 +70,27 @@ struct TraySettingsPage: View {
             SettingsSection(SectionTitle.style) {
                 ProgressStylePicker(selection: $settings.airdropStyle)
             }
-            SettingsSection(SectionTitle.details, footer: T("파일을 들고 화면 위쪽 감지 높이 안으로 오면, 가장자리에 닿기 전에 노치가 먼저 열려 Mission Control이 뜨지 않게 합니다.", "When you drag a file into this zone at the top of the screen, the notch opens before you reach the edge, so Mission Control doesn't trigger."),
+            SettingsSection(SectionTitle.details, footer: T("자동 정리는 트레이에 넣은 지 그 시간이 지난 항목을 목록에서 뺍니다. 원본 파일은 그대로이고, 복사본으로 보관한 파일은 복사본이 지워집니다. 파일을 들고 화면 위쪽 감지 높이 안으로 오면, 가장자리에 닿기 전에 노치가 먼저 열려 Mission Control이 뜨지 않게 합니다.", "Auto-clean removes items from the tray after that time. Original files stay where they are; files kept as copies have their copy deleted. When you drag a file into this zone at the top of the screen, the notch opens before you reach the edge, so Mission Control doesn't trigger."),
                             disabled: settings.trayMode == .off) {
                 Toggle(T("트레이에 복사본 보관 (원본이 옮겨져도 유지)", "Keep copies in the tray (survive moves)"), isOn: $settings.trayKeepCopies)
-                ValueMenu(title: T("트레이 자동 정리", "Auto-clean tray"), selection: $settings.trayCleanupDays, values: [1, 7], zero: T("끄기", "Off")) {
-                    T("\(Int($0))일", $0 == 1 ? "1 day" : "\(Int($0)) days")
-                }
+                ValueMenu(title: T("트레이 자동 정리", "Auto-clean tray"), selection: $settings.trayCleanupMinutes,
+                          values: [5, 10, 30, 60, 1440, 10080], zero: T("끄기", "Off"), label: Self.cleanupLabel)
                 ValueSlider(title: T("드래그 감지 높이", "Drag detection height"), value: $settings.dragZoneHeight, range: 60...200, step: 10) { "\(Int($0))pt" }
             }
             PreviewSection([(.airdropSend, T("에어드랍 보내기", "AirDrop Send")), (.airdropReceive, T("에어드랍 받기", "AirDrop Receive"))])
         }
         .settingsForm()
+    }
+}
+
+private extension TraySettingsPage {
+    static func cleanupLabel(_ minutes: Double) -> String {
+        switch Int(minutes) {
+        case 60: return T("1시간", "1 hour")
+        case 1440: return T("1일", "1 day")
+        case 10080: return T("7일", "7 days")
+        default: return T("\(Int(minutes))분", "\(Int(minutes)) min")
+        }
     }
 }
 

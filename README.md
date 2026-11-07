@@ -89,8 +89,8 @@ Reorder the pages or turn features off in **Settings → Interactions → Home F
 6. **AirDrop · Tray**
    - **Click** the AirDrop or Tray box to choose files; **or drag files** onto the notch — while dragging, the boxes only act as drop zones. If AI Chat is on too, see item 7 for switching screens.
    - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
-   - Tray files: click / ⌘-click / ⇧-click to select, double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
-   - Options: keep copies in the tray, auto-clean after 1 or 7 days.
+   - Tray files: click / ⌘-click / ⇧-click to select, drag across empty space to select with a rectangle, or use the arrow keys (⇧ extends, ⌘ adds the next file, ⇧⌘ extends to the end, ⌘A selects all), double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
+   - Options: keep copies in the tray, auto-clean after 5, 10 or 30 minutes, 1 hour, 1 day or 7 days.
 7. **AI Chat** (off by default; turn it on in Settings → Interactions → AI Chat) — ask **Claude, GPT or Gemini** from the notch with **your own API key**. Meant for quick, light questions, not as a replacement for a full chat app. Usage is billed to your key by each company, separately from any subscription. Answers support Markdown, clickable links and LaTeX; you can copy them. Web search is used only when a question needs it. Chats are named and saved like memos, and you can write your own answer instructions. Attach **images (up to 4), a PDF (10 MB, 30 pages), text files (200 KB) or Word files** with the paperclip, ⌘V or drag and drop. Attachments are saved with the chat; on a follow-up a file is sent again only when your question points at it or the AI asks to read it, and each send uses tokens. Word files keep only their text. Answers are shaped for the notch: the conclusion comes first, tables are used only when you ask (up to 3 columns), and wider ones appear as lists. Dragging a file to the notch opens the screen chosen in Settings → General; with both AirDrop · Tray and AI Chat on, move the cursor to the vertical bar beside the notch while holding the file to switch between them.
 
 ### Music
@@ -291,8 +291,8 @@ scripts/build.sh --install --run  # install to /Applications
 6. **에어드랍 · 트레이**
    - 에어드랍·트레이 칸을 **클릭**해 파일을 고르거나, 파일을 노치로 **끌어다 놓습니다**. 끄는 동안에는 칸이 놓는 곳으로만 동작합니다. AI 채팅도 켜져 있으면 7번의 화면 전환을 쓸 수 있습니다.
    - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
-   - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
-   - 옵션: 트레이에 복사본 보관, 1일·7일 뒤 자동 정리.
+   - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 빈 곳을 끌어 사각형으로 선택, 화살표 키로 선택(⇧ 범위, ⌘ 옆 파일 추가, ⇧⌘ 끝까지, ⌘A 전체), 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
+   - 옵션: 트레이에 복사본 보관, 5분·10분·30분·1시간·1일·7일 뒤 자동 정리.
 7. **AI 채팅**(기본 꺼짐, 설정 → 상호작용 → AI 채팅에서 켭니다) — **내 API 키**로 노치에서 **Claude, GPT, Gemini**에게 묻습니다. **간단한 질문을 가볍게 쓰는 기능이며, 전용 채팅 앱을 대신하지는 않습니다.** 요금은 구독과 별도로 각 회사가 키 주인에게 청구합니다. 답변은 Markdown, 누를 수 있는 링크, LaTeX 수식을 지원하고 복사할 수 있습니다. 웹 검색은 필요한 질문에만 씁니다. 채팅은 메모처럼 이름을 붙여 저장되며, 답변 지침을 직접 적을 수 있습니다. 클립 버튼, ⌘V, 끌어놓기로 **이미지(4장), PDF(10MB·30쪽), 텍스트 파일(200KB), 워드 파일**을 첨부할 수 있습니다. 첨부 파일은 대화와 함께 저장되며, 후속 질문에서는 질문이 파일을 가리키거나 AI가 읽어야 한다고 판단할 때만 다시 보내며, 보낼 때마다 토큰을 씁니다. 워드 파일은 글자만 저장합니다. 답변은 노치에 맞게 결론부터 쓰고, 표는 요청할 때만(3열 이하) 쓰며 더 넓은 표는 목록으로 보여 줍니다. 파일을 노치로 끌어오면 설정 → 일반에서 고른 화면이 열리고, 에어드랍·트레이와 AI 채팅이 모두 켜져 있으면 파일을 든 채 노치 옆 세로 막대로 커서를 옮겨 두 화면을 오갈 수 있습니다.
 
 ### 음악

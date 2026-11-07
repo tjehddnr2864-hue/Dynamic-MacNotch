@@ -177,11 +177,17 @@ final class AppSettings: ObservableObject {
 
     @Setting("airdropStyle", default: ProgressStyle.ring) var airdropStyle: ProgressStyle
     @Setting("trayKeepCopies", default: false) var trayKeepCopies: Bool
-    /// 자동 정리 일수 (0 = 끄기)
-    @Setting("trayCleanupDays", default: 0.0) var trayCleanupDays: Double
+    /// 자동 정리까지 분 (0 = 끄기)
+    @Setting("trayCleanupMinutes", read: AppSettings.savedTrayCleanup) var trayCleanupMinutes: Double
     @Setting("dragZoneHeight", default: 120.0) var dragZoneHeight: Double
     /// 파일을 끌어왔을 때 먼저 보일 화면 (트레이·AI 채팅이 모두 켜져 있을 때)
     @Setting("fileDragPage", default: FileDragPage.tray) var fileDragPage: FileDragPage
+
+    /// 저장된 값이 없으면 예전 일 단위 설정을 이어 받는다
+    private static func savedTrayCleanup(_ d: UserDefaults) -> Double {
+        if let minutes = d.object(forKey: "trayCleanupMinutes") as? Double { return minutes }
+        return d.double(forKey: "trayCleanupDays") * 1440
+    }
 
     // MARK: - 스크린샷
 

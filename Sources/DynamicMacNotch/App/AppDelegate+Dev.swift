@@ -33,6 +33,32 @@ extension AppDelegate {
             case let c where c.hasPrefix("trayadd:"):   // 개발용
                 self.tray.add(String(c.dropFirst(8)).split(separator: "|").map { URL(fileURLWithPath: String($0)) })
             case "trayclear": self.tray.clear()
+            case let c where c.hasPrefix("devmouse:"):   // 개발용: 노치 창에 왼쪽 버튼 드래그 이벤트 (화면 좌표 "x1,y1,x2,y2", 끝에 ,shift ,hold(놓지 않음) ,up(놓기만) 가능). 두 점이 같으면 클릭.
+                let parts = c.dropFirst(9).split(separator: ",")
+                let v = parts.compactMap { Double($0) }
+                if v.count == 4, let panel = self.notch?.panel, let screen = panel.screen {
+                    panel.ignoresMouseEvents = false
+                    let flags: NSEvent.ModifierFlags = parts.last == "shift" ? .shift : []
+                    func point(_ x: Double, _ y: Double) -> NSPoint { NSPoint(x: x - panel.frame.minX, y: screen.frame.maxY - y - panel.frame.minY) }
+                    func send(_ type: NSEvent.EventType, _ p: NSPoint) {
+                        if let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                                                      windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { panel.sendEvent(e) }
+                    }
+                    if parts.last != "up" { send(.leftMouseDown, point(v[0], v[1])) }
+                    if v[0] != v[2] || v[1] != v[3] {
+                        for i in 1...10 {
+                            let f = Double(i) / 10
+                            send(.leftMouseDragged, point(v[0] + (v[2] - v[0]) * f, v[1] + (v[3] - v[1]) * f))
+                        }
+                    }
+                    if parts.last != "hold" { send(.leftMouseUp, point(v[2], v[3])) }
+                }
+            case "traystate":   // 개발용: 트레이 상태 기록
+                let selected = self.tray.items.filter { self.tray.selection.contains($0.id) }.map { ($0.path as NSString).lastPathComponent }.joined(separator: ",")
+                let cursor = self.tray.items.first { $0.id == self.tray.picked.cursor }.map { ($0.path as NSString).lastPathComponent } ?? "-"
+                let key = self.notch?.panel.isKeyWindow ?? false
+                let line = "items=\(self.tray.items.count) selected=[\(selected)] cursor=\(cursor) key=\(key) responder=\(String(describing: self.notch?.panel.firstResponder.map { type(of: $0) }))\n"
+                try? line.write(toFile: NSTemporaryDirectory() + "dmn-tray.txt", atomically: true, encoding: .utf8)
             case "hide": self.center.setPersistentHidden(true)
             case "unhide": self.center.setPersistentHidden(false)
             case "lock": self.lockScreen?.lock(preview: true)
@@ -104,7 +130,7 @@ extension AppDelegate {
                 let parts = c.dropFirst(7).split(separator: ":")
                 if let first = parts.first, let code = UInt16(first), let window = NSApp.keyWindow {
                     let chars = [UInt16(53): "\u{1b}", 8: "c", 9: "v", 0: "a"][code] ?? "\r"
-                    let flags: NSEvent.ModifierFlags = parts.count < 2 ? [] : (parts[1] == "cmd" ? .command : .shift)
+                    let flags: NSEvent.ModifierFlags = parts.count < 2 ? [] : (parts[1] == "both" ? [.command, .shift] : parts[1] == "cmd" ? .command : .shift)
                     for type in [NSEvent.EventType.keyDown, .keyUp] {
                         if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
                                                     timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,

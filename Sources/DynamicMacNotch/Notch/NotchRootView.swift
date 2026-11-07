@@ -45,6 +45,8 @@ struct NotchRootView: View {
                     .compositingGroup()
                     .clipShape(shape)
             }
+            // 트레이 파일을 끄는 동안 노치 전체가 드롭을 받는다: 여백에 놓아도 아래 창(Finder 등)으로 떨어지지 않는다
+            .onDrop(of: vm.shared.trayItemDragActive ? [.fileURL] : [], isTargeted: nil) { _ in false }
             .overlay(alignment: vm.fileDragBarOnLeft ? .topLeading : .topTrailing) {
                 if vm.fileDragOtherPage != nil {
                     let inset = DisplayNotchState.fileDragBarZone - vm.topRadius

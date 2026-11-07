@@ -113,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hub.collapsed
             .sink { [weak self] in
                 self?.timer.endEditing()
+                self?.tray.releaseViewCaches()
                 DispatchQueue.main.async { self?.hub.releaseKeyFocus() }
             }
             .store(in: &cancellables)

@@ -10,6 +10,9 @@ final class SharedNotchState: ObservableObject {
     /// 입력 칸이 여러 줄로 늘어난 높이
     @Published var chatInputExtra: CGFloat = 0
 
+    /// 트레이 파일을 끌고 있는지. 이 동안에는 노치를 '놓는 곳'으로 바꾸지 않는다.
+    @Published var trayItemDragActive = false
+
     /// 길게누르기 전에 묻는다: 이 활동을 확장 화면으로 열지(true), 앱이 따로 처리했는지(false).
     var longPressShouldExpand: ((NotchActivity?) -> Bool)?
     /// 누르고 있을 때 커지는 반응을 보일지 (상세 알림처럼 길게누르기가 없는 경우 false → 클릭만 반응)
