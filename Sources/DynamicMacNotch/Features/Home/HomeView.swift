@@ -54,8 +54,7 @@ struct HomePager: View {
         case .chat:
             if let pages { pages.chat } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .resource:
-            // shortcut: 자원 사용량 화면은 R5에서 만든다 (docs/RESOURCE_GUIDELINE.md)
-            PlaceholderPage(option: option, note: T("준비 중", "Coming soon"))
+            if let pages { pages.resource } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         }
     }
 }
@@ -68,6 +67,7 @@ struct HomePages {
     var calendar: AnyView
     var tray: AnyView
     var chat: AnyView
+    var resource: AnyView
 }
 
 /// 상시 표시 항목 팝업의 페이지 점 (홈 점과 같은 모양, 우선순위 순)

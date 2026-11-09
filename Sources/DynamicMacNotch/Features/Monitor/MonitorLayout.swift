@@ -24,7 +24,7 @@ enum MonitorExpand: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .follow: return T("표시할 항목을 따름", "Same as Show")
+        case .follow: return T("노치에 보이는 항목을 따름", "Same as shown")
         case .ai: return T("AI 사용량", "AI Usage")
         case .resource: return T("자원 사용량", "Resource Usage")
         case .both: return T("둘 다 (점으로 넘김)", "Both (swipe between)")

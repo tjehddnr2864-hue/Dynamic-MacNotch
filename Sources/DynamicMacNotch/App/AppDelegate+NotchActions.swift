@@ -4,7 +4,7 @@ import SwiftUI
 /// 노치를 눌렀을 때: 길게 누르기와 짧은 클릭
 extension AppDelegate {
     /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
-    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download, .aiUsage]
+    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download, .aiUsage, .resource, .monitor]
 
     /// 길게누르기·누름 반응이 있는지: 상세로 이미 떠 있는 알림과 HUD는 클릭만 받는다.
     func hasLongPressAction(_ activity: NotchActivity?) -> Bool {
@@ -41,6 +41,8 @@ extension AppDelegate {
         guard vm.isExpanded, case .activity(let kind) = vm.expandedPage,
               ![.timer, .media, .update].contains(kind) else { return }
         let stillShown = center.transient?.kind == kind || center.persistentKinds.contains(kind)
+            // 실시간 모니터링 페이지는 통합 항목(.monitor)으로 열린 경우에도 남긴다
+            || (DisplayNotchState.monitorKinds.contains(kind) && !center.persistentKinds.isDisjoint(with: DisplayNotchState.monitorKinds))
             || (kind == .recording && (recording.startedAt != nil || recording.finished != nil))   // 녹화 중·완료 화면 유지
         if !stillShown { vm.collapse() }
     }

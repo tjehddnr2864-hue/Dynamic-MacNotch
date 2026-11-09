@@ -209,7 +209,8 @@ final class DisplayNotchState: ObservableObject {
         case .expanded:
             switch expandedPage {
             case .home:
-                if homeOption == .usage || homeOption == .memo { return usageSize }   // 메모도 AI 사용량과 같은 크기
+                if homeOption == .usage || homeOption == .memo { return usageSize }
+                if homeOption == .resource { return resourceSize }   // 메모도 AI 사용량과 같은 크기
                 if homeOption == .chat { return shared.chatLarge ? chatSize : chatCompactSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
@@ -238,6 +239,8 @@ final class DisplayNotchState: ObservableObject {
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 110)
         case .aiUsage:
             return usageSize
+        case .resource:
+            return resourceSize
         case .update:
             // 업데이트 내용: AI 사용량과 같은 폭, 글이 들어가도록 더 높게
             return CGSize(width: usageSize.width, height: n.height + 6 + 190 + 22)
@@ -253,6 +256,11 @@ final class DisplayNotchState: ObservableObject {
         let contentHeight: CGFloat = 200
         let contentWidth = (contentHeight * 16 / 9).rounded()
         return CGSize(width: contentWidth + 2 * (topRadius + 22), height: notchSize.height + 6 + contentHeight + 22)
+    }
+
+    /// 자원 사용량: 그래프 두 칸 + 네트워크 + 메모리 막대
+    var resourceSize: CGSize {
+        CGSize(width: usageSize.width, height: notchSize.height + 6 + 150 + 22)
     }
 
     /// AI 사용량: 서비스 세 줄(이름 · 5시간 · 주간)이 들어가도록 좌우·아래로 조금 더 넓게
@@ -492,16 +500,47 @@ final class DisplayNotchState: ObservableObject {
     /// 다른 상시 항목과 함께 있으면 상시 항목 모음 팝업으로 연다 (점으로 넘겨 봄).
     func longPressPage(for activity: NotchActivity?) -> ExpandedPage {
         guard let a = activity else { return .home }
-        if a.kind == .aiUsage, center.transient?.id != a.id, persistentPages.count <= 1, homePages.contains(.usage) {
-            homeOption = .usage
+        let pages = Self.monitorKinds.contains(a.kind) ? monitorPages(for: a.kind) : [a.kind]
+        // 실시간 모니터링 한 페이지만 열고 다른 상시 항목이 없으면 홈의 그 페이지로 연다 (홈 점으로 다른 페이지도 넘겨 봄)
+        if pages.count == 1, center.transient?.id != a.id, persistentPages.count <= 1,
+           let home = pages[0] == .aiUsage ? HomeOption.usage : (pages[0] == .resource ? HomeOption.resource : nil),
+           homePages.contains(home) {
+            homeOption = home
             saveHomeOption()
             return .home
         }
-        return .activity(a.kind)
+        return .activity(pages.first ?? a.kind)
     }
 
-    /// 넘겨 볼 수 있는 상시 표시 항목 (우선순위 순)
-    var persistentPages: [ActivityKind] { visiblePersistent.map(\.kind) }
+    static let monitorKinds: Set<ActivityKind> = [.aiUsage, .resource, .monitor]
+
+    /// 실시간 모니터링 항목을 꾹 눌렀을 때 넘겨 볼 페이지. '노치에 보이는 항목을 따름'이면 그 항목에 맞춘다.
+    func monitorPages(for kind: ActivityKind) -> [ActivityKind] {
+        let options = MonitorLayout.availableExpands(aiOn: settings.monitorAIOn, resourceOn: settings.monitorResourceOn)
+        let expand = options.contains(settings.monitorExpand) ? settings.monitorExpand : .follow
+        switch expand {
+        case .ai: return [.aiUsage]
+        case .resource: return [.resource]
+        case .both: return [.aiUsage, .resource]
+        case .follow: return kind == .monitor ? [.aiUsage, .resource] : [kind]
+        }
+    }
+
+    /// 넘겨 볼 수 있는 상시 표시 항목 (우선순위 순). 실시간 모니터링 항목은 확장 화면 페이지로 펼친다.
+    var persistentPages: [ActivityKind] {
+        var pages: [ActivityKind] = []
+        for kind in visiblePersistent.map(\.kind) {
+            for page in Self.monitorKinds.contains(kind) ? monitorPages(for: kind) : [kind] where !pages.contains(page) {
+                pages.append(page)
+            }
+        }
+        return pages
+    }
+
+    /// 자원 사용량 확장 화면이 보이는지 (보이는 동안만 네 지표를 읽는다)
+    var showsResourcePage: Bool {
+        isExpanded && (expandedPage == .activity(.resource) || (expandedPage == .home && homeOption == .resource))
+    }
 
     /// 지금 상시 항목 팝업을 보고 있고, 넘길 항목이 둘 이상인지
     var showsPersistentDots: Bool {

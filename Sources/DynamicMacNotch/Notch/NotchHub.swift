@@ -104,6 +104,8 @@ final class NotchHub {
                 if top.kind == .resource { metrics = [resource.left, resource.right] }
                 if top.kind == .monitor { metrics = [both.left, both.right] }
             }
+            // 자원 사용량 확장 화면(팝업·홈 페이지)이 보이면 네 지표 모두
+            if !paused, settings.monitorResourceOn, display.vm.showsResourcePage { metrics = Set(MonitorMetric.resourceMetrics) }
             metrics.formIntersection(MonitorMetric.resourceMetrics)
             guard !metrics.isEmpty || demandOwners.contains(display.uuid) else { continue }
             ResourceSampler.shared.setDemand(.compact(display.uuid), metrics)
@@ -184,6 +186,10 @@ final class NotchHub {
 
     private func observe(_ display: DisplayNotch) {
         var bag = Set<AnyCancellable>()
+        // 확장·페이지가 바뀌면 자원 측정 수요를 다시 계산 (모아서 한 번)
+        display.vm.objectWillChange
+            .sink { [weak self] in self?.scheduleResourceDemand() }
+            .store(in: &bag)
         // 호버는 디스플레이별로 모은다: 하나라도 호버 중이면 알림 시간을 멈춘다
         display.onHoverChanged = { [weak self] in
             guard let self else { return }

@@ -182,7 +182,8 @@ struct ExpandedView: View {
                                    collapse: { vm.collapse() }, openSettings: openSettings,
                                    setInputExtra: { vm.shared.chatInputExtra = $0 },
                                    fileDragging: vm.isFileDragging,
-                                   onFilesDropped: { vm.endFileDrag(dropped: true) }))
+                                   onFilesDropped: { vm.endFileDrag(dropped: true) })),
+            resource: AnyView(ResourcePage())
         )
     }
 
@@ -222,6 +223,8 @@ struct ExpandedView: View {
             CallPage(monitor: features.call)
         case .aiUsage:
             UsagePage(store: features.usage, openSettings: openSettings)
+        case .resource:
+            ResourcePage()
         case .update:
             UpdateNotesPage()
         case .download:
