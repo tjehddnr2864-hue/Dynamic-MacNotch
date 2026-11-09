@@ -168,6 +168,35 @@ extension AppDelegate {
                 for _ in 0..<5 { NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp) }
             case let c where c.hasPrefix("panelshidden:"):   // 개발용: 잠금 때처럼 모든 노치 숨김·보임
                 self.hub.setMainPanelsHidden(c.hasSuffix("1"), animated: false)
+            case let c where c.hasPrefix("monitordemand:"):   // 개발용: 자원 수요 지정 (monitordemand:cpu,mem / monitordemand: 는 해제)
+                let metrics = Set(c.dropFirst(14).split(separator: ",").compactMap { MonitorMetric(rawValue: String($0)) })
+                ResourceSampler.shared.setDemand(.dev, metrics)
+            case let c where c.hasPrefix("monitortest:"):   // 개발용: 칸 그리기 방식 비교 (가려지지 않게 통화 순위로 띄운다). full = 매 틱 활동 게시, live = 활동 한 번 + 작은 뷰, off
+                self.monitorTest?.cancel()
+                self.monitorTest = nil
+                self.center.removePersistent(.call)
+                let mode = String(c.dropFirst(12))
+                func activity(_ left: ActivityValue, _ right: ActivityValue) -> NotchActivity {
+                    NotchActivity(kind: .call, priority: ActivityPriority.pinned, symbol: "cpu", tint: .green, value: right,
+                                  wing: NotchActivity.compactWing, leadingValue: left)
+                }
+                if mode == "live" {
+                    self.center.setPersistent(activity(.metric(.cpu, ring: false), .metric(.mem, ring: false)))
+                } else if mode == "full" {
+                    let readings = ResourceSampler.shared.readings
+                    self.monitorTest = readings.$snapshot.sink { s in
+                        self.center.setPersistent(activity(.usage(label: "CPU", percent: s.cpu.map(Double.init), ring: false),
+                                                           .usage(label: "MEM", percent: s.mem?.percent, ring: false)))
+                    }
+                }
+            case "monitorstate":   // 개발용: 자원 측정 상태 기록
+                let r = ResourceSampler.shared
+                let s = r.readings.snapshot
+                let history = r.readings.history.map { "\($0.key.rawValue):\($0.value.count)" }.sorted().joined(separator: ",")
+                let line = "active=\(r.active.map(\.rawValue).sorted()) running=\(r.isRunning) interval=\(r.interval) ticks=\(r.ticks) gpu=\(r.gpuAvailable) "
+                    + "cpu=\(s.cpu.map(String.init) ?? "-") gpu%=\(s.gpu.map(String.init) ?? "-") mem=\(s.mem.map { String(format: "%.1f%%", $0.percent) } ?? "-") "
+                    + "net=\(s.net.map { "\($0.received)/\($0.sent)" } ?? "-") history=[\(history)] footprint=\(String(format: "%.1f", MemoryGuard.footprintMB()))\n"
+                try? line.write(toFile: NSTemporaryDirectory() + "dmn-monitor.txt", atomically: true, encoding: .utf8)
             case "displaystate":   // 개발용: 노치가 어느 디스플레이에 있는지 기록
                 let lines = ["selection=\(self.settings.notchDisplays) paused=\(self.center.paused)"]
                     + self.hub.displays.map { d in

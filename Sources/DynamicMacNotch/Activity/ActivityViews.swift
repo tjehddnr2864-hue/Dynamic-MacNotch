@@ -136,6 +136,8 @@ struct ActivityValueView: View {
             Image(systemName: symbol)
                 .font(.system(size: large ? 22 : 15, weight: .medium))
                 .foregroundStyle(textColor ?? .white.opacity(0.85))
+        case .metric(let metric, let ring):
+            LiveMetricView(metric: metric, ring: ring, tint: tint, large: large)
         case .batteryLevel(let level):
             BatteryPercentGlyph(level: level, tint: tint, width: large ? 44 : 32)
         case .labeledText(let label, let text):

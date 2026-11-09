@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #if DEV
     /// 개발용: 시험 명령이 향할 디스플레이 번호 (음수면 평소처럼)
     var devDisplay = -1
+    /// 개발용: 칸 그리기 방식 비교 (monitortest)
+    var monitorTest: AnyCancellable?
     #endif
     var lockScreen: LockScreenManager?
     let missionControl = MissionControlMonitor()
@@ -200,6 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             TrayItemView.clearIconCache()
             DownloadMonitor.clearIconCache()
             URLCache.shared.removeAllCachedResponses()
+            ResourceSampler.shared.compact()
         }
         MemoryGuard.shared.relaunch = { [weak self] in self?.restart() }
         MemoryGuard.shared.start()
