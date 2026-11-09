@@ -60,6 +60,59 @@ final class NotchHub {
             .dropFirst(6)
             .sink { [weak self] in DispatchQueue.main.async { self?.resyncPersistentOrder() } }
             .store(in: &cancellables)
+        // 자원 측정: 보이는 항목·설정이 바뀌거나 화면이 꺼지고 켜지면 다시 계산
+        center.objectWillChange.map { _ in () }
+            .merge(with: settings.objectWillChange.map { _ in () })
+            .sink { [weak self] in self?.scheduleResourceDemand() }
+            .store(in: &cancellables)
+        let workspace = NSWorkspace.shared.notificationCenter
+        for (name, asleep) in [(NSWorkspace.screensDidSleepNotification, true), (NSWorkspace.willSleepNotification, true),
+                               (NSWorkspace.screensDidWakeNotification, false), (NSWorkspace.didWakeNotification, false)] {
+            workspace.publisher(for: name)
+                .sink { [weak self] _ in
+                    self?.screensAsleep = asleep
+                    self?.scheduleResourceDemand()
+                }
+                .store(in: &cancellables)
+        }
+    }
+
+    // MARK: - 자원 측정 수요
+
+    private var screensAsleep = false
+    private var demandOwners = Set<String>()
+    private var demandWork: DispatchWorkItem?
+
+    private func scheduleResourceDemand() {
+        demandWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.updateResourceDemand() }
+        demandWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    /// 디스플레이마다 노치 칸에 실제로 보이는 자원 지표만 측정한다.
+    /// 일회성 알림이 잠깐 가린 것은 보이는 것으로 본다 (끊었다 이으면 더 비싸다).
+    /// 측정을 요청한 적이 없으면 측정 객체를 만들지 않는다.
+    private func updateResourceDemand() {
+        let paused = panelsHidden || missionControlActive || screensAsleep || center.lockActivity != nil
+        let resource = settings.resourceSlots, both = settings.bothSlots
+        var current = Set<String>()
+        for display in displays {
+            current.insert(display.uuid)
+            var metrics = Set<MonitorMetric>()
+            if !paused, let top = display.vm.topPersistent {
+                if top.kind == .resource { metrics = [resource.left, resource.right] }
+                if top.kind == .monitor { metrics = [both.left, both.right] }
+            }
+            metrics.formIntersection(MonitorMetric.resourceMetrics)
+            guard !metrics.isEmpty || demandOwners.contains(display.uuid) else { continue }
+            ResourceSampler.shared.setDemand(.compact(display.uuid), metrics)
+            if metrics.isEmpty { demandOwners.remove(display.uuid) } else { demandOwners.insert(display.uuid) }
+        }
+        for gone in demandOwners.subtracting(current) {
+            ResourceSampler.shared.setDemand(.compact(gone), [])
+            demandOwners.remove(gone)
+        }
     }
 
     // MARK: - 디스플레이 맞추기
@@ -171,6 +224,7 @@ final class NotchHub {
     /// Mission Control은 모든 디스플레이에 함께 뜨므로 노치도 함께 숨기고 함께 돌아온다
     func setMissionControlActive(_ active: Bool) {
         missionControlActive = active
+        scheduleResourceDemand()
         if active {
             center.hiddenFromScreen = true
             displays.forEach { $0.setMissionControlActive(true) }
@@ -184,6 +238,7 @@ final class NotchHub {
 
     func setMainPanelsHidden(_ hidden: Bool, animated: Bool) {
         panelsHidden = hidden
+        scheduleResourceDemand()
         displays.forEach { $0.setMainPanelHidden(hidden, animated: animated) }
     }
 

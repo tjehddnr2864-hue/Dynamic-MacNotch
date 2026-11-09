@@ -59,6 +59,17 @@ struct DisplaysSettingsPage: View {
         }
     }
 
+    /// 상시 표시 항목 목록. 실시간 모니터링이 둘 다면 AI·자원 두 줄 대신 "AI 및 자원 사용량" 한 줄.
+    private var liveKeys: [String] {
+        let both = settings.displayRules.monitor == .both
+        var keys: [String] = []
+        for key in settings.persistentOrder {
+            let merged = both && (key == "aiUsage" || key == "resource") ? "monitor" : key
+            if !keys.contains(merged) { keys.append(merged) }
+        }
+        return keys
+    }
+
     /// 이 디스플레이가 '노치를 표시할 디스플레이'로 선택되어 있는지
     private func isSelected(_ uuid: String) -> Bool {
         settings.notchDisplays == "all" || Displays.screen(for: settings.notchDisplays).flatMap(Displays.uuid(of:)) == uuid
@@ -69,14 +80,14 @@ struct DisplaysSettingsPage: View {
         let isLastNotch = enabled == [uuid]
         return Picker(display.name + (display.isMain ? T(" (주 디스플레이)", " (Main)") : ""),
                       selection: Binding(
-                        get: { settings.displayContent[uuid] ?? (display.isMain ? DisplayChoice.all : DisplayChoice.followMain) },
+                        get: { settings.displayRules.monitorMapped(settings.displayContent[uuid] ?? (display.isMain ? DisplayChoice.all : DisplayChoice.followMain)) },
                         set: { value in
                             guard value != DisplayChoice.none || !isLastNotch else { return }
                             settings.displayContent[uuid] = value
                         })) {
             Text(T("모든 상시 표시", "All Live Activities")).tag(DisplayChoice.all)
             Divider()
-            ForEach(settings.persistentOrder, id: \.self) { key in
+            ForEach(liveKeys, id: \.self) { key in
                 let off = ActivityKind(rawValue: key)?.liveDisabled(in: settings) ?? false
                 Text(ActivityKind.liveName(key) + (off ? T(" (설정에서 꺼짐)", " (Off in Settings)") : "")).tag(DisplayChoice.kind(key))
             }

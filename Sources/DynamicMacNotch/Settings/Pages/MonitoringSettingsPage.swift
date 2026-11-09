@@ -84,13 +84,14 @@ struct MonitoringSettingsPage: View {
         }
     }
 
-    /// 칸 하나. 반대편에서 고른 항목은 고를 수 없다.
+    /// 칸 하나. 반대편에서 고른 항목은 목록에 없다.
     private func slotPicker(_ title: String, left: Bool, slots: (left: MonitorMetric, right: MonitorMetric), content: MonitorContent) -> some View {
         let other = left ? slots.right : slots.left
         return Picker(title, selection: Binding(get: { left ? slots.left : slots.right },
                                                 set: { settings.setMonitorSlot($0, left: left) })) {
-            ForEach(MonitorLayout.choices(for: content)) { metric in
-                Text(metric.label).tag(metric).disabled(metric == other)
+            // macOS 메뉴는 흐리게 한 항목도 고를 수 있어 반대쪽에서 고른 항목은 아예 뺀다
+            ForEach(MonitorLayout.choices(for: content).filter { $0 != other }) { metric in
+                Text(metric.label).tag(metric)
             }
         }
     }

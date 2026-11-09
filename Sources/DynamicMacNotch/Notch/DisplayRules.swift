@@ -56,17 +56,55 @@ struct DisplayRules {
     var alertScopeAll: Bool
     var criticalEnabled: Bool
     var critical: Set<String>
+    /// 실시간 모니터링의 표시할 항목 (상시 표시가 꺼져 있거나 기능이 모두 꺼지면 nil)
+    var monitor: MonitorContent? = nil
+
+    private static let aiChoice = DisplayChoice.kind("aiUsage")
+    private static let resourceChoice = DisplayChoice.kind("resource")
+    private static let monitorChoice = DisplayChoice.kind("monitor")
+
+    /// 저장값은 그대로 두고 읽을 때만 바꾼다 (가이드라인 RESOURCE §3.3):
+    /// 둘 다면 AI·자원·통합 → 통합, 하나만이면 통합 → 그 기능. 그래서 둘 다를 해제하면 원래 선택으로 돌아간다.
+    func monitorMapped(_ choice: String) -> String {
+        guard let monitor else { return choice }
+        switch monitor {
+        case .both: return [Self.aiChoice, Self.resourceChoice, Self.monitorChoice].contains(choice) ? Self.monitorChoice : choice
+        case .ai: return choice == Self.monitorChoice ? Self.aiChoice : choice
+        case .resource: return choice == Self.monitorChoice ? Self.resourceChoice : choice
+        }
+    }
+
+    /// 표시할 항목에 해당하는 종류
+    private var monitorKind: ActivityKind? {
+        monitor.map { $0 == .ai ? .aiUsage : ($0 == .resource ? .resource : .monitor) }
+    }
+
+    /// '모든 상시 표시'에 넣지 않는 모니터 종류: 표시할 항목이 아닌 것 (다른 디스플레이가 직접 골라 돌고 있어도)
+    private func withoutOtherMonitors(_ kinds: Set<ActivityKind>) -> Set<ActivityKind> {
+        kinds.subtracting(Set<ActivityKind>([.aiUsage, .resource, .monitor]).subtracting(monitorKind.map { [$0] } ?? []))
+    }
+
+    /// 게시해야 할 모니터 종류: 표시할 항목의 종류 + 디스플레이에서 직접 고른 종류. 꺼진 기능은 뺀다.
+    func neededMonitorKinds(aiOn: Bool, resourceOn: Bool) -> Set<ActivityKind> {
+        guard let kind = monitorKind else { return [] }
+        var kinds: Set<ActivityKind> = [kind]
+        for choice in content.values.map(monitorMapped) {
+            if choice == Self.aiChoice, aiOn { kinds.insert(.aiUsage) }
+            if choice == Self.resourceChoice, resourceOn { kinds.insert(.resource) }
+        }
+        return kinds
+    }
 
     /// 이 디스플레이의 선택. "주 디스플레이를 따름"은 한 번만 따라가므로 순환하지 않는다.
     /// 주 디스플레이가 "노치 없음"이면 그것을 따르지 않고 모든 항목을 보인다.
     func choice(_ ctx: DisplayContext) -> String {
-        let own = content[ctx.uuid] ?? (ctx.uuid == ctx.main ? DisplayChoice.all : DisplayChoice.followMain)
+        let own = monitorMapped(content[ctx.uuid] ?? (ctx.uuid == ctx.main ? DisplayChoice.all : DisplayChoice.followMain))
         guard own == DisplayChoice.followMain else { return own }
         return mainChoice(ctx)
     }
 
     private func mainChoice(_ ctx: DisplayContext) -> String {
-        let main = content[ctx.main] ?? DisplayChoice.all
+        let main = monitorMapped(content[ctx.main] ?? DisplayChoice.all)
         return main == DisplayChoice.followMain || main == DisplayChoice.none ? DisplayChoice.all : main
     }
 
@@ -90,7 +128,7 @@ struct DisplayRules {
         case DisplayChoice.notchOnly:
             kinds = []
         case DisplayChoice.all, DisplayChoice.none:
-            kinds = active
+            kinds = withoutOtherMonitors(active)
         default:
             if let kind = Self.kind(in: choice), active.contains(kind) {
                 kinds = [kind]
@@ -111,7 +149,7 @@ struct DisplayRules {
     /// 주 디스플레이가 자기 선택으로 보이는 항목 (대체는 하지 않는다)
     private func mainResult(_ ctx: DisplayContext, active: Set<ActivityKind>) -> Set<ActivityKind> {
         let choice = mainChoice(ctx)
-        if choice == DisplayChoice.all { return active }
+        if choice == DisplayChoice.all { return withoutOtherMonitors(active) }
         if let kind = Self.kind(in: choice), active.contains(kind) { return [kind] }
         return []
     }

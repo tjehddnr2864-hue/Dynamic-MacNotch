@@ -48,7 +48,9 @@ extension ActivityKind {
         case .vpn: return !settings.vpnPinned
         case .hotspot: return !settings.hotspotPinned
         case .focusPinned: return !settings.focusPinned
-        case .aiUsage, .resource, .monitor: return !settings.aiUsagePinned
+        case .aiUsage: return !settings.aiUsagePinned || !settings.monitorAIOn
+        case .resource: return !settings.aiUsagePinned || !settings.monitorResourceOn
+        case .monitor: return !settings.aiUsagePinned
         case .battery: return !settings.batteryChargingPinned
         case .calendar: return !settings.calendarPinned
         default: return false

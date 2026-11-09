@@ -84,6 +84,27 @@ enum DisplayProbe {
         check(Displays.enabledUUIDs(selection: "all", content: [sub: "none"], connected: conn) == [main], "all minus none")
         check(Displays.enabledUUIDs(selection: "all", content: [main: "none", sub: "none"], connected: conn) == [main], "never empty")
         check(Displays.enabledUUIDs(selection: "one:S", content: [:], connected: conn) == [sub], "one")
+        // 실시간 모니터링: 디스플레이마다 따로, 둘 다면 통합, 해제하면 원래대로 (저장값은 그대로)
+        let separate = [main: DisplayChoice.kind("aiUsage"), sub: DisplayChoice.kind("resource")]
+        var mon = DisplayRules(content: separate, fallbackToMain: true, alertScopeAll: false, criticalEnabled: true, critical: CriticalAlert.defaults, monitor: .ai)
+        let mainCtx = DisplayContext(uuid: main, main: main, enabled: both)
+        check(mon.persistentKinds(mainCtx, active: [.aiUsage, .resource]) == [.aiUsage], "main shows AI")
+        check(mon.persistentKinds(subCtx, active: [.aiUsage, .resource]) == [.resource], "sub shows resource")
+        check(mon.neededMonitorKinds(aiOn: true, resourceOn: true) == [.aiUsage, .resource], "both posted when chosen per display")
+        check(mon.neededMonitorKinds(aiOn: true, resourceOn: false) == [.aiUsage], "resource off: not posted")
+        mon.monitor = .both
+        check(mon.choice(mainCtx) == DisplayChoice.kind("monitor") && mon.choice(subCtx) == DisplayChoice.kind("monitor"), "both: every display combined")
+        check(mon.persistentKinds(subCtx, active: [.monitor]) == [.monitor], "both: sub shows combined")
+        check(mon.neededMonitorKinds(aiOn: true, resourceOn: true) == [.monitor], "both: only combined posted")
+        check(mon.content == separate, "stored choices untouched")
+        mon.monitor = .ai
+        check(mon.persistentKinds(subCtx, active: [.aiUsage, .resource]) == [.resource], "both off: back to the stored choice")
+        // '모든 상시 표시'는 표시할 항목의 종류만: 보조가 자원을 골라도 메인의 '모두'에 자원이 끼지 않는다
+        let allMain = DisplayRules(content: [sub: DisplayChoice.kind("resource")], fallbackToMain: true, alertScopeAll: false, criticalEnabled: true, critical: CriticalAlert.defaults, monitor: .ai)
+        check(allMain.persistentKinds(mainCtx, active: [.aiUsage, .resource, .media]) == [.aiUsage, .media], "all excludes the other monitor kind")
+        check(allMain.monitorMapped(DisplayChoice.kind("monitor")) == DisplayChoice.kind("aiUsage"), "combined stored, single mode → that kind")
+        let off = DisplayRules(content: [:], fallbackToMain: true, alertScopeAll: false, criticalEnabled: true, critical: CriticalAlert.defaults, monitor: nil)
+        check(off.neededMonitorKinds(aiOn: true, resourceOn: true).isEmpty, "live display off: nothing posted")
         print("checks=\(checks) failures=\(failures.count)")
         failures.prefix(10).forEach { print("  FAIL", $0) }
         exit(failures.isEmpty ? 0 : 1)

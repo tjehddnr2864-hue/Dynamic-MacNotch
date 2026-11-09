@@ -64,14 +64,12 @@ enum MonitorActivity {
     }
 }
 
-/// 설정에 따라 실시간 모니터링 상시 표시를 게시하고, 노치 칸에 보이는 자원 지표만 측정하게 한다.
+/// 설정에 따라 실시간 모니터링 상시 표시를 게시한다. 측정할 지표는 NotchHub가 디스플레이마다 실제로 보이는 칸으로 정한다.
 final class MonitorCoordinator {
     private let center: ActivityCenter
     private let usage: UsageStore
     private let settings = AppSettings.shared
     private var cancellables = Set<AnyCancellable>()
-    /// 자원 측정을 한 번이라도 요청했는지 (요청한 적이 없으면 측정 객체를 만들지 않는다)
-    private var demanded = false
 
     init(center: ActivityCenter, usage: UsageStore) {
         self.center = center
@@ -88,32 +86,24 @@ final class MonitorCoordinator {
     }
 
     private func update() {
-        let content = settings.aiUsagePinned ? settings.effectiveMonitorContent : nil
+        let needed = settings.monitorKindsNeeded
         let ring = settings.aiUsageStyle == .ring
         let service = usage.pinnedService
-        let slots = settings.monitorSlots
 
-        if content == .ai, let service {
+        if needed.contains(.aiUsage), let service {
             center.setPersistent(MonitorActivity.ai(service: service, usage: usage.usage[service], ring: ring))
         } else {
             center.removePersistent(.aiUsage)
         }
-        if content == .resource, let slots {
-            center.setPersistent(MonitorActivity.resource(slots: slots, ring: ring))
+        if needed.contains(.resource) {
+            center.setPersistent(MonitorActivity.resource(slots: settings.resourceSlots, ring: ring))
         } else {
             center.removePersistent(.resource)
         }
-        if content == .both, let slots {
-            center.setPersistent(MonitorActivity.combined(slots: slots, service: service, usage: service.flatMap { usage.usage[$0] }, ring: ring))
+        if needed.contains(.monitor) {
+            center.setPersistent(MonitorActivity.combined(slots: settings.bothSlots, service: service, usage: service.flatMap { usage.usage[$0] }, ring: ring))
         } else {
             center.removePersistent(.monitor)
-        }
-
-        // shortcut: 게시하는 동안 늘 측정한다. 가려졌거나 숨겼을 때 멈추는 것은 4단계(디스플레이별 수요 집계)에서
-        let metrics: Set<MonitorMetric> = content == .resource || content == .both ? Set([slots?.left, slots?.right].compactMap { $0 }) : []
-        if !metrics.isEmpty || demanded {
-            demanded = true
-            ResourceSampler.shared.setDemand(.compact("notch"), metrics)
         }
     }
 }

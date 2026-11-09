@@ -157,6 +157,7 @@ final class UsageStore: ObservableObject {
         settings.$aiUsagePinned.map { _ in () }
             .merge(with: settings.$aiRefreshMinutes.map { _ in () },
                    settings.$monitorContent.map { _ in () },
+                   settings.$displayContent.map { _ in () },
                    settings.$aiConnected.map { _ in () },
                    settings.$aiUsageService.map { _ in () },
                    settings.$aiUsageStyle.map { _ in () },
@@ -177,10 +178,10 @@ final class UsageStore: ObservableObject {
     private var covered = false
 
     /// AI 사용량이 노치에 상시 표시되는지 (AI만 또는 AI 및 자원)
-    private var aiLive: Bool { settings.aiUsagePinned && settings.effectiveMonitorContent?.includesAI == true }
+    private var aiLive: Bool { !settings.monitorKindsNeeded.isDisjoint(with: [.aiUsage, .monitor]) }
 
     private func updateCoverage() {
-        let shown: ActivityKind = settings.effectiveMonitorContent == .both ? .monitor : .aiUsage
+        let shown: ActivityKind = settings.monitorKindsNeeded.contains(.monitor) ? .monitor : .aiUsage
         let now = aiLive && center.persistentKinds.contains(shown)
             && center.orderedPersistent.first?.kind != shown
         guard now != covered else { return }

@@ -56,7 +56,8 @@ final class AppSettings: ObservableObject {
 
     var displayRules: DisplayRules {
         DisplayRules(content: displayContent, fallbackToMain: displayFallbackToMain, alertScopeAll: alertScope == .all,
-                     criticalEnabled: criticalAlertsEnabled, critical: criticalAlerts)
+                     criticalEnabled: criticalAlertsEnabled, critical: criticalAlerts,
+                     monitor: aiUsagePinned ? effectiveMonitorContent : nil)
     }
 
     /// 저장된 값이 없으면 예전 설정을 이어 받는다. 신규 설치는 주 디스플레이, 예전 사용자는 지금 자리 그대로.
@@ -295,6 +296,13 @@ final class AppSettings: ObservableObject {
         case .both: return MonitorLayout.slots(.both, left: bothLeft, right: bothRight)
         }
     }
+
+    /// 자원 사용량·통합 활동의 칸 (디스플레이에서 직접 고른 경우도 있어 모드와 상관없이 쓴다)
+    var resourceSlots: (left: MonitorMetric, right: MonitorMetric) { MonitorLayout.slots(.resource, left: resourceLeft, right: resourceRight) }
+    var bothSlots: (left: MonitorMetric, right: MonitorMetric) { MonitorLayout.slots(.both, left: bothLeft, right: bothRight) }
+
+    /// 지금 게시해야 할 실시간 모니터링 활동
+    var monitorKindsNeeded: Set<ActivityKind> { displayRules.neededMonitorKinds(aiOn: monitorAIOn, resourceOn: monitorResourceOn) }
 
     /// 지금 모드의 칸 하나를 바꾼다. 반대편과 같은 값은 받지 않는다.
     func setMonitorSlot(_ metric: MonitorMetric, left: Bool) {
