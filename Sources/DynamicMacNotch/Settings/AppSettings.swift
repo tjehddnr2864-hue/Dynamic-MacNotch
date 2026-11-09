@@ -83,7 +83,7 @@ final class AppSettings: ObservableObject {
     @Setting("homeOrder", default: AppSettings.defaultHomeOrder, sanitize: AppSettings.fixedHomeOrder) var homeOrder: [String]
     @Setting("homeDisabled", default: []) var homeDisabled: [String]
     @Setting("trayMode", default: TrayMode.on) var trayMode: TrayMode
-    static let defaultHomeOrder = ["camera", "timer", "usage", "memo", "calendar", "tray", "chat"]
+    static let defaultHomeOrder = ["camera", "timer", "usage", "resource", "memo", "calendar", "tray", "chat"]
 
     private static func fixedHomeOrder(_ saved: [String]) -> [String] {
         saved.filter(defaultHomeOrder.contains) + defaultHomeOrder.filter { !saved.contains($0) }
@@ -104,10 +104,23 @@ final class AppSettings: ObservableObject {
 
     /// 스위치로 켜고 끄는 홈 기능 (트레이는 trayMode로 고른다)
     func setHomeFeature(_ key: String, on: Bool) {
+        // 실시간 모니터링: 표시할 항목에 든 기능을 끄면 남은 쪽으로 바꾼다 (둘 다 → 하나)
+        if !on, let feature = Self.monitorFeature(key) {
+            let otherOn = isHomeFeatureOn(feature == .ai ? "resource" : "usage")
+            monitorContent = MonitorLayout.contentAfterTurningOff(feature, current: monitorContent, otherOn: otherOn)
+        }
         if key == "chat" {
             chatEnabled = on
         } else {
             homeDisabled = homeDisabled.filter { $0 != key } + (on ? [] : [key])
+        }
+    }
+
+    private static func monitorFeature(_ key: String) -> MonitorFeature? {
+        switch key {
+        case "usage": return .ai
+        case "resource": return .resource
+        default: return nil
         }
     }
 
@@ -247,10 +260,60 @@ final class AppSettings: ObservableObject {
     /// 다음(진행 중) 일정 상시 표시
     @Setting("calendarPinned", default: false) var calendarPinned: Bool
 
+    // MARK: - 실시간 모니터링 (AI 사용량 + 자원 사용량)
+
+    /// 노치에 상시 표시 (AI는 켜져 있을 때만 백그라운드에서 새로고침). 자원 사용량까지 함께 켜고 끈다.
+    @Setting("aiUsagePinned", default: false) var aiUsagePinned: Bool
+    /// 표시할 항목. 홈 기능으로 켠 것만 쓴다 (effectiveMonitorContent)
+    @Setting("monitorContent", default: MonitorContent.ai) var monitorContent: MonitorContent
+    @Setting("monitorExpand", default: MonitorExpand.follow) var monitorExpand: MonitorExpand
+    /// 칸 선택은 모드마다 따로 기억한다
+    @Setting("resourceLeft", default: MonitorMetric.cpu) var resourceLeft: MonitorMetric
+    @Setting("resourceRight", default: MonitorMetric.mem) var resourceRight: MonitorMetric
+    @Setting("bothLeft", default: MonitorMetric.aiPrimary) var bothLeft: MonitorMetric
+    @Setting("bothRight", default: MonitorMetric.cpu) var bothRight: MonitorMetric
+    /// 자원 사용량 새로고침 (초)
+    @Setting("resourceRefreshSeconds", default: 2.0, sanitize: { [1, 2, 5, 10].contains($0) ? $0 : 2 }) var resourceRefreshSeconds: Double
+
+    var monitorAIOn: Bool { isHomeFeatureOn("usage") }
+    var monitorResourceOn: Bool { isHomeFeatureOn("resource") }
+
+    /// 홈 기능으로 켜진 것으로 제한한 표시할 항목 (둘 다 꺼져 있으면 nil)
+    var effectiveMonitorContent: MonitorContent? {
+        MonitorLayout.effectiveContent(monitorContent, aiOn: monitorAIOn, resourceOn: monitorResourceOn)
+    }
+
+    /// 노치 양옆 칸 (표시할 항목이 없으면 nil)
+    var monitorSlots: (left: MonitorMetric, right: MonitorMetric)? {
+        guard let content = effectiveMonitorContent else { return nil }
+        switch content {
+        case .ai: return MonitorLayout.defaults(for: .ai)
+        case .resource: return MonitorLayout.slots(.resource, left: resourceLeft, right: resourceRight)
+        case .both: return MonitorLayout.slots(.both, left: bothLeft, right: bothRight)
+        }
+    }
+
+    /// 지금 모드의 칸 하나를 바꾼다. 반대편과 같은 값은 받지 않는다.
+    func setMonitorSlot(_ metric: MonitorMetric, left: Bool) {
+        guard let content = effectiveMonitorContent, content != .ai, let slots = monitorSlots,
+              metric != (left ? slots.right : slots.left), MonitorLayout.choices(for: content).contains(metric) else { return }
+        switch (content, left) {
+        case (.resource, true): resourceLeft = metric
+        case (.resource, false): resourceRight = metric
+        case (_, true): bothLeft = metric
+        case (_, false): bothRight = metric
+        }
+        // 반대편이 기본값으로 풀려 있던 경우 그 값도 함께 저장해 화면과 저장값을 맞춘다
+        if content == .resource { if left { resourceRight = slots.right } else { resourceLeft = slots.left } }
+        else { if left { bothRight = slots.right } else { bothLeft = slots.left } }
+    }
+
+    var monitorExpandContent: MonitorContent? {
+        MonitorLayout.expandContent(monitorExpand, content: effectiveMonitorContent, aiOn: monitorAIOn, resourceOn: monitorResourceOn)
+    }
+
     // MARK: - AI 사용량
 
-    /// 노치에 상시 표시 (켜져 있을 때만 백그라운드에서 새로고침)
-    @Setting("aiUsagePinned", default: false) var aiUsagePinned: Bool
     @Setting("aiUsageStyle", default: UsageStyle.text) var aiUsageStyle: UsageStyle
     /// 상시 표시할 서비스 (AIService rawValue)
     @Setting("aiUsageService", default: "claude") var aiUsageService: String

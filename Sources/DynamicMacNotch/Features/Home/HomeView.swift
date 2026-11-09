@@ -53,6 +53,9 @@ struct HomePager: View {
             if let pages { pages.tray } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
         case .chat:
             if let pages { pages.chat } else { PlaceholderPage(option: option, note: T("3단계에서 구현", "Not available")) }
+        case .resource:
+            // shortcut: 자원 사용량 화면은 R5에서 만든다 (docs/RESOURCE_GUIDELINE.md)
+            PlaceholderPage(option: option, note: T("준비 중", "Coming soon"))
         }
     }
 }

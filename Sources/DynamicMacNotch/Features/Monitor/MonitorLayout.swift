@@ -1,0 +1,225 @@
+import Foundation
+
+// 실시간 모니터링(AI 사용량 + 자원 사용량)의 설정 해석. 화면과 저장소에 의존하지 않는 순수 계산이다.
+// 규칙은 docs/RESOURCE_GUIDELINE.md §3, 시험은 `--monitor-probe`.
+
+/// 노치에 실시간으로 보일 것. 홈 기능으로 켠 것만 고를 수 있다.
+enum MonitorContent: String, CaseIterable, Identifiable {
+    case ai, resource, both
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .ai: return T("AI 사용량", "AI Usage")
+        case .resource: return T("자원 사용량", "Resource Usage")
+        case .both: return T("둘 다", "Both")
+        }
+    }
+    var includesAI: Bool { self != .resource }
+    var includesResource: Bool { self != .ai }
+}
+
+/// 노치를 꾹 눌렀을 때 보일 확장 화면
+enum MonitorExpand: String, CaseIterable, Identifiable {
+    case follow, ai, resource, both
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .follow: return T("표시할 항목을 따름", "Same as Show")
+        case .ai: return T("AI 사용량", "AI Usage")
+        case .resource: return T("자원 사용량", "Resource Usage")
+        case .both: return T("둘 다 (점으로 넘김)", "Both (swipe between)")
+        }
+    }
+}
+
+/// 노치 양옆 칸 하나에 보일 항목
+enum MonitorMetric: String, CaseIterable, Identifiable {
+    /// AI 한도 중 기간이 가장 짧은 것 (보통 5시간, 없으면 주간 같은 유일한 한도)
+    case aiPrimary
+    /// AI 한도 중 그다음 (보통 주간)
+    case aiSecondary
+    case cpu, gpu, mem, net
+
+    var id: String { rawValue }
+    var isAI: Bool { self == .aiPrimary || self == .aiSecondary }
+
+    static let resourceMetrics: [MonitorMetric] = [.cpu, .gpu, .mem, .net]
+
+    /// 설정 메뉴의 이름
+    var label: String {
+        switch self {
+        case .aiPrimary: return T("AI 5시간 (없으면 주간)", "AI 5-hour (or weekly)")
+        case .aiSecondary: return T("AI 주간", "AI weekly")
+        case .cpu: return "CPU"
+        case .gpu: return "GPU"
+        case .mem: return T("메모리", "Memory")
+        case .net: return T("네트워크", "Network")
+        }
+    }
+}
+
+/// 홈 기능 중 실시간 모니터링에 속한 둘
+enum MonitorFeature {
+    case ai, resource
+}
+
+enum MonitorLayout {
+    /// 홈 기능으로 켜진 것으로 제한한 표시할 항목. 둘 다 꺼져 있으면 nil(보일 것이 없음).
+    static func effectiveContent(_ saved: MonitorContent, aiOn: Bool, resourceOn: Bool) -> MonitorContent? {
+        switch (aiOn, resourceOn) {
+        case (true, true): return saved
+        case (true, false): return .ai
+        case (false, true): return .resource
+        case (false, false): return nil
+        }
+    }
+
+    /// 설정 화면에서 고를 수 있는 표시할 항목
+    static func availableContents(aiOn: Bool, resourceOn: Bool) -> [MonitorContent] {
+        MonitorContent.allCases.filter { ($0.includesAI ? aiOn : true) && ($0.includesResource ? resourceOn : true) }
+    }
+
+    /// 홈 기능 하나를 끌 때 표시할 항목을 어떻게 바꿀지. 남은 기능이 없으면 그대로 둔다.
+    static func contentAfterTurningOff(_ feature: MonitorFeature, current: MonitorContent, otherOn: Bool) -> MonitorContent {
+        guard otherOn else { return current }
+        switch feature {
+        case .ai: return current.includesAI ? .resource : current
+        case .resource: return current.includesResource ? .ai : current
+        }
+    }
+
+    /// 칸에 고를 수 있는 항목
+    static func choices(for content: MonitorContent) -> [MonitorMetric] {
+        switch content {
+        case .ai: return [.aiPrimary, .aiSecondary]
+        case .resource: return MonitorMetric.resourceMetrics
+        case .both: return MonitorMetric.allCases
+        }
+    }
+
+    static func defaults(for content: MonitorContent) -> (left: MonitorMetric, right: MonitorMetric) {
+        switch content {
+        case .ai: return (.aiPrimary, .aiSecondary)
+        case .resource: return (.cpu, .mem)
+        case .both: return (.aiPrimary, .cpu)
+        }
+    }
+
+    /// 저장된 칸을 그 모드에서 쓸 수 있는 값으로 푼다. AI 사용량은 칸이 고정이다.
+    /// 쓸 수 없는 값은 기본값으로, 양쪽이 같으면 오른쪽을 다른 값으로 바꾼다 (저장값은 건드리지 않는다).
+    static func slots(_ content: MonitorContent, left: MonitorMetric, right: MonitorMetric) -> (left: MonitorMetric, right: MonitorMetric) {
+        let fallback = defaults(for: content)
+        guard content != .ai else { return fallback }
+        let options = choices(for: content)
+        let l = options.contains(left) ? left : fallback.left
+        var r = options.contains(right) ? right : fallback.right
+        if r == l {
+            r = [fallback.right, fallback.left].first { $0 != l } ?? options.first { $0 != l } ?? r
+        }
+        return (l, r)
+    }
+
+    /// 꾹 눌렀을 때 보일 확장 화면. 꺼진 기능을 고른 값이면 표시할 항목을 따른다.
+    static func expandContent(_ saved: MonitorExpand, content: MonitorContent?, aiOn: Bool, resourceOn: Bool) -> MonitorContent? {
+        let wanted: MonitorContent?
+        switch saved {
+        case .follow: wanted = content
+        case .ai: wanted = .ai
+        case .resource: wanted = .resource
+        case .both: wanted = .both
+        }
+        guard let wanted, availableContents(aiOn: aiOn, resourceOn: resourceOn).contains(wanted) else { return content }
+        return wanted
+    }
+
+    /// 설정 화면에서 고를 수 있는 확장 화면
+    static func availableExpands(aiOn: Bool, resourceOn: Bool) -> [MonitorExpand] {
+        let contents = availableContents(aiOn: aiOn, resourceOn: resourceOn)
+        return MonitorExpand.allCases.filter { option in
+            switch option {
+            case .follow: return !contents.isEmpty
+            case .ai: return contents.contains(.ai)
+            case .resource: return contents.contains(.resource)
+            case .both: return contents.contains(.both)
+            }
+        }
+    }
+}
+
+#if DEV
+/// 개발용: `--monitor-probe` 실시간 모니터링 설정 해석을 확인한다.
+enum MonitorProbe {
+    static func runIfRequested() {
+        guard CommandLine.arguments.contains("--monitor-probe") else { return }
+        var checks = 0, failures: [String] = []
+        func check(_ ok: Bool, _ what: String) {
+            checks += 1
+            if !ok { failures.append(what) }
+        }
+        let bools = [true, false]
+
+        // 표시할 항목: 켜진 기능으로만 제한
+        for saved in MonitorContent.allCases {
+            for ai in bools {
+                for res in bools {
+                    let e = MonitorLayout.effectiveContent(saved, aiOn: ai, resourceOn: res)
+                    let available = MonitorLayout.availableContents(aiOn: ai, resourceOn: res)
+                    if let e {
+                        check(available.contains(e), "effective \(saved) ai=\(ai) res=\(res) is available")
+                        check(!e.includesAI || ai, "effective without AI \(saved)")
+                        check(!e.includesResource || res, "effective without resource \(saved)")
+                    } else {
+                        check(!ai && !res, "nil only when both off")
+                    }
+                    if ai && res { check(e == saved, "both on keeps the saved value \(saved)") }
+                }
+            }
+        }
+        check(MonitorLayout.availableContents(aiOn: true, resourceOn: true) == [.ai, .resource, .both], "all three when both on")
+        check(MonitorLayout.availableContents(aiOn: true, resourceOn: false) == [.ai], "AI only")
+        check(MonitorLayout.availableContents(aiOn: false, resourceOn: true) == [.resource], "resource only")
+        check(MonitorLayout.availableContents(aiOn: false, resourceOn: false).isEmpty, "nothing")
+
+        // 홈 기능 연동: 둘 다인데 한쪽을 끄면 남은 쪽
+        check(MonitorLayout.contentAfterTurningOff(.ai, current: .both, otherOn: true) == .resource, "both, AI off → resource")
+        check(MonitorLayout.contentAfterTurningOff(.resource, current: .both, otherOn: true) == .ai, "both, resource off → AI")
+        check(MonitorLayout.contentAfterTurningOff(.ai, current: .ai, otherOn: true) == .resource, "AI, AI off → resource")
+        check(MonitorLayout.contentAfterTurningOff(.ai, current: .resource, otherOn: true) == .resource, "resource, AI off → unchanged")
+        check(MonitorLayout.contentAfterTurningOff(.resource, current: .ai, otherOn: true) == .ai, "AI, resource off → unchanged")
+        check(MonitorLayout.contentAfterTurningOff(.ai, current: .both, otherOn: false) == .both, "nothing left → unchanged")
+
+        // 칸: 모든 조합이 그 모드에서 가능한 서로 다른 두 값으로 풀린다
+        for content in MonitorContent.allCases {
+            for l in MonitorMetric.allCases {
+                for r in MonitorMetric.allCases {
+                    let s = MonitorLayout.slots(content, left: l, right: r)
+                    let options = MonitorLayout.choices(for: content)
+                    check(options.contains(s.left) && options.contains(s.right), "slots in range \(content) \(l) \(r)")
+                    check(s.left != s.right, "slots differ \(content) \(l) \(r)")
+                    if content != .ai, options.contains(l) { check(s.left == l, "valid left kept \(content) \(l) \(r)") }
+                    if content != .ai, options.contains(l), options.contains(r), l != r { check(s.right == r, "valid pair kept \(content) \(l) \(r)") }
+                }
+            }
+        }
+        let ai = MonitorLayout.slots(.ai, left: .cpu, right: .net)
+        check(ai.left == .aiPrimary && ai.right == .aiSecondary, "AI slots are fixed")
+        let res = MonitorLayout.slots(.resource, left: .aiPrimary, right: .gpu)
+        check(res.left == .cpu && res.right == .gpu, "AI item in resource falls back")
+        let same = MonitorLayout.slots(.resource, left: .mem, right: .mem)
+        check(same.left == .mem && same.right == .cpu, "same item: right moves to another")
+
+        // 확장 화면
+        check(MonitorLayout.expandContent(.follow, content: .both, aiOn: true, resourceOn: true) == .both, "follow")
+        check(MonitorLayout.expandContent(.resource, content: .ai, aiOn: true, resourceOn: true) == .resource, "explicit resource")
+        check(MonitorLayout.expandContent(.resource, content: .ai, aiOn: true, resourceOn: false) == .ai, "resource off → follow")
+        check(MonitorLayout.expandContent(.both, content: .resource, aiOn: false, resourceOn: true) == .resource, "both unavailable → follow")
+        check(MonitorLayout.expandContent(.follow, content: nil, aiOn: false, resourceOn: false) == nil, "nothing on")
+        check(MonitorLayout.availableExpands(aiOn: true, resourceOn: false) == [.follow, .ai], "expand options, AI only")
+        check(MonitorLayout.availableExpands(aiOn: false, resourceOn: false).isEmpty, "expand options, nothing")
+
+        print("monitor checks=\(checks) failures=\(failures.count)")
+        failures.prefix(10).forEach { print("  FAIL", $0) }
+        exit(failures.isEmpty ? 0 : 1)
+    }
+}
+#endif

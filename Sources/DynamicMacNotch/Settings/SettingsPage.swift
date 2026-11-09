@@ -34,7 +34,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .hud: return "HUD"
         case .lock: return T("잠금화면", "Lock Screen")
         case .calendar: return T("일정", "Calendar")
-        case .aiUsage: return T("AI 사용량", "AI Usage")
+        case .aiUsage: return T("실시간 모니터링", "Live Monitoring")
         case .chat: return T("AI 채팅", "AI Chat")
         case .agent: return "Claude Code · Codex"
         case .preview: return T("미리보기", "Preview")

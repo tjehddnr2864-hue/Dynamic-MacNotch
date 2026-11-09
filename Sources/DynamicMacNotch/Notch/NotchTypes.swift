@@ -6,7 +6,8 @@ enum NotchState: Int, Equatable {
 
 /// 홈 페이지. 한 번에 하나씩 표시하고 점·스와이프로 넘긴다.
 enum HomeOption: Int, CaseIterable {
-    case camera, timer, usage, memo, calendar, tray, chat
+    // rawValue는 예전 저장값(번호)과 맞아야 하므로 새 페이지는 끝에 붙인다
+    case camera, timer, usage, memo, calendar, tray, chat, resource
 
     /// 설정·저장에 쓰는 이름 (순서를 바꿔도 변하지 않음)
     var key: String {
@@ -18,6 +19,7 @@ enum HomeOption: Int, CaseIterable {
         case .calendar: return "calendar"
         case .tray: return "tray"
         case .chat: return "chat"
+        case .resource: return "resource"
         }
     }
 
@@ -35,6 +37,7 @@ enum HomeOption: Int, CaseIterable {
         case .calendar: return T("오늘 일정", "Today")
         case .tray: return T("에어드랍·트레이", "AirDrop & Tray")
         case .chat: return T("AI 채팅", "AI Chat")
+        case .resource: return T("자원 사용량", "Resource Usage")
         }
     }
 
@@ -47,6 +50,7 @@ enum HomeOption: Int, CaseIterable {
         case .calendar: return "calendar"
         case .tray: return "tray.and.arrow.down.fill"
         case .chat: return "bubble.left.and.text.bubble.right.fill"
+        case .resource: return "cpu"
         }
     }
 }

@@ -23,6 +23,7 @@ if let op = ImageTool.op(from: CommandLine.arguments) {
 DisplayProbe.runIfRequested()
 SettingsProbe.runIfRequested()
 TrayProbe.runIfRequested()
+MonitorProbe.runIfRequested()
 #endif
 
 let app = NSApplication.shared

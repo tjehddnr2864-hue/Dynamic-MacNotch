@@ -387,7 +387,7 @@ struct UsagePage: View {
                 Button(action: openSettings) {
                     VStack(spacing: 4) {
                         Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 18))
-                        Text(T("설정 → 상호작용 → AI 사용량에서 로그인하세요", "Sign in under Settings → Interactions → AI Usage"))
+                        Text(T("설정 → 상호작용 → 실시간 모니터링에서 로그인하세요", "Sign in under Settings → Interactions → Live Monitoring"))
                             .font(.system(size: 10.5))
                             .multilineTextAlignment(.center)
                     }

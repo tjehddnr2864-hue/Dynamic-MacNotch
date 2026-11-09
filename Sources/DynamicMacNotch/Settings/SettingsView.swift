@@ -78,7 +78,7 @@ struct SettingsView: View {
         case .hud: HUDSettingsPage(hud: hud) { page = .permissions }
         case .lock: LockSettingsPage()
         case .calendar: CalendarSettingsPage()
-        case .aiUsage: UsageSettingsPage()
+        case .aiUsage: MonitoringSettingsPage()
         case .chat: ChatSettingsPage(settings: settings)
         case .agent: AgentSettingsPage()
         case .preview: PreviewSettingsPage()

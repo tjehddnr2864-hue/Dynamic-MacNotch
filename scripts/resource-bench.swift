@@ -1,4 +1,4 @@
-// 자원 읽기 비용·가용성 측정 (docs/RESOURCE_GUIDELINE.md §2).
+// 자원 읽기 비용·가용성 측정: CPU·메모리·스왑·네트워크·GPU (docs/RESOURCE_GUIDELINE.md §2).
 // 실행: swiftc -O scripts/resource-bench.swift -o /tmp/resource-bench && /tmp/resource-bench
 
 import Foundation
@@ -11,7 +11,7 @@ func bench(_ name: String, _ n: Int = 200, _ f: () -> String) {
     let t0 = now(); var last = ""
     for _ in 0..<n { last = f() }
     let us = Double(now() - t0) / Double(n) / 1000
-    print(String(format: "%-34@ %8.1f us/call  %@", name as NSString, us, last))
+    print(String(format: "%-30@ %8.1f us/call  %@", name as NSString, us, last))
 }
 var prevTicks: [UInt32] = []
 func cpu() -> String {
@@ -38,16 +38,44 @@ func mem() -> String {
     let used = (UInt64(s.active_count) + UInt64(s.wire_count) + UInt64(s.compressor_page_count)) * page
     return String(format: "used=%.1fGB of %.0fGB (%.0f%%) free=%.1fGB", Double(used) / 1e9, Double(total) / 1e9, Double(used) / Double(total) * 100, Double(UInt64(s.free_count) * page) / 1e9)
 }
-func disk() -> String {
-    let url = URL(fileURLWithPath: "/")
-    guard let v = try? url.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey]),
-          let total = v.volumeTotalCapacity, let imp = v.volumeAvailableCapacityForImportantUsage, let avail = v.volumeAvailableCapacity else { return "fail" }
-    return String(format: "total=%.0fGB important-free=%.1fGB plain-free=%.1fGB used(imp)=%.0f%%", Double(total) / 1e9, Double(imp) / 1e9, Double(avail) / 1e9, (1 - Double(imp) / Double(total)) * 100)
+let skip = ["lo", "utun", "awdl", "llw", "bridge", "anpi", "gif", "stf", "ap", "ipsec"]
+func physical(_ name: String) -> Bool { !skip.contains { name.hasPrefix($0) } }
+// 1) getifaddrs (32비트 카운터)
+func viaGetifaddrs() -> String {
+    var head: UnsafeMutablePointer<ifaddrs>?; guard getifaddrs(&head) == 0 else { return "fail" }; defer { freeifaddrs(head) }
+    var rx: UInt64 = 0, tx: UInt64 = 0, names = Set<String>()
+    var p = head
+    while let a = p { defer { p = a.pointee.ifa_next }
+        guard let addr = a.pointee.ifa_addr, addr.pointee.sa_family == UInt8(AF_LINK), let d = a.pointee.ifa_data else { continue }
+        let name = String(cString: a.pointee.ifa_name); guard physical(name) else { continue }
+        let data = d.assumingMemoryBound(to: if_data.self).pointee
+        rx += UInt64(data.ifi_ibytes); tx += UInt64(data.ifi_obytes); names.insert(name) }
+    return "rx=\(rx/1_000_000)MB tx=\(tx/1_000_000)MB \(names.sorted())"
 }
-func statfsDisk() -> String {
-    var s = statfs(); guard statfs("/System/Volumes/Data", &s) == 0 else { return "fail" }
-    let total = Double(s.f_blocks) * Double(s.f_bsize), free = Double(s.f_bavail) * Double(s.f_bsize)
-    return String(format: "data vol free=%.1fGB of %.0fGB", free / 1e9, total / 1e9)
+// 2) sysctl NET_RT_IFLIST2 (64비트 카운터)
+func viaIflist2() -> String {
+    var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]; var len = 0
+    guard sysctl(&mib, 6, nil, &len, nil, 0) == 0 else { return "fail" }
+    var buf = [UInt8](repeating: 0, count: len)
+    guard sysctl(&mib, 6, &buf, &len, nil, 0) == 0 else { return "fail" }
+    var rx: UInt64 = 0, tx: UInt64 = 0, off = 0, count = 0
+    return buf.withUnsafeBytes { raw -> String in
+        while off + MemoryLayout<if_msghdr>.size <= len {
+            let h = raw.load(fromByteOffset: off, as: if_msghdr.self)
+            if Int32(h.ifm_type) == RTM_IFINFO2 {
+                let m = raw.load(fromByteOffset: off, as: if_msghdr2.self)
+                var name = [CChar](repeating: 0, count: Int(IF_NAMESIZE)); if_indextoname(UInt32(m.ifm_index), &name)
+                if physical(String(cString: name)) { rx += m.ifm_data.ifi_ibytes; tx += m.ifm_data.ifi_obytes; count += 1 }
+            }
+            off += Int(h.ifm_msglen)
+        }
+        return "rx=\(rx/1_000_000)MB tx=\(tx/1_000_000)MB ifaces=\(count) buf=\(len)B"
+    }
+}
+func swap() -> String {
+    var s = xsw_usage(), size = MemoryLayout<xsw_usage>.size
+    guard sysctlbyname("vm.swapusage", &s, &size, nil, 0) == 0 else { return "fail" }
+    return String(format: "swap used=%.2fGB total=%.2fGB", Double(s.xsu_used) / 1e9, Double(s.xsu_total) / 1e9)
 }
 func gpu() -> String {
     var iter: io_iterator_t = 0
@@ -69,6 +97,7 @@ func gpu() -> String {
 print("pid \(getpid())")
 bench("CPU host_processor_info", 500, cpu)
 bench("MEM host_statistics64", 500, mem)
-bench("DISK resourceValues(/)", 200, disk)
-bench("DISK statfs(Data)", 500, statfsDisk)
+bench("SWAP vm.swapusage", 2000, swap)
+bench("NET getifaddrs (32bit)", 500, viaGetifaddrs)
+bench("NET sysctl IFLIST2 (64bit)", 500, viaIflist2)
 bench("GPU IOAccelerator stats", 100, gpu)

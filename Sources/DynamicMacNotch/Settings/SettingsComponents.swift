@@ -89,6 +89,9 @@ extension ChatReopen: SettingOption {}
 extension UsageStyle: SettingOption {}
 extension MediaSource: SettingOption {}
 extension AppLanguage: SettingOption {}
+extension MonitorContent: SettingOption {}
+extension MonitorExpand: SettingOption {}
+extension MonitorMetric: SettingOption {}
 
 struct SegmentedChoice<Option: SettingOption>: View {
     var title: String

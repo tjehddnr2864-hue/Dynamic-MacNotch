@@ -66,6 +66,23 @@ enum SettingsProbe {
 
         check(settings.isHomeFeatureOn("memo") == !settings.homeDisabled.contains("memo"), "home feature state")
 
+        // 실시간 모니터링: 홈 기능을 끄면 표시할 항목이 남은 쪽으로 (끝나면 되돌린다)
+        let savedHome = settings.homeDisabled, savedContent = d.object(forKey: "monitorContent")
+        settings.homeDisabled = savedHome.filter { $0 != "usage" && $0 != "resource" }
+        settings.monitorContent = .both
+        settings.setHomeFeature("usage", on: false)
+        check(settings.monitorContent == .resource && settings.effectiveMonitorContent == .resource, "both, AI off → resource")
+        settings.setHomeFeature("usage", on: true)
+        check(settings.monitorContent == .resource, "turning AI back on doesn't restore both")
+        settings.monitorContent = .both
+        settings.setHomeFeature("resource", on: false)
+        check(settings.monitorContent == .ai && settings.monitorSlots?.left == .aiPrimary, "both, resource off → AI")
+        settings.setHomeFeature("usage", on: false)
+        check(settings.effectiveMonitorContent == nil && settings.monitorSlots == nil, "both features off → nothing")
+        settings.homeDisabled = savedHome
+        if let savedContent { d.set(savedContent, forKey: "monitorContent") } else { d.removeObject(forKey: "monitorContent") }
+        settings.reload()
+
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }
