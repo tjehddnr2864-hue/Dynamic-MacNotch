@@ -136,6 +136,8 @@ struct ActivityValueView: View {
             Image(systemName: symbol)
                 .font(.system(size: large ? 22 : 15, weight: .medium))
                 .foregroundStyle(textColor ?? .white.opacity(0.85))
+        case .serviceMark(let service):
+            ServiceMark(service: service, size: large ? 22 : 15)
         case .metric(let metric, let ring):
             LiveMetricView(metric: metric, ring: ring, tint: tint, large: large)
         case .batteryLevel(let level):

@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var recording = RecordingMonitor(center: center)
     lazy var call = CallMonitor(center: center)
     lazy var usage = UsageStore(center: center)
+    lazy var monitor = MonitorCoordinator(center: center, usage: usage)
     lazy var calendar = CalendarController(center: center)
     let memo = MemoStore()
     let chat = ChatStore()
@@ -55,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startMonitors()
         observeSettings()
         usage.start()
+        monitor.start()
         agentObserver = AgentNotify.observe(center: center)
         startUpdaterAndMemoryGuard()
         missionControl.onChange = { [weak self] active in self?.hub.setMissionControlActive(active) }

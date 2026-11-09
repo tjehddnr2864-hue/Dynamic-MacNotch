@@ -24,7 +24,7 @@ enum PreviewID: String, CaseIterable {
     // 잠금화면
     case lock
     // AI 사용량
-    case aiUsage = "ai-usage"
+    case aiUsage = "ai-usage", resourceLive = "resource-live", monitorLive = "monitor-live"
     // 상시 표시: 충전 중 · 다음 일정
     case chargingPinned = "charging-pinned", calendarPinned = "calendar-pinned"
     // 자동 업데이트 완료
@@ -54,7 +54,7 @@ extension PreviewID {
             return .selectable
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone, .chatDone:
             return .detailOnly
-        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned,
+        case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned, .resourceLive, .monitorLive,
              .mediaStart, .mediaStop, .stopAll:
             return .compactOnly
         }
@@ -219,8 +219,19 @@ final class FeaturePreview {
                 UsageWindow(percent: 42, resetsAt: Date().addingTimeInterval(2 * 3600), seconds: UsageWindow.fiveHours),
                 UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(3 * 86400), seconds: UsageWindow.week)
             ], fetched: Date())
-            var a = UsageStore.activity(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring)
+            var a = MonitorActivity.ai(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring)
             a.kind = .demo
+            showPersistent(a, for: 6)
+        case .resourceLive, .monitorLive:
+            // 측정을 켜지 않는다: 칸에는 정해진 예시 값만 (실제 칸 모양과 같은 부품)
+            let ring = AppSettings.shared.aiUsageStyle == .ring
+            let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude
+            let left: ActivityValue = id == .resourceLive ? .usage(label: "CPU", percent: 23, ring: ring) : .usage(label: "5h", percent: 42, ring: ring)
+            let a = NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "cpu",
+                                  tint: id == .resourceLive ? MonitorActivity.resourceTint : service.tint,
+                                  value: .usage(label: id == .resourceLive ? "MEM" : "CPU", percent: id == .resourceLive ? 61 : 23, ring: ring),
+                                  title: id == .resourceLive ? T("자원 사용량", "Resource Usage") : T("AI 및 자원 사용량", "AI & Resource Usage"),
+                                  wing: NotchActivity.compactWing, leadingValue: left)
             showPersistent(a, for: 6)
         case .stopAll: stopAll()
         }

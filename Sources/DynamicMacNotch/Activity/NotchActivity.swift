@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, vpn, update, chat
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, vpn, update, chat, resource, monitor
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).
@@ -36,6 +36,7 @@ enum ActivityValue: Equatable {
     case usage(label: String, percent: Double?, ring: Bool)   // AI 사용량: 위 작은 이름(5h·wk), 아래 퍼센트 또는 원형
     case labeledText(label: String, text: String)            // 위 작은 이름, 아래 글자 (AI 사용량 초기화까지 남은 시간)
     case icon(String)                                        // 오른쪽 아이콘 (업데이트 완료: 문서 → 눌러서 내용 보기)
+    case serviceMark(AIService)                              // AI 서비스 기호 (한도가 하나뿐인 AI 사용량의 왼쪽)
     case metric(MonitorMetric, ring: Bool)                   // 자원 사용량 칸: 값은 ResourceSampler가 따로 갱신 (활동은 바뀌지 않는다)
     case batteryLevel(Double)                                // 0...1, 배터리 아이콘 위에 퍼센트 숫자를 겹쳐 (충전 중 상시 표시)
 }

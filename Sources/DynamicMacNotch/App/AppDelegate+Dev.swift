@@ -189,6 +189,15 @@ extension AppDelegate {
                                                            .usage(label: "MEM", percent: s.mem?.percent, ring: false)))
                     }
                 }
+            case let c where c.hasPrefix("monitorsample:"):   // 개발용: 한도 하나인 AI 사용량 (monitorsample:claude)
+                if let service = AIService(rawValue: String(c.dropFirst(14))) {
+                    let sample = ServiceUsage(windows: [UsageWindow(percent: 37, resetsAt: Date().addingTimeInterval(3 * 86400), seconds: UsageWindow.week)], fetched: Date())
+                    var a = MonitorActivity.ai(service: service, usage: sample, ring: false)
+                    a.kind = .call   // 다른 상시 표시에 가려지지 않게
+                    self.center.setPersistent(a)
+                } else {
+                    self.center.removePersistent(.call)
+                }
             case "monitorstate":   // 개발용: 자원 측정 상태 기록
                 let r = ResourceSampler.shared
                 let s = r.readings.snapshot

@@ -1,6 +1,6 @@
 # 실시간 모니터링 (AI 사용량 + 자원 사용량) 구현 가이드라인
 
-작성: 2026-11-09 · 결정 반영: 2026-11-09 (§9) · R2·R1 구현됨 · 버전은 배포할 때 정한다 (번호를 말하지 않으면 1.4.2)
+작성: 2026-11-09 · 결정 반영: 2026-11-09 (§9) · R2·R1·R3 구현됨 · 버전은 배포할 때 정한다 (번호를 말하지 않으면 1.4.2)
 
 AI 사용량 상시 표시에 CPU·GPU·메모리·네트워크 사용량을 더하는 기능의 구현 방향, 일어날 수 있는 충돌·오류와 해결, 작동 방식, 구현 순서를 정리한다.
 수치는 이 Mac(MacBook, Apple Silicon 14코어, 메모리 26GB, macOS 27.3)에서 직접 잰 값이다. 코드 위치는 작성 시점(1.4.1)의 파일과 줄이다.
@@ -372,7 +372,7 @@ ResourceSampler ──(자원 값)────┘
 | **R0** | 읽는 비용·가용성 측정 — **완료** | §2.1, §2.2 |
 | **R2** | 설정 모델: 새 키, 순수 함수 `MonitorLayout`(표시할 항목·칸·연동), 홈 기능 `resource`(홈 페이지는 준비 중 표시), 실시간 모니터링 페이지 — **완료**. 노치 표시는 아직 바뀌지 않는다 (AI 상시 표시는 지금처럼 `aiUsagePinned`만 따른다) | `--monitor-probe` 371건, `--settings-probe` 17건(홈 기능 연동 포함), 설정 화면 5가지 상태 캡처 |
 | **R1** | `ResourceSampler`(수요·타이머·첫 값·정지·버퍼·`compact`), `ResourceReadings`, `ActivityValue.metric`·`LiveMetricView`(측정용으로 먼저), 개발 명령 `monitordemand`·`monitortest`·`monitorstate` — **완료**. 수요 합집합은 샘플러 안의 사전 하나라 별도 순수 함수(`ResourceDemand`)는 두지 않았다. 디스플레이 상태에서 수요를 모으는 일은 R4 | probe, 활동 상태 보기와 대조, 1·2·5·10초 × 1·2·4지표의 CPU·깨어남·메모리, 10분 soak |
-| **R3** | 칸 렌더링: `ActivityValue.metric`, `LiveMetricView`, 서비스 기호, 한도 하나(§3.5)와 Claude 주간 전용 대응, `.resource`·`.monitor` 활동 조립, 미리보기 | 화면 캡처, CPU 재측정, 저장된 응답 견본 시험 |
+| **R3** | `ActivityValue.serviceMark`·서비스 기호(`ServiceMark`), 한도 하나면 왼쪽 기호·오른쪽 사용률(주간만 있는 요금제 포함), `.resource`·`.monitor` 종류와 활동 조립(`MonitorActivity`), 게시(`MonitorCoordinator`, 표시할 항목 전역 기준), AI 새로고침은 AI가 보일 때만, 우선순위에서 자원 사용량을 AI 사용량 바로 아래에 넣기(기존 사용자 포함), 미리보기 2종 — **완료**. 가려짐·숨김 때 측정 정지와 디스플레이별 규칙은 R4 | `--monitor-probe` 386건(조립·Claude 응답 견본 포함), 노치 캡처 8가지 |
 | **R4** | 디스플레이: `DisplayRules`(해석·`all`·필요 종류), 설정 → 디스플레이 목록, 우선순위, `NotchHub` 수요 집계, 숨김·가림 조건 | `--display-probe`, `devdisplay`로 §3.3 ①②③, 숨김·잠금·MC 때 타이머 0개 |
 | **R5** | 확장 화면: `ResourcePage`(그래프·메모리 막대), 홈 페이지, `monitorExpand`, 둘 다 페이지 넘기기, 수요 변화 | 확장·축소 50회, 닫은 뒤 1초 안 정지, 화면 캡처 |
 | **R6** | 마무리: README·`ARCHITECTURE.md`, 전체 회귀, **1시간 soak**, 배포용 빌드 측정, 릴리즈 노트 | §7.1 전부 |

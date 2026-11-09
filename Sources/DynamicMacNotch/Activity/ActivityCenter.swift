@@ -50,7 +50,9 @@ final class ActivityCenter: ObservableObject {
 
     var orderedPersistent: [NotchActivity] {
         let order = AppSettings.shared.persistentOrder
-        func rank(_ a: NotchActivity) -> Int { order.firstIndex(of: a.kind.rawValue) ?? order.count }
+        func rank(_ kind: ActivityKind) -> Int { order.firstIndex(of: kind.rawValue) ?? order.count }
+        // AI 및 자원 사용량은 자기 순위가 없고 두 기능 중 높은 쪽을 쓴다
+        func rank(_ a: NotchActivity) -> Int { a.kind == .monitor ? min(rank(.aiUsage), rank(.resource)) : rank(a.kind) }
         return persistent.values.sorted { rank($0) < rank($1) }
     }
 

@@ -48,7 +48,8 @@ struct MonitoringSettingsPage: View {
                 .disabled(!resourceOn)
                 accounts.disabled(!aiOn)
             }
-            PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage"))])
+            PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("자원 사용량", "Resource Usage")),
+                            (.monitorLive, T("AI 및 자원 사용량", "AI & Resource Usage"))])
         }
         .settingsForm()
     }

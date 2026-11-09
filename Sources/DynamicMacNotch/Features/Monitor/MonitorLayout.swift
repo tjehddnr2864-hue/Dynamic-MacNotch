@@ -217,6 +217,42 @@ enum MonitorProbe {
         check(MonitorLayout.availableExpands(aiOn: true, resourceOn: false) == [.follow, .ai], "expand options, AI only")
         check(MonitorLayout.availableExpands(aiOn: false, resourceOn: false).isEmpty, "expand options, nothing")
 
+        // 활동 조립: 한도 수에 따라 칸이 바뀐다
+        let five = UsageWindow(percent: 42, resetsAt: nil, seconds: UsageWindow.fiveHours)
+        let week = UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(86400), seconds: UsageWindow.week)
+        let two = ServiceUsage(windows: [week, five], fetched: Date())
+        let weekOnly = ServiceUsage(windows: [week], fetched: Date())
+        var a = MonitorActivity.ai(service: .claude, usage: two, ring: false)
+        check(a.leadingValue == .usage(label: "5h", percent: 42, ring: false) && a.value == .usage(label: "wk", percent: 76, ring: false), "two limits: 5h left, weekly right")
+        a = MonitorActivity.ai(service: .claude, usage: weekOnly, ring: false)
+        check(a.leadingValue == .serviceMark(.claude) && a.value == .usage(label: "wk", percent: 76, ring: false), "weekly only: mark left, weekly right")
+        a = MonitorActivity.ai(service: .gemini, usage: nil, ring: true)
+        check(a.leadingValue == .usage(label: "5h", percent: nil, ring: true) && a.value == .usage(label: "wk", percent: nil, ring: true), "not loaded yet")
+        check(MonitorActivity.value(for: .aiPrimary, usage: weekOnly, ring: false) == .usage(label: "wk", percent: 76, ring: false), "primary = shortest limit")
+        if case .labeledText = MonitorActivity.value(for: .aiSecondary, usage: weekOnly, ring: false) { checks += 1 } else { check(false, "secondary with one limit = reset time") }
+        check(MonitorActivity.value(for: .net, usage: nil, ring: true) == .metric(.net, ring: false), "network never ring")
+        let r = MonitorActivity.resource(slots: (.gpu, .mem), ring: true)
+        check(r.kind == .resource && r.leadingValue == .metric(.gpu, ring: true) && r.value == .metric(.mem, ring: true), "resource slots")
+        let m = MonitorActivity.combined(slots: (.aiPrimary, .cpu), service: .chatgpt, usage: two, ring: false)
+        check(m.kind == .monitor && m.leadingValue == .usage(label: "5h", percent: 42, ring: false) && m.value == .metric(.cpu, ring: false), "combined slots")
+        var again = MonitorActivity.resource(slots: (.cpu, .mem), ring: false)
+        let first = MonitorActivity.resource(slots: (.cpu, .mem), ring: false)
+        again.id = first.id   // 게시할 때처럼 번호를 맞추면 내용이 같다 → 다시 그리지 않는다
+        check(again == first, "same settings, same activity (no repost)")
+
+        // 우선순위: 새 항목은 기본 순서에서 앞 항목 바로 뒤에 들어간다 (기존 사용자도 자원 사용량이 AI 사용량 아래)
+        let saved = ["call", "timer", "recording", "download", "airdrop", "media", "hotspot", "battery", "aiUsage", "vpn", "focusPinned", "calendar"]
+        let fixed = AppSettings.fixedPersistentOrder(saved)
+        check(fixed.firstIndex(of: "resource") == fixed.firstIndex(of: "aiUsage").map { $0 + 1 }, "resource right after aiUsage")
+        check(fixed.filter { $0 != "resource" } == saved, "user order kept")
+
+        // Claude 응답: 5시간 한도가 없거나 비어 있어도 주간 한도를 읽는다
+        func claude(_ json: String) -> ServiceUsage? { UsageParser.claude(Data(json.utf8)) }
+        check(claude(#"{"five_hour":{"utilization":10,"resets_at":null},"seven_day":{"utilization":30,"resets_at":null}}"#)?.windows.count == 2, "both limits")
+        check(claude(#"{"five_hour":null,"seven_day":{"utilization":30,"resets_at":null}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour null")
+        check(claude(#"{"seven_day":{"utilization":30}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour missing")
+        check(claude(#"{"five_hour":{"utilization":null},"seven_day":{"utilization":30}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour without a value")
+
         print("monitor checks=\(checks) failures=\(failures.count)")
         failures.prefix(10).forEach { print("  FAIL", $0) }
         exit(failures.isEmpty ? 0 : 1)

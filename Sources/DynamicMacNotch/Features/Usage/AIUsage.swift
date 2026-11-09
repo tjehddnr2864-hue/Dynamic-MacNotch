@@ -156,6 +156,7 @@ final class UsageStore: ObservableObject {
     func start() {
         settings.$aiUsagePinned.map { _ in () }
             .merge(with: settings.$aiRefreshMinutes.map { _ in () },
+                   settings.$monitorContent.map { _ in () },
                    settings.$aiConnected.map { _ in () },
                    settings.$aiUsageService.map { _ in () },
                    settings.$aiUsageStyle.map { _ in () },
@@ -175,13 +176,17 @@ final class UsageStore: ObservableObject {
     /// (가려진 동안에도 길게 눌러 사용량 페이지를 넘겨 보면 그때 새로고침한다 — pageAppeared)
     private var covered = false
 
+    /// AI 사용량이 노치에 상시 표시되는지 (AI만 또는 AI 및 자원)
+    private var aiLive: Bool { settings.aiUsagePinned && settings.effectiveMonitorContent?.includesAI == true }
+
     private func updateCoverage() {
-        let now = settings.aiUsagePinned && center.persistentKinds.contains(.aiUsage)
-            && center.orderedPersistent.first?.kind != .aiUsage
+        let shown: ActivityKind = settings.effectiveMonitorContent == .both ? .monitor : .aiUsage
+        let now = aiLive && center.persistentKinds.contains(shown)
+            && center.orderedPersistent.first?.kind != shown
         guard now != covered else { return }
         covered = now
         reschedule()
-        if !covered, settings.aiUsagePinned, isStale(max(1, settings.aiRefreshMinutes) * 60) { refresh() }
+        if !covered, aiLive, isStale(max(1, settings.aiRefreshMinutes) * 60) { refresh() }
     }
 
     private var lastConnected: [AIService] = []
@@ -193,15 +198,14 @@ final class UsageStore: ObservableObject {
         let newlyConnected = now.filter { !lastConnected.contains($0) }
         lastConnected = now
         reschedule()
-        updatePersistent()
         // 새로 연결했거나 상시 표시를 켰는데 기록이 오래됐으면 바로 한 번
-        if !newlyConnected.isEmpty || (settings.aiUsagePinned && isStale(60)) { refresh() }
+        if !newlyConnected.isEmpty || (aiLive && isStale(60)) { refresh() }
     }
 
     private func reschedule() {
         timer?.invalidate()
         timer = nil
-        guard settings.aiUsagePinned, !connected.isEmpty, !covered else { return }
+        guard aiLive, !connected.isEmpty, !covered else { return }
         let interval = max(1, settings.aiRefreshMinutes) * 60
         let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
         t.tolerance = interval * 0.1
@@ -237,7 +241,6 @@ final class UsageStore: ObservableObject {
                     }
                 }
                 self.save()
-                self.updatePersistent()
             }
         }
     }
@@ -266,48 +269,13 @@ final class UsageStore: ObservableObject {
         if let data = try? JSONEncoder().encode(dict) { UserDefaults.standard.set(data, forKey: Self.cacheKey) }
     }
 
-    // MARK: - 노치 상시 표시 (왼쪽 5시간 · 오른쪽 주간)
+    // MARK: - 상시 표시할 서비스 (게시는 MonitorCoordinator)
 
     /// 상시 표시할 서비스: 설정에서 고른 것, 연결이 안 돼 있으면 연결된 첫 서비스
     var pinnedService: AIService? {
         let list = connected
         if let s = AIService(rawValue: settings.aiUsageService), list.contains(s) { return s }
         return list.first
-    }
-
-    private func updatePersistent() {
-        guard settings.aiUsagePinned, let service = pinnedService else {
-            center.removePersistent(.aiUsage)
-            return
-        }
-        center.setPersistent(Self.activity(service: service, usage: usage[service], ring: settings.aiUsageStyle == .ring))
-    }
-
-    static func activity(service: AIService, usage: ServiceUsage?, ring: Bool) -> NotchActivity {
-        func text(_ p: Double?) -> String { p.map { "\(Int($0.rounded()))%" } ?? "–" }
-        let sides: (left: UsageWindow?, right: UsageWindow?) = usage?.sides ?? (nil, nil)
-        let left: ActivityValue, right: ActivityValue
-        if let l = sides.left {
-            left = .usage(label: l.shortLabel, percent: l.percent, ring: ring)
-            if let r = sides.right {
-                right = .usage(label: r.shortLabel, percent: r.percent, ring: ring)
-            } else {
-                // 한도가 하나뿐(예: ChatGPT 무료 30일): 오른쪽에는 초기화까지 남은 시간
-                right = .labeledText(label: T("초기화", "reset"), text: l.resetsAt.map(UsageGlyph.shortRemaining) ?? "–")
-            }
-        } else {
-            // 아직 읽지 못함: 기본 자리 표시
-            left = .usage(label: "5h", percent: nil, ring: ring)
-            right = .usage(label: "wk", percent: nil, ring: ring)
-        }
-        let summary = (usage?.windows ?? []).map { "\($0.label) \(text($0.percent))" }.joined(separator: " · ")
-        return NotchActivity(
-            kind: .aiUsage, priority: ActivityPriority.pinned, symbol: "gauge.medium", tint: service.tint,
-            value: right,
-            title: T("\(service.name) 사용량", "\(service.name) Usage"),
-            subtitle: summary.isEmpty ? T("불러오는 중…", "Loading…") : summary,
-            wing: NotchActivity.compactWing,
-            leadingValue: left)
     }
 }
 

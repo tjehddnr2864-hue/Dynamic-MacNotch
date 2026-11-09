@@ -42,7 +42,7 @@ struct PreviewSettingsPage: View {
                           (.hudKeyboard, T("키보드 밝기 HUD", "Keyboard Brightness HUD")), (.download, T("다운로드", "Download")),
                           (.airdropSend, T("에어드랍 보내기", "AirDrop Send")), (.recording, T("화면 녹화", "Screen Recording")),
                           (.callActive, T("통화 중", "On a Call")), (.lock, T("잠금화면 (5초)", "Lock Screen (5s)")),
-                          (.aiUsage, T("AI 사용량", "AI Usage")), (.chargingPinned, T("충전 중", "Charging")),
+                          (.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("자원 사용량", "Resource Usage")), (.monitorLive, T("AI 및 자원", "AI & Resource")), (.chargingPinned, T("충전 중", "Charging")),
                           (.vpnPinned, "VPN"), (.calendarPinned, T("다음 일정", "Next Event"))],
                          note: T("통화 중: 가짜 통화로 음소거·끊기를 눌러 볼 수 있고 30초 뒤 끝납니다. 잠금화면: 실제로 잠그지 않고 자물쇠·위젯을 5초 보여 줍니다.",
                                  "On a Call: a fake call where you can try Mute and End; it ends after 30 seconds. Lock Screen: shows the padlock and widget for 5 seconds without locking."))

@@ -70,13 +70,16 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Setting("persistentOrder", default: AppSettings.defaultPersistentOrder, sanitize: AppSettings.fixedPersistentOrder) var persistentOrder: [String]
-    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "resource", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
 
-    /// 새로 생긴 항목은 기본 순서대로 뒤에 붙인다. 통화는 기존 사용자도 맨 위로.
-    private static func fixedPersistentOrder(_ saved: [String]) -> [String] {
-        (saved.contains("call") ? [] : ["call"])
-            + saved.filter(defaultPersistentOrder.contains)
-            + defaultPersistentOrder.filter { !saved.contains($0) && $0 != "call" }
+    /// 새로 생긴 항목은 기본 순서에서 바로 앞 항목의 뒤에 넣는다 (예: 자원 사용량은 AI 사용량 아래). 통화는 기존 사용자도 맨 위로.
+    static func fixedPersistentOrder(_ saved: [String]) -> [String] {
+        var order = (saved.contains("call") ? [] : ["call"]) + saved.filter(defaultPersistentOrder.contains)
+        for (i, key) in defaultPersistentOrder.enumerated() where !order.contains(key) {
+            let before = defaultPersistentOrder[..<i].last(where: order.contains)
+            order.insert(key, at: before.flatMap(order.firstIndex(of:)).map { $0 + 1 } ?? order.count)
+        }
+        return order
     }
 
     /// 홈 페이지 순서와 끈 기능
