@@ -1,6 +1,6 @@
 # 코드 구조 안내
 
-기능을 추가하거나 고칠 때 어디를 봐야 하는지 정리한 문서입니다. 동작의 세부 결정은 `CHAT_GUIDELINE.md`, `CHAT_ATTACH_GUIDELINE.md`, `DISPLAY_GUIDELINE.md`에 있습니다.
+기능을 추가하거나 고칠 때 어디를 봐야 하는지 정리한 문서입니다. 동작의 세부 결정은 `CHAT_GUIDELINE.md`, `CHAT_ATTACH_GUIDELINE.md`, `DISPLAY_GUIDELINE.md`에 있습니다. 구현 전 설계 문서: `RESOURCE_GUIDELINE.md`(실시간 모니터링: AI + 자원 사용량).
 
 ## 프로세스
 
