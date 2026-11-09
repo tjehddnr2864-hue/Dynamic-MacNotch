@@ -68,6 +68,18 @@ NotchHub (1개)
 3. `Activity/LiveActivityInfo.swift`: 이름, 아이콘, 꺼진 조건
 4. 기능 코드에서 `center.setPersistent(...)`
 
+### 실시간 모니터링 (AI 사용량 + 자원 사용량)
+
+설계와 측정은 `RESOURCE_GUIDELINE.md`. 코드 위치:
+
+- `Features/Monitor/MonitorLayout.swift`: 표시할 항목·칸·홈 기능 연동 규칙 (순수, `--monitor-probe`)
+- `Features/Monitor/MonitorActivity.swift`: 활동 조립과 게시(`MonitorCoordinator`)
+- `Monitors/ResourceSampler.swift`: 수요가 있는 지표만 타이머 하나로 읽기. 값은 `ResourceReadings`, 칸은 `LiveMetricView`
+- `Notch/NotchHub.swift`의 `updateResourceDemand`: 디스플레이마다 보이는 칸·확장 화면으로 수요 계산
+- `Notch/DisplayRules.swift`의 `monitorMapped`: 둘 다면 통합, 해제하면 원래 선택
+
+자원 값은 활동(`NotchActivity`)에 넣지 않는다. 매 틱 활동이 바뀌면 노치 전체가 다시 그려져 CPU가 약 10배가 된다.
+
 ### 미리보기 추가
 
 `Features/Preview/FeaturePreview.swift`의 `PreviewID`, `layout`, 실행 코드. 설정 화면에서는 `PreviewSection([(.id, "이름")])`으로 씁니다.

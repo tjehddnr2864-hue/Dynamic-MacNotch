@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 자원 사용량 확장 화면 (홈 페이지와 상시 항목 팝업이 함께 쓴다).
-/// CPU·GPU·네트워크는 값과 최근 60회 그래프, 메모리는 앱·압축·와이어드 막대와 사용률·스왑.
+/// CPU·GPU는 값과 최근 60회 그래프, 그 아래 메모리(앱·압축·와이어드 막대와 사용률·스왑), 맨 아래 네트워크 그래프.
 /// 이 화면이 보이는 동안만 네 지표를 읽는다 (NotchHub가 수요를 낸다).
 struct ResourcePage: View {
     @ObservedObject private var readings = ResourceSampler.shared.readings
@@ -20,8 +20,8 @@ struct ResourcePage: View {
                 graphCell("GPU", value: s.gpu.map { "\($0)%" } ?? (ResourceSampler.shared.gpuAvailable ? nil : T("읽을 수 없음", "Unavailable")),
                           values: readings.history[.gpu] ?? [], maxValue: 100, tint: .teal)
             }
-            networkCell(s.net)
             memoryCell(s.mem)
+            networkCell(s.net)
         }
         .padding(.top, 2)
     }
@@ -53,7 +53,8 @@ struct ResourcePage: View {
 
     private func networkCell(_ net: NetworkReading?) -> some View {
         let received = readings.history[.net] ?? [], sent = readings.sentHistory
-        let top = max(1000, (received + sent).max() ?? 0)
+        // 눈금은 최소 100KB/s: 작은 흐름이 그래프 꼭대기까지 튀어 보이지 않게
+        let top = max(100_000, (received + sent).max() ?? 0)
         return VStack(alignment: .leading, spacing: 3) {
             header(T("네트워크", "Network"), net.map { "↓ \(Self.rate($0.received))   ↑ \(Self.rate($0.sent))" })
             ZStack {
@@ -107,9 +108,10 @@ struct ResourcePage: View {
     // MARK: 글자
 
     private static func memoryParts(_ mem: MemoryReading?) -> [(label: String, bytes: UInt64, color: Color)] {
-        [(T("앱", "App"), mem?.app ?? 0, .mint),
-         (T("압축", "Compressed"), mem?.compressed ?? 0, .yellow),
-         (T("와이어드", "Wired"), mem?.wired ?? 0, .purple)]
+        // 검은 노치 위에서 눈부시지 않게 채도와 밝기를 낮춘 색
+        [(T("앱", "App"), mem?.app ?? 0, Color(red: 0.29, green: 0.50, blue: 0.74)),
+         (T("압축", "Compressed"), mem?.compressed ?? 0, Color(red: 0.70, green: 0.55, blue: 0.27)),
+         (T("와이어드", "Wired"), mem?.wired ?? 0, Color(red: 0.53, green: 0.38, blue: 0.68))]
     }
 
     /// 활동 상태 보기와 같은 단위 (1GB = 1024³ 바이트)
