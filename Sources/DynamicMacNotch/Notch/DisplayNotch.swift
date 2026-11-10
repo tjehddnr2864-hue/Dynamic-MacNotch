@@ -29,6 +29,12 @@ final class DisplayNotch: NotchGestureDelegate {
     var onHoverChanged: (() -> Void)?
 
     private var monitors: [Any] = []
+    /// 커서가 노치 근처에 있을 때만 켜 두는 전역 이동 감시
+    private var nearMonitor: Any?
+    private var hoverPoll: Timer?
+    private var hoverPollInterval: TimeInterval = 0
+    private var lastCursor = NSPoint.zero
+    private var lastCursorMove = Date.distantPast
     /// 잠금 중에는 노치를 펼치지 않는다 (잠금화면 정보 노출 방지).
     var isLocked: () -> Bool = { false }
     private var cancellables = Set<AnyCancellable>()
@@ -75,6 +81,7 @@ final class DisplayNotch: NotchGestureDelegate {
     func tearDown() {
         monitors.forEach(NSEvent.removeMonitor)
         monitors = []
+        stopHoverPoll()
         cancellables = []
         longPressWork?.cancel()
         hoverOpenWork?.cancel()
@@ -215,13 +222,12 @@ final class DisplayNotch: NotchGestureDelegate {
     // MARK: - 마우스 감시
 
     private func installMonitors() {
-        let moveMask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
-        if let m = NSEvent.addGlobalMonitorForEvents(matching: moveMask, handler: { [weak self] _ in self?.updateHover() }) {
+        // 전역 마우스 이동 감시는 커서가 노치 근처에 있을 때만 켠다 (startHoverPoll).
+        // 항상 켜 두면 화면 어디서든 마우스를 움직이는 동안 모든 이동 이벤트가 이 앱으로 와 CPU를 27%까지 쓴다.
+        if let m = NSEvent.addLocalMonitorForEvents(matching: Self.moveMask, handler: { [weak self] e in self?.updateHover(); return e }) {
             monitors.append(m)
         }
-        if let m = NSEvent.addLocalMonitorForEvents(matching: moveMask, handler: { [weak self] e in self?.updateHover(); return e }) {
-            monitors.append(m)
-        }
+        startHoverPoll()
         // 파일 드래그 감지: 드래그 페이스트보드에 파일이 올라왔는지 보고, 노치 근처로 오면 확장
         if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown], handler: { [weak self] _ in
             self?.dragBaseline = NSPasteboard(name: .drag).changeCount
@@ -229,7 +235,9 @@ final class DisplayNotch: NotchGestureDelegate {
             monitors.append(m)
         }
         if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged], handler: { [weak self] _ in
-            self?.checkFileDrag()
+            guard let self else { return }
+            self.checkFileDrag()
+            if self.vm.isFileDragging, self.nearMonitor == nil { self.updateHover() }   // 파일을 든 채 옆 막대로 옮기기
         }) {
             monitors.append(m)
         }
@@ -256,6 +264,59 @@ final class DisplayNotch: NotchGestureDelegate {
         }) {
             monitors.append(m)
         }
+    }
+
+    // MARK: - 커서가 가까울 때만 이동 감시
+
+    private static let moveMask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+    /// 평소 확인 간격과, 마우스가 움직이는 동안의 확인 간격
+    private static let slowPoll: TimeInterval = 0.5
+    private static let fastPoll: TimeInterval = 1.0 / 15
+    /// 마지막 움직임 뒤 이만큼은 빠르게 확인한다
+    private static let fastHold: TimeInterval = 1.5
+
+    /// 커서 위치를 가끔 읽어, 노치 근처에 왔을 때만 전역 이동 감시를 켠다.
+    /// 평소 초당 2회, 움직임이 보이면 초당 15회. 가만있는 커서는 비용이 거의 없다.
+    private func startHoverPoll() {
+        scheduleHoverPoll(Self.slowPoll)
+    }
+
+    private func scheduleHoverPoll(_ interval: TimeInterval) {
+        guard interval != hoverPollInterval else { return }
+        hoverPollInterval = interval
+        hoverPoll?.invalidate()
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.pollCursor() }
+        t.tolerance = interval * 0.2
+        RunLoop.main.add(t, forMode: .common)
+        hoverPoll = t
+    }
+
+    private func pollCursor() {
+        let loc = NSEvent.mouseLocation
+        let now = Date()
+        if loc != lastCursor {
+            lastCursor = loc
+            lastCursorMove = now
+        }
+        scheduleHoverPoll(now.timeIntervalSince(lastCursorMove) < Self.fastHold ? Self.fastPoll : Self.slowPoll)
+        // 보이는 노치 도형에서 조금 떨어진 곳까지를 '근처'로 본다 (닿기 전에 감시가 켜지도록)
+        let near = interactiveRect.insetBy(dx: -60, dy: -40).contains(loc) || vm.isHovering || vm.isFileDragging
+        if near, nearMonitor == nil {
+            nearMonitor = NSEvent.addGlobalMonitorForEvents(matching: Self.moveMask) { [weak self] _ in self?.updateHover() }
+            updateHover()
+        } else if !near, let m = nearMonitor {
+            NSEvent.removeMonitor(m)
+            nearMonitor = nil
+            updateHover()   // 빠르게 지나가 놓친 '벗어남'을 한 번 정리
+        }
+    }
+
+    private func stopHoverPoll() {
+        hoverPoll?.invalidate()
+        hoverPoll = nil
+        hoverPollInterval = 0
+        if let m = nearMonitor { NSEvent.removeMonitor(m) }
+        nearMonitor = nil
     }
 
     /// 파일을 든 커서가 노치 옆 막대에 닿았는지
