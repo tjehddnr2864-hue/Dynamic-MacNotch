@@ -49,7 +49,6 @@ if let services = UsageWeb.services(from: CommandLine.arguments) {
     app.delegate = helper
     app.run()
 } else {
-    Migration.run()   // AppSettings를 읽기 전에 예전 설정부터 옮긴다
     let delegate = AppDelegate()
     app.delegate = delegate
     app.run()
