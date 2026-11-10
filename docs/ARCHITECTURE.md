@@ -1,6 +1,6 @@
 # 코드 구조 안내
 
-기능을 추가하거나 고칠 때 어디를 봐야 하는지 정리한 문서입니다. 동작의 세부 결정은 `CHAT_GUIDELINE.md`, `CHAT_ATTACH_GUIDELINE.md`, `DISPLAY_GUIDELINE.md`에 있습니다. 구현 전 설계 문서: `RESOURCE_GUIDELINE.md`(실시간 모니터링: AI + 자원 사용량).
+기능을 추가하거나 고칠 때 어디를 봐야 하는지 정리한 문서입니다. 동작의 세부 결정은 `CHAT_GUIDELINE.md`, `CHAT_ATTACH_GUIDELINE.md`, `DISPLAY_GUIDELINE.md`에 있습니다. 구현 전 설계 문서: `RESOURCE_GUIDELINE.md`(실시간 모니터링: AI + 자원 사용량). 전체 점검의 방법과 결과: `AUDIT_GUIDELINE.md`, `AUDIT_RESULTS.md`.
 
 ## 프로세스
 
@@ -22,7 +22,7 @@ App/        시작, 조립, 메뉴, 업데이트, 메모리 지킴이
   AppDelegate+Dev.swift          scripts/notchctl 명령 (개발 빌드만)
 Activity/   알림 모델과 큐 (ActivityCenter), 알림 뷰
 Monitors/   시스템 상태 감시 (네트워크, 배터리, 블루투스, 집중 모드, 통화, 다운로드, 녹화, HUD)
-Features/   기능별 코드 (Home, Timer, Media, Tray, Memo, Chat, Usage, LockScreen, Screenshot, Agent, Preview)
+Features/   기능별 코드 (Home, Timer, Media, Tray, Memo, Chat, Usage, Monitor, Download, Call, LockScreen, Screenshot, Agent, Preview)
 Notch/      노치 창과 상태
 Permissions/ 권한 관리
 Settings/   설정 값과 설정 창
@@ -40,6 +40,14 @@ NotchHub (1개)
 - 알림 큐 `ActivityCenter`와 기능 저장소는 앱에 하나씩 있습니다. 무엇을 어느 디스플레이에 보일지는 `DisplayRules`(순수 계산)가 정하고, `DisplayNotchState.displayed`가 그 결과를 씁니다.
 - 앱의 나머지 부분은 패널을 직접 만지지 않고 `NotchHub`를 거칩니다.
 - 규칙을 바꾸면 개발 빌드의 `--display-probe`로 전체 조합을 확인합니다.
+
+## 감시기 규칙 (`Monitors/`)
+
+- `Monitors/`에는 감시만 둔다. 화면은 `Features/<기능>/`에 둔다 (예: `Monitors/DownloadMonitor.swift`와 `Features/Download/DownloadPage.swift`).
+- `AppDelegate`가 시작 때 모든 감시기의 `start()`를 부른다. 각 감시기가 자기 설정을 보고 동작한다.
+- **기능이 꺼져 있거나 할 일이 없으면 타이머를 두지 않는다.** 통화는 통화 중에만, 다운로드는 진행 중인 항목이 있을 때만, 화면 녹화는 설정이 켜진 동안만 타이머가 돈다. 폴링보다 시스템 알림을 먼저 쓴다 (집중 모드는 DB 폴더 감시, 밝기는 변경 알림).
+- 시스템 알림은 관계없는 것도 많이 온다. **판단에 쓰지 않는 변화는 받는 자리에서 거른다** (`NetworkMonitor.isNoise`: AirDrop용 인터페이스, `CallMonitor`: 통화가 없을 때의 "요소가 사라짐" 알림).
+- 큰 타입은 `타입+역할.swift` 확장 파일로 나눈다 (`AppDelegate+Menu.swift`, `DisplayNotchState+Sizes.swift`). 확장 파일로 옮기려면 `private`을 열어야 하므로, 상태를 바꾸는 코드는 본체에 두고 계산만 옮긴다.
 
 ## 자주 하는 작업
 
@@ -134,7 +142,7 @@ scripts/build.sh --dev
 ```
 
 - `scripts/notchctl <명령>`: 노치를 조작합니다. 명령은 `App/AppDelegate+Dev.swift`에 있습니다.
-- `--display-probe`, `--settings-probe`: 표시 규칙과 설정 저장을 확인합니다.
+- 점검 도구(개발 빌드 실행 파일에 인자로 준다): `--display-probe` 표시 규칙, `--settings-probe` 설정 저장·순서·옛 키·숫자 범위·네트워크 거르기, `--monitor-probe` 실시간 모니터링, `--tray-probe` 트레이 선택, `--chat-probe=<서비스>:<명령>:<값>` 채팅. 코드를 바꾸면 앞의 네 개를 모두 돌려 실패 0건을 확인합니다.
 - `DMN_SETTINGS_PAGE=<페이지>`, `DMN_SETTINGS_HEIGHT=<높이>`: `--helper=settings`와 함께 쓰면 그 페이지를 화면 밖에 키워 띄웁니다. `screencapture -l`로 페이지 전체를 확인할 수 있습니다.
 - `DMN_CHAT_FOLDER`: 시험할 때 실제 채팅이 아닌 폴더를 쓰게 합니다.
 
