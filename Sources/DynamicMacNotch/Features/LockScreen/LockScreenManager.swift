@@ -228,8 +228,10 @@ final class LockScreenManager: ObservableObject {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { playerState.isFull = false }
     }
 
+    #if DEV
     func openFull() {
         lyrics.load(for: media.nowPlaying)
         withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { playerState.isFull = true }
     }
+    #endif
 }

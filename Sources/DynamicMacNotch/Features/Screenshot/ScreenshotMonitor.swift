@@ -103,7 +103,7 @@ final class ScreenshotMonitor: ObservableObject {
     private func startFileQuery() {
         let q = NSMetadataQuery()
         q.predicate = NSPredicate(format: "kMDItemIsScreenCapture == 1")
-        q.searchScopes = [Self.systemScreenshotFolder]
+        q.searchScopes = [RecordingMonitor.saveFolder()]
         queryObserver = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: q, queue: .main) { [weak self] n in
             guard let self, self.settings.screenshotEnabled, self.settings.screenshotSource != .clipboard else { return }
             let added = n.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem] ?? []
@@ -119,14 +119,6 @@ final class ScreenshotMonitor: ObservableObject {
         }
         q.start()
         query = q
-    }
-
-    /// 시스템 스크린샷 저장 위치 (`com.apple.screencapture location`, 기본 데스크탑).
-    static var systemScreenshotFolder: URL {
-        if let loc = UserDefaults(suiteName: "com.apple.screencapture")?.string(forKey: "location") {
-            return URL(fileURLWithPath: (loc as NSString).expandingTildeInPath)
-        }
-        return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
     }
 
     #if DEV

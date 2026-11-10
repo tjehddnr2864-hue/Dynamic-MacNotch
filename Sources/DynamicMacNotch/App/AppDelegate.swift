@@ -312,8 +312,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    #if DEV
     func closeHelper() {
         DistributedNotificationCenter.default().postNotificationName(Helper.helperNotification, object: "close",
                                                                      userInfo: nil, deliverImmediately: true)
     }
+    #endif
 }
