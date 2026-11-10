@@ -1,3 +1,4 @@
+import Combine
 import AppKit
 import SwiftUI
 
@@ -33,7 +34,23 @@ final class RecordingMonitor: ObservableObject {
         self.center = center
     }
 
-    func start() { schedule(interval: 1.5) }
+    /// 화면 녹화 알림을 끈 동안에는 타이머도 돌리지 않는다
+    func start() {
+        enabledObserver = settings.$recordingEnabled.sink { [weak self] on in
+            guard let self else { return }
+            if on {
+                self.schedule(interval: 1.5)
+            } else {
+                self.timer?.invalidate()
+                self.timer = nil
+                self.interval = 0
+                self.suppressedAfterScreenshot = false
+                self.positiveStreak = 0
+                if self.startedAt != nil { self.stopped() }
+            }
+        }
+    }
+    private var enabledObserver: AnyCancellable?
 
     /// 평소 1.5초, 스크린샷 도구가 떠 있는 동안은 0.4초마다 확인 (녹화 시작·끝을 1초 안에 반영)
     private var interval: TimeInterval = 0
@@ -69,14 +86,7 @@ final class RecordingMonitor: ObservableObject {
     private var positiveStreak = 0
 
     private func poll() {
-        // 화면 녹화 알림을 끈 동안에는 프로세스 목록을 읽지 않는다
-        guard settings.recordingEnabled else {
-            schedule(interval: 1.5)
-            suppressedAfterScreenshot = false
-            positiveStreak = 0
-            if startedAt != nil { stopped() }
-            return
-        }
+        guard settings.recordingEnabled else { return }
         let procs = Self.recorderProcesses()
         schedule(interval: procs.ui || procs.cliVideo || startedAt != nil ? 0.4 : 1.5)
         if suppressedAfterScreenshot {
