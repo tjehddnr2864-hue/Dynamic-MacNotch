@@ -77,11 +77,46 @@
 | B-001 | 낮음 | `App/AppDelegate.swift:315` `closeHelper`, `Features/LockScreen/LockScreenManager.swift:231` `openFull`, `Settings/AppSettings.swift:395` `settingCount` | 배포 코드에 있지만 개발 명령·probe만 쓴다 | 단계 4: `#if DEV` 안으로 옮김. `openFull`은 잠금 화면 전체 보기를 실제 기능이 여는 다른 경로가 있는지 먼저 확인 | 대기 |
 | B-002 | 낮음 | `Monitors/RecordingMonitor.swift:134` `saveFolder`, `Features/Screenshot/ScreenshotMonitor.swift:125` `systemScreenshotFolder` | 같은 값(macOS 스크린샷 저장 위치)을 두 곳에서 다른 방법으로 읽는다. 한쪽만 폴더가 실제로 있는지 확인한다 | 단계 4: 한 함수로 합침. 폴더가 없을 때의 동작이 달라지므로 어느 쪽에 맞출지 정해야 함 (없으면 데스크탑으로 가는 쪽이 안전) | 대기 |
 | B-003 | 낮음 | `Features/Timer/TimerController.swift:32`, `Features/Call/CallViews.swift:67` | 시간 표시 함수가 둘. 타이머는 올림·`02:05`, 통화는 버림·`2:05`로 **의도가 다르다** | 합치지 않음. 기록만 | 유지 |
-| B-004 | 사용자 결정 | `App/Migration.swift` (25줄) | 옛 이름 `com.local.notchisland`의 설정을 한 번 옮겨 온다. 공개 첫 버전(1.0.0, 2026-10-15)부터 있던 코드라, 대상은 공개 전 이름으로 쓰던 사용자뿐 | 지울지 사용자가 정함. 지우면 `migratedFromNotchIsland` 표시만 설정에 남고 동작 변화 없음 | 사용자 결정 |
-| B-005 | 사용자 결정 | `Settings/AppSettings.swift:66` `displayTarget`, `:206` `trayCleanupDays`, `Notch/SharedNotchState.swift:34` `homeOption` | 옛 설정 키를 이어 받는 코드 3곳. `trayCleanupDays`는 1.4.0 이하에서 올라오는 사용자에게 아직 필요하고, 나머지 둘은 1.3.2 이전 사용자용 | 지금은 유지 권장 (자동 업데이트 대상이 1.0.1 이상). 언제 지울지 기준(예: 3개 버전 뒤)을 정하면 문서에 적음 | 사용자 결정 |
+| B-004 | 사용자 결정 → **삭제함** (c50e617) | `App/Migration.swift` (25줄) | 옛 이름 `com.local.notchisland`의 설정을 한 번 옮겨 온다. 공개 첫 버전(1.0.0, 2026-10-15)부터 있던 코드라, 대상은 공개 전 이름으로 쓰던 사용자뿐 | 2026-11-10 사용자 결정으로 삭제. 빌드 경고 0, probe 4종 통과. `migratedFromNotchIsland` 표시는 기존 설정에 남지만 읽는 곳이 없다 | 완료 |
+| B-005 | 사용자 결정 | `Settings/AppSettings.swift:66` `displayTarget`, `:206` `trayCleanupDays`, `Notch/SharedNotchState.swift:34` `homeOption` | 옛 설정 키를 이어 받는 코드 3곳. `trayCleanupDays`는 1.4.0 이하에서 올라오는 사용자에게 아직 필요하고, 나머지 둘은 1.3.2 이전 사용자용 | 2026-11-10 사용자 결정: **유지** | 유지 |
 | B-006 | 낮음 | `docs/ARCHITECTURE.md:137` | 점검 도구 안내에 `--display-probe`, `--settings-probe`만 있고 `--monitor-probe`, `--tray-probe`, `--chat-probe`가 빠졌다 | 단계 7의 문서 갱신 때 추가 | 대기 |
 | B-007 | 확인 필요 | `Process()` 13곳 중 `waitUntilExit` 7곳 | 기다리는 호출이 메인 스레드에서 도는지는 읽기만으로 판정하지 않았다. 기다리지 않는 4곳(업데이트 교체, 다시 시작 2곳, 에이전트 훅 이어 부르기)은 앱·도우미가 곧 끝나는 자리라 의도된 것 | 단계 3-E에서 호출 스레드와 잔여 프로세스 확인 | 대기 |
 
 ### 판정
 
 지울 수 있는 코드는 사실상 없다(B-001의 3개를 개발 전용으로 옮기는 정도, B-002 한 곳 합치기). 이 점검의 이득은 단계 3(불필요한 동작)과 단계 7(큰 파일 분리)에서 나온다. 단계 4(안전한 삭제)는 B-001·B-002와, 사용자가 정하면 B-004만 한다.
+
+## 단계 2 — 설정 저장소 점검 (2026-11-10)
+
+읽기와 probe 실행만 했다 (단계 시작 전에 B-004 삭제를 따로 커밋했다). probe 전후 사용자 설정은 내용이 같다. 검사 스크립트는 `build/audit/keys.py`.
+
+### 검사 결과
+
+| 항목 | 기대 | 실측 | 판정 |
+|---|---|---|---|
+| 선언된 설정 | 기록 | 110개 | — |
+| 키 이름 중복 | 0 | 0 | 합격 |
+| 화면에는 있는데 읽는 곳이 없는 설정 | 0 | 0 | 합격 |
+| 설정 화면에 직접 없는 설정 | 모두 설명됨 | 8개: `homeDisabled`, `resourceLeft/Right`, `bothLeft/Right`, `chatModelClaude/OpenAI/Gemini`. 모두 `AppSettings`의 함수(`setHomeFeature`, `setMonitorSlot`, `chatModel(for:)`)를 거쳐 화면과 연결됨 | 합격 |
+| 값이 같으면 저장·알림 안 함 | 그렇다 | `Setting.apply`가 같은 값이면 `false` (`Setting.swift:81`), probe "same value does not notify" 통과 | 합격 |
+| 알림 무한 반복 | 없음 | 알림은 도우미만 보낸다 (`AppSettings.swift:403` `guard Self.isHelper`). 본 앱의 `reload()`는 알림을 보내지 않는다 | 합격 |
+| 모르는 선택지 값 | 기본값으로 | `Setting` 열거형 초기화가 기본값으로 대체, probe 통과 | 합격 |
+| 홈 기능 ↔ 실시간 모니터링 연동 | 규칙 1-1 | `--settings-probe` 4건, `--monitor-probe` 386건 통과 | 합격 |
+| 순서 정리 (`homeOrder`, `persistentOrder`) | 새 항목이 들어감 | 코드 확인. 상시 표시는 "앞 항목 바로 뒤", 홈 기능은 "맨 끝"에 넣는다 (C-004) | 합격(차이 기록) |
+| `--settings-probe` | 실패 0 | 17건, 실패 0 | 합격 |
+
+설정이 아닌 상태 값(직접 저장): `homeOptionKey`(마지막 홈 페이지), `timerDraft`, `updateJustInstalled`, `filesPermissionRequested`. 설정 창과 무관하고 `reload()` 대상이 아니다.
+
+### 발견 사항
+
+| ID | 위험도 | 위치 | 내용 | 조치 제안 | 상태 |
+|---|---|---|---|---|---|
+| C-001 | 낮음 | `Settings/AppSettings.swift`의 숫자 설정 11개 | 범위 정리(`sanitize`)가 없다: `longPressDuration`, `dragZoneHeight`, `batteryLowThreshold`, `transientDuration`, `netDuration`, `focusDuration`, `mediaHideAfterPause`, `screenshotAutoClose`, `hudDuration`, `calendarAlertMinutes`, `lyricsSize`. 설정 화면은 범위를 지키므로(예: 길게 누르기 0.2~0.8초, 드래그 높이 60~200, 배터리 5~50) 설정 파일이 손상되거나 직접 고쳤을 때만 문제. `lyricsSize`는 쓰는 곳에서 범위를 맞춘다 (`LockMediaViews.swift:218`) | 단계 5: 화면 범위와 같은 `sanitize`를 앞의 세 개에 추가 (0 이하 길게 누르기 시간은 누르자마자 열림). 나머지는 0이 "끄기/일반 설정 따름"이라 음수만 막으면 됨 | 대기 |
+| C-002 | 낮음 | `Settings/Setting.swift:35-41` | `sanitize`는 읽을 때만 적용된다. 값을 넣을 때는 그대로 저장되어, 다시 읽기 전까지 메모리 값과 정리된 값이 다를 수 있다 | 지금은 화면이 범위를 지켜 실제 문제 없음. C-001을 고칠 때 넣을 때도 정리하도록 함께 고침 | 대기 |
+| C-003 | 낮음 | `Features/LockScreen/LockMediaViews.swift:205` | 본 앱이 설정을 바꾸는 곳(잠금 화면의 "실시간 가사 켜기")이 있는데, 본 앱 → 설정 창 방향 알림은 없다. 설정 창을 연 채로 누르면 창의 스위치가 옛 값으로 남는다 (다시 열면 맞음) | 잠금 화면에서는 설정 창을 볼 수 없어 실제로 마주치기 어렵다. 기록만 하고, 본 앱이 바꾸는 설정이 늘면 양방향 알림을 검토 | 보류 |
+| C-004 | 낮음(확인) | `AppSettings.swift:92` `fixedHomeOrder`, `:77` `fixedPersistentOrder` | 새 항목을 넣는 위치 규칙이 둘이 다르다. 기존 사용자에게 자원 사용량은 상시 표시 순위에서는 AI 사용량 바로 아래, 홈 페이지에서는 맨 끝에 생긴다 | 의도한 것인지 사용자 확인. 맞추려면 홈도 "앞 항목 바로 뒤" 규칙으로 (이미 1.4.2로 올라온 사용자의 순서는 바뀌지 않음) | 사용자 결정 |
+| C-005 | 중간(안전망) | `Settings/SettingsProbe.swift` | probe가 보지 않는 것: 순서 정리 함수 2개, 옛 키 이어 받기 3곳(`displayTarget`, `trayCleanupDays`, `homeOption`), 키 중복, 숫자 범위. 모두 순수 계산이라 추가가 쉽다 | 단계 5나 7에 들어가기 전에 probe 항목 추가 (코드 변경이라 이 단계에서는 제안만) | 사용자 결정 |
+
+### 판정
+
+설정 저장소에서 오류는 찾지 못했다. 합격 기준(키 중복 0, 읽는 곳 없는 키 0, probe 실패 0) 충족. 남은 것은 손상된 값에 대한 방어(C-001·002)와 probe 보강(C-005)이다.
