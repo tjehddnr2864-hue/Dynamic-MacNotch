@@ -48,3 +48,40 @@
 ### 판정
 
 합격 기준(경고 0, probe 실패 0, 수치 기록)은 충족했다. 대기 CPU는 이전 값(0.07%)과 조건이 달라 직접 비교할 수 없으므로, 이후 단계의 비교 기준은 **이 표의 값(쓰는 중 0.33~0.47%)과 단계 3에서 잴 "가만둘 때" 값** 두 가지로 한다.
+
+## 단계 1 — 정적 점검 (2026-11-10)
+
+읽기만 했다. 코드·설정·앱은 건드리지 않았다. 검사 스크립트는 `build/audit/dead.py`, `build/audit/devonly.py`.
+
+### 검사 결과
+
+| 항목 | 방법 | 결과 | 판정 |
+|---|---|---|---|
+| 한 번만 나오는 선언 (타입·함수·속성·case) | 주석을 뺀 전체 소스에서 선언 이름의 등장 횟수 = 1 | 타입 0, 속성 0, 함수 12, case 5. 함수 12개는 모두 시스템이 부르는 콜백(`applicationWillTerminate`, `urlSession` 등), case 5개는 `switch`의 시스템 상수 | 죽은 코드 없음 |
+| 설정 키 110개 | 단계 0 전 조사 | 읽는 곳 없는 키 0 | 합격 |
+| 개발 코드만 쓰는 배포 코드 | 선언은 배포 코드, 사용처는 `#if DEV`·probe·`+Dev.swift`뿐 | 3개 (B-001) | 정리 후보 |
+| 주석 처리된 코드, TODO/FIXME | `grep` | 0건 | 합격 |
+| probe의 배포 빌드 유입 | 파일마다 `#if DEV`, 배포 실행 파일 `strings`에서 `checks=`·`failures=` | 5종 모두 `#if DEV` 안, 문자열 0건 | 합격 |
+| 로그 | `print`·`NSLog` | `NSLog` 2곳(도우미 실행 실패 때 오류만), `print`는 probe 안 | 합격 |
+| 안 쓰는 `import Combine` | 파일별 사용 여부 | 0건 | 합격 |
+| 번역 밖 한국어 글 | `T(` 없는 한글 문자열 | 화면에 보이는 글은 0건. 나온 것은 모두 인식용 단어 목록(통화 버튼 이름, 사용량 페이지 문구, 기기 이름)과 언어 이름 | 합격 |
+| 문서가 가리키는 파일 | `ARCHITECTURE.md`, `CLAUDE.md`의 `.swift` 이름 | 없는 파일 0 | 합격 |
+| 리소스 | `Resources/` | 아이콘, `Info.plist`, 언어별 `InfoPlist.strings`뿐. 남는 파일 없음 | 합격 |
+
+한계: 이름이 2번 이상 나오는 죽은 코드(예: 자기 안에서만 쓰이는 것, 서로만 부르는 한 쌍, 값을 쓰기만 하고 읽지 않는 속성)는 이 방법으로 못 찾는다. 단계 7에서 큰 파일을 읽을 때 함께 본다.
+
+### 발견 사항
+
+| ID | 위험도 | 위치 | 내용 | 조치 제안 | 상태 |
+|---|---|---|---|---|---|
+| B-001 | 낮음 | `App/AppDelegate.swift:315` `closeHelper`, `Features/LockScreen/LockScreenManager.swift:231` `openFull`, `Settings/AppSettings.swift:395` `settingCount` | 배포 코드에 있지만 개발 명령·probe만 쓴다 | 단계 4: `#if DEV` 안으로 옮김. `openFull`은 잠금 화면 전체 보기를 실제 기능이 여는 다른 경로가 있는지 먼저 확인 | 대기 |
+| B-002 | 낮음 | `Monitors/RecordingMonitor.swift:134` `saveFolder`, `Features/Screenshot/ScreenshotMonitor.swift:125` `systemScreenshotFolder` | 같은 값(macOS 스크린샷 저장 위치)을 두 곳에서 다른 방법으로 읽는다. 한쪽만 폴더가 실제로 있는지 확인한다 | 단계 4: 한 함수로 합침. 폴더가 없을 때의 동작이 달라지므로 어느 쪽에 맞출지 정해야 함 (없으면 데스크탑으로 가는 쪽이 안전) | 대기 |
+| B-003 | 낮음 | `Features/Timer/TimerController.swift:32`, `Features/Call/CallViews.swift:67` | 시간 표시 함수가 둘. 타이머는 올림·`02:05`, 통화는 버림·`2:05`로 **의도가 다르다** | 합치지 않음. 기록만 | 유지 |
+| B-004 | 사용자 결정 | `App/Migration.swift` (25줄) | 옛 이름 `com.local.notchisland`의 설정을 한 번 옮겨 온다. 공개 첫 버전(1.0.0, 2026-10-15)부터 있던 코드라, 대상은 공개 전 이름으로 쓰던 사용자뿐 | 지울지 사용자가 정함. 지우면 `migratedFromNotchIsland` 표시만 설정에 남고 동작 변화 없음 | 사용자 결정 |
+| B-005 | 사용자 결정 | `Settings/AppSettings.swift:66` `displayTarget`, `:206` `trayCleanupDays`, `Notch/SharedNotchState.swift:34` `homeOption` | 옛 설정 키를 이어 받는 코드 3곳. `trayCleanupDays`는 1.4.0 이하에서 올라오는 사용자에게 아직 필요하고, 나머지 둘은 1.3.2 이전 사용자용 | 지금은 유지 권장 (자동 업데이트 대상이 1.0.1 이상). 언제 지울지 기준(예: 3개 버전 뒤)을 정하면 문서에 적음 | 사용자 결정 |
+| B-006 | 낮음 | `docs/ARCHITECTURE.md:137` | 점검 도구 안내에 `--display-probe`, `--settings-probe`만 있고 `--monitor-probe`, `--tray-probe`, `--chat-probe`가 빠졌다 | 단계 7의 문서 갱신 때 추가 | 대기 |
+| B-007 | 확인 필요 | `Process()` 13곳 중 `waitUntilExit` 7곳 | 기다리는 호출이 메인 스레드에서 도는지는 읽기만으로 판정하지 않았다. 기다리지 않는 4곳(업데이트 교체, 다시 시작 2곳, 에이전트 훅 이어 부르기)은 앱·도우미가 곧 끝나는 자리라 의도된 것 | 단계 3-E에서 호출 스레드와 잔여 프로세스 확인 | 대기 |
+
+### 판정
+
+지울 수 있는 코드는 사실상 없다(B-001의 3개를 개발 전용으로 옮기는 정도, B-002 한 곳 합치기). 이 점검의 이득은 단계 3(불필요한 동작)과 단계 7(큰 파일 분리)에서 나온다. 단계 4(안전한 삭제)는 B-001·B-002와, 사용자가 정하면 B-004만 한다.
