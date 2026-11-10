@@ -314,3 +314,54 @@ README(한국어·영어)의 설명을 점검 항목으로 삼아 코드와 맞�
 ### 판정
 
 문서와 코드가 어긋난 곳은 문서 3곳(F-002~004)과 꺼진 기능의 타이머 1곳(F-001)이었고 모두 고쳤다. 코드로 확인할 수 있는 설명 13개는 일치했다.
+
+## 단계 7 — 구조 정리·분리 (2026-11-10)
+
+코드를 옮기기만 했고 로직은 바꾸지 않았다. 분리 한 건마다 커밋 하나, 매번 개발 구성 컴파일 경고 0.
+
+### 한 것
+
+| 커밋 | 내용 | 줄 수 변화 |
+|---|---|---|
+| d6883fb | `Activity/ActivityViews.swift`에서 작은 그림 9개(게이지, 자물쇠, 굴러가는 숫자, VPN·배터리 아이콘)를 `ActivityGlyphs.swift`로 | 507 → 278 + 233 |
+| 03ccb31 | `Monitors/DownloadMonitor.swift`의 화면(`DownloadPage`)을 `Features/Download/DownloadPage.swift`로 | 463 → 373 + 95 |
+| bc4c757 | `Notch/DisplayNotchState.swift`의 크기·모서리 계산을 `DisplayNotchState+Sizes.swift`로 | 688 → 553 + 139 |
+| 119aa5f | `Monitors/CallMonitor.swift`의 화면 요소 탐색(`AXControl`)을 `CallAccessibility.swift`로 | 494(단계 5 뒤 497) → 374 + 126 |
+| 89bf41a | `Features/Media/MediaController.swift`의 타입(`MediaSource`, `NowPlaying`)을 `MediaTypes.swift`로 | 684 → 641 + 47 |
+| (문서) | `ARCHITECTURE.md`: 감시기 규칙, 점검 도구 5종, 새 폴더. `DISPLAY_GUIDELINE.md`: Mission Control 점검 값 변경 주석 | |
+
+### 시도했다가 되돌린 것 (제안과 달라진 점)
+
+확장 파일로 옮기려면 그 코드가 쓰는 `private` 멤버를 모두 열어야 한다. 아래 넷은 열어야 할 것이 많아 이득보다 손해가 커서 되돌렸다.
+
+| 대상 | 열어야 했던 것 |
+|---|---|
+| `DisplayNotchState`의 상시 항목 넘기기·파일 끌기 | 핵심 상태 4개의 쓰기 권한(`homeOption`, `isFileDragging`, `mediaVolumeShown`, `pageForward`)과 `private` 2개 |
+| `CallMonitor`의 미리보기 | `private` 11개 (`setState`, `publish`, `tuCenter` 등) |
+| `MediaController`의 재생 테스트 | 저장 속성 9개가 그 구역에 있고 여러 줄짜리 목록 포함 |
+| `MediaController`의 즐겨찾기 | `private` 4개 (`command`, `lastTrackKey`, `adapterInput`, `favorited` 쓰기) |
+
+그래서 원칙을 "계산만 옮기고 상태를 바꾸는 코드는 본체에 둔다"로 정해 `ARCHITECTURE.md`에 적었다. `DisplayNotch.swift`, `ChatStore.swift`는 제안대로 손대지 않았다.
+
+### 검증
+
+| 항목 | 기대 | 실측 | 판정 |
+|---|---|---|---|
+| 개발·배포 빌드 경고 | 0 | 0 / 0 | 합격 |
+| probe 4종 | 실패 0 | 6,257 / 45 / 386 / 30, 실패 0 | 합격 |
+| 배포 실행 파일 크기 | ±2% | 3,572,384 → 3,589,232바이트 (+0.5%, 단계 5·6의 코드 추가 포함) | 합격 |
+| 배포 실행 파일의 개발 문자열 | 0 | 0 | 합격 |
+| 홈 열고 닫기 300회 (개발 빌드) | 100회당 +2MB 이내, 누수 0 | 준비 5회 뒤 24.9 → 25.6 → 26.4 → 26.6MB (+0.7, +0.8, +0.2), 누수 0 | 합격 |
+| 화면 구성 변경 20회, 설정 창 10회, 채팅 20회 | 단계 3과 같은 기준 | 노치 1 → 1, 도우미 0, 채팅 +1.5MB, 누수 0 | 합격 |
+| 전체 줄 수 | 기록 | 23,423 → 23,539 (probe·주석·새 파일 머리 포함) | — |
+| 가장 큰 파일 | 기록 | 688줄 → 553줄(`DisplayNotchState`). `MathTypesetter` 799, `ChatStore` 661, `MediaController` 641은 그대로 | — |
+
+홈 열고 닫기 첫 실행에서 100회에 +2.4MB가 나와 기준을 넘었지만, 300회로 다시 재니 증가가 줄어들며 멈췄다(누적이 아님).
+
+### 대기 수치 비교는 하지 못했다
+
+배포 빌드의 대기 CPU를 두 번 쟀지만(60초에 4.65초, 0.87초) 그 시간에 사용자가 브라우저로 영상을 보며 Mac을 쓰고 있었다(WindowServer 64%, 브라우저 48%). 같은 시각 설치된 1.4.2도 8초에 0.51초(6%)를 썼다. 따라서 이 값은 분리 전후 비교에 쓸 수 없다. 대기 수치는 단계 9에서 Mac을 쓰지 않을 때 다시 잰다.
+
+### A-003 다시 보기 (전역 마우스 감시)
+
+위 8초 샘플에서 메인 스레드가 바빴던 시간의 대부분은 **창 서버 이벤트 수신**이었다(532 중 대부분, 미디어 표시는 꺼진 상태: 재생 소스가 Apple Music이라 브라우저 영상은 노치에 뜨지 않음). 즉 마우스를 계속 움직이거나 끄는 동안에는 전역 마우스 감시 때문에 앱이 **수 %**의 CPU를 쓴다. 단계 5에서 "이득은 최대 0.1% 안팎"이라고 적은 것은 마우스를 거의 움직이지 않던 구간의 값이라 **과소평가였다.** 정확한 값은 마우스를 움직이는 동안과 가만둘 때를 나눠 재야 하며(단계 8), 그 결과로 구조 변경 여부를 다시 정한다.
