@@ -3,6 +3,7 @@ import Foundation
 
 /// AppSettings가 저장값을 다시 읽을 때 쓰는 공통 면
 protocol SettingSlot: AnyObject {
+    var key: String { get }
     func refresh(from defaults: UserDefaults, owner: AppSettings)
 }
 
@@ -14,7 +15,7 @@ protocol SettingSlot: AnyObject {
 /// 값이 같으면 저장도 알림도 하지 않으므로, 다시 읽기(reload)는 실제로 바뀐 설정에만 반응한다.
 @propertyWrapper
 final class Setting<Value: Equatable>: SettingSlot {
-    private let key: String
+    let key: String
     private let read: (UserDefaults) -> Value
     private let write: (UserDefaults, Value) -> Void
     private let notifiesMainApp: Bool

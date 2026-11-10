@@ -27,7 +27,9 @@ enum SettingsProbe {
             restore(saved.2, "memoryLimitMB")
         }
 
-        print("settings declared=\(settings.settingCount)")
+        let keys = settings.settingKeys
+        print("settings declared=\(keys.count)")
+        check(Set(keys).count == keys.count, "setting keys are unique")
         var received: [String] = [], willChange = 0
         let bag = [settings.$btBlocklist.sink { received.append($0) },
                    settings.objectWillChange.sink { willChange += 1 }]
@@ -82,6 +84,44 @@ enum SettingsProbe {
         settings.homeDisabled = savedHome
         if let savedContent { d.set(savedContent, forKey: "monitorContent") } else { d.removeObject(forKey: "monitorContent") }
         settings.reload()
+
+        // 순서 정리: 없어진 항목은 빼고, 새 항목은 기본 순서의 바로 앞 항목 뒤에
+        let home = AppSettings.defaultHomeOrder, live = AppSettings.defaultPersistentOrder
+        check(AppSettings.fixedHomeOrder([]) == home, "home order: empty → default")
+        check(AppSettings.fixedHomeOrder(home) == home, "home order: default stays")
+        check(AppSettings.fixedHomeOrder(["memo", "usage", "camera", "timer", "calendar", "tray", "chat"])
+              == ["memo", "usage", "resource", "camera", "timer", "calendar", "tray", "chat"], "home order: resource goes right after usage")
+        check(AppSettings.fixedHomeOrder(["tray", "resource", "gone", "camera"])
+              == ["tray", "chat", "resource", "memo", "calendar", "camera", "timer", "usage"], "home order: keeps saved order, drops unknown, adds each new item after its neighbor")
+        check(AppSettings.fixedPersistentOrder([]) == live, "live order: empty → default")
+        check(AppSettings.fixedPersistentOrder(["media", "aiUsage", "battery"]).first == "call", "live order: call goes first")
+        let fixedLive = AppSettings.fixedPersistentOrder(["call", "battery", "aiUsage", "media"])
+        check(fixedLive.firstIndex(of: "resource") == fixedLive.firstIndex(of: "aiUsage").map { $0 + 1 }, "live order: resource goes right after AI usage")
+        check(Set(fixedLive) == Set(live) && fixedLive.count == live.count, "live order: every item once")
+
+        // 예전 키 이어 받기 (시험용 저장소에서만)
+        let suite = "com.dynamicmacnotch.app.probe"
+        if let old = UserDefaults(suiteName: suite) {
+            old.removePersistentDomain(forName: suite)
+            check(AppSettings.savedNotchDisplays(old) == "main", "displays: new install → main")
+            old.set(true, forKey: "onboardingDone")
+            check(AppSettings.savedNotchDisplays(old) == "builtIn", "displays: old user without a choice → built-in")
+            old.set("all", forKey: "displayTarget")
+            check(AppSettings.savedNotchDisplays(old) == "all", "displays: old key carries over")
+            old.set("main", forKey: "notchDisplays")
+            check(AppSettings.savedNotchDisplays(old) == "main", "displays: new key wins")
+            check(AppSettings.savedTrayCleanup(old) == 0, "tray cleanup: nothing saved → off")
+            old.set(7.0, forKey: "trayCleanupDays")
+            check(AppSettings.savedTrayCleanup(old) == 10080, "tray cleanup: days carry over as minutes")
+            old.set(30.0, forKey: "trayCleanupMinutes")
+            check(AppSettings.savedTrayCleanup(old) == 30, "tray cleanup: new key wins")
+            check(SharedNotchState.savedHomeOption(old) == .camera, "last home page: nothing saved → camera")
+            old.set(HomeOption.timer.rawValue, forKey: "homeOption")
+            check(SharedNotchState.savedHomeOption(old) == .timer, "last home page: old number carries over")
+            old.set("memo", forKey: "homeOptionKey")
+            check(SharedNotchState.savedHomeOption(old) == .memo, "last home page: name wins")
+            old.removePersistentDomain(forName: suite)
+        }
 
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")

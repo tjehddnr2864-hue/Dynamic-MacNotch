@@ -61,7 +61,7 @@ final class AppSettings: ObservableObject {
     }
 
     /// 저장된 값이 없으면 예전 설정을 이어 받는다. 신규 설치는 주 디스플레이, 예전 사용자는 지금 자리 그대로.
-    private static func savedNotchDisplays(_ d: UserDefaults) -> String {
+    static func savedNotchDisplays(_ d: UserDefaults) -> String {
         if let saved = d.string(forKey: "notchDisplays") { return saved }
         if let old = d.string(forKey: "displayTarget") { return old }
         return d.bool(forKey: "onboardingDone") ? "builtIn" : "main"
@@ -73,11 +73,16 @@ final class AppSettings: ObservableObject {
     @Setting("persistentOrder", default: AppSettings.defaultPersistentOrder, sanitize: AppSettings.fixedPersistentOrder) var persistentOrder: [String]
     static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "resource", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
 
-    /// 새로 생긴 항목은 기본 순서에서 바로 앞 항목의 뒤에 넣는다 (예: 자원 사용량은 AI 사용량 아래). 통화는 기존 사용자도 맨 위로.
+    /// 통화는 기존 사용자도 맨 위로.
     static func fixedPersistentOrder(_ saved: [String]) -> [String] {
-        var order = (saved.contains("call") ? [] : ["call"]) + saved.filter(defaultPersistentOrder.contains)
-        for (i, key) in defaultPersistentOrder.enumerated() where !order.contains(key) {
-            let before = defaultPersistentOrder[..<i].last(where: order.contains)
+        withNewItems((saved.contains("call") ? [] : ["call"]) + saved, defaults: defaultPersistentOrder)
+    }
+
+    /// 저장된 순서에서 없어진 항목을 빼고, 새로 생긴 항목은 기본 순서에서 바로 앞 항목의 뒤에 넣는다 (예: 자원 사용량은 AI 사용량 아래).
+    static func withNewItems(_ saved: [String], defaults: [String]) -> [String] {
+        var order = saved.filter(defaults.contains)
+        for (i, key) in defaults.enumerated() where !order.contains(key) {
+            let before = defaults[..<i].last(where: order.contains)
             order.insert(key, at: before.flatMap(order.firstIndex(of:)).map { $0 + 1 } ?? order.count)
         }
         return order
@@ -89,8 +94,8 @@ final class AppSettings: ObservableObject {
     @Setting("trayMode", default: TrayMode.on) var trayMode: TrayMode
     static let defaultHomeOrder = ["camera", "timer", "usage", "resource", "memo", "calendar", "tray", "chat"]
 
-    private static func fixedHomeOrder(_ saved: [String]) -> [String] {
-        saved.filter(defaultHomeOrder.contains) + defaultHomeOrder.filter { !saved.contains($0) }
+    static func fixedHomeOrder(_ saved: [String]) -> [String] {
+        withNewItems(saved, defaults: defaultHomeOrder)
     }
 
     func isHomeFeatureOn(_ key: String) -> Bool {
@@ -201,7 +206,7 @@ final class AppSettings: ObservableObject {
     @Setting("fileDragPage", default: FileDragPage.tray) var fileDragPage: FileDragPage
 
     /// 저장된 값이 없으면 예전 일 단위 설정을 이어 받는다
-    private static func savedTrayCleanup(_ d: UserDefaults) -> Double {
+    static func savedTrayCleanup(_ d: UserDefaults) -> Double {
         if let minutes = d.object(forKey: "trayCleanupMinutes") as? Double { return minutes }
         return d.double(forKey: "trayCleanupDays") * 1440
     }
@@ -392,7 +397,9 @@ final class AppSettings: ObservableObject {
     static let changedNotification = Notification.Name("com.dynamicmacnotch.app.settingsChanged")
 
     private lazy var slots: [SettingSlot] = Mirror(reflecting: self).children.compactMap { $0.value as? SettingSlot }
-    var settingCount: Int { slots.count }
+    #if DEV
+    var settingKeys: [String] { slots.map(\.key) }
+    #endif
 
     /// 다른 프로세스가 바꾼 값을 다시 읽는다. 실제로 바뀐 설정만 알림을 보낸다.
     func reload() {

@@ -28,8 +28,7 @@ final class SharedNotchState: ObservableObject {
     private static let homeKey = "homeOptionKey"
 
     /// 마지막으로 본 홈 페이지 (이름으로 저장. 예전 번호 저장값은 한 번 옮겨 읽는다)
-    private static func savedHomeOption() -> HomeOption {
-        let d = UserDefaults.standard
+    static func savedHomeOption(_ d: UserDefaults = .standard) -> HomeOption {
         if let key = d.string(forKey: homeKey), let o = HomeOption(key: key) { return o }
         if d.object(forKey: "homeOption") != nil, let o = HomeOption(rawValue: d.integer(forKey: "homeOption")) { return o }
         return .camera
