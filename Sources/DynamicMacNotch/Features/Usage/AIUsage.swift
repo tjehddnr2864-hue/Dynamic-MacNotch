@@ -180,7 +180,25 @@ final class UsageStore: ObservableObject {
     /// AI 사용량이 노치에 상시 표시되는지 (AI만 또는 AI 및 자원)
     private var aiLive: Bool { !settings.monitorKindsNeeded.isDisjoint(with: [.aiUsage, .monitor]) }
 
+    /// 두 손가락으로 숨긴 시각. 숨긴 지 새로고침 주기 한 번이 지나면 다시 보일 때까지 쉰다.
+    private var hiddenSince: Date?
+    private var restingWhileHidden: Bool {
+        hiddenSince.map { Date().timeIntervalSince($0) >= max(1, settings.aiRefreshMinutes) * 60 } ?? false
+    }
+
+    private func updateHidden() {
+        if center.persistentHidden {
+            if hiddenSince == nil { hiddenSince = Date() }
+        } else if hiddenSince != nil {
+            let rested = restingWhileHidden
+            hiddenSince = nil
+            // 쉬는 동안 놓친 만큼, 다시 보이면 바로 한 번
+            if rested, aiLive, !covered, isStale(max(1, settings.aiRefreshMinutes) * 60) { refresh() }
+        }
+    }
+
     private func updateCoverage() {
+        updateHidden()
         let shown: ActivityKind = settings.monitorKindsNeeded.contains(.monitor) ? .monitor : .aiUsage
         let now = aiLive && center.persistentKinds.contains(shown)
             && center.orderedPersistent.first?.kind != shown
@@ -208,7 +226,10 @@ final class UsageStore: ObservableObject {
         timer = nil
         guard aiLive, !connected.isEmpty, !covered else { return }
         let interval = max(1, settings.aiRefreshMinutes) * 60
-        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self, !self.restingWhileHidden else { return }
+            self.refresh()
+        }
         t.tolerance = interval * 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t

@@ -28,8 +28,8 @@ final class AppSettings: ObservableObject {
     // MARK: - 노치 조작
 
     /// 일회성 알림의 기본 표시 시간. 기능별 표시 시간이 0이면 이 값을 쓴다.
-    @Setting("transientDuration", default: 2.5) var transientDuration: Double
-    @Setting("longPressDuration", default: 0.35) var longPressDuration: Double
+    @Setting("transientDuration", default: 2.5, sanitize: { max(0, $0) }) var transientDuration: Double
+    @Setting("longPressDuration", default: 0.35, sanitize: { min(0.8, max(0.2, $0)) }) var longPressDuration: Double
     @Setting("forceTouchEnabled", default: true) var forceTouchEnabled: Bool
     @Setting("hapticStrength", default: HapticStrength.weak) var hapticStrength: HapticStrength
     @Setting("hoverPreview", default: true) var hoverPreview: Bool
@@ -141,7 +141,7 @@ final class AppSettings: ObservableObject {
     @Setting("netHotspot", default: true) var netHotspot: Bool
     @Setting("netStyle", default: AlertStyle.compact) var netStyle: AlertStyle
     /// 0 = 일반 설정 따름
-    @Setting("netDuration", default: 0.0) var netDuration: Double
+    @Setting("netDuration", default: 0.0, sanitize: { max(0, $0) }) var netDuration: Double
     @Setting("hotspotPinned", default: false) var hotspotPinned: Bool
     @Setting("vpnPinned", default: false) var vpnPinned: Bool
     /// 핫스팟으로 간주할 SSID (쉼표 구분)
@@ -160,7 +160,7 @@ final class AppSettings: ObservableObject {
     @Setting("focusEnabled", default: true) var focusEnabled: Bool
     @Setting("focusStyle", default: AlertStyle.compact) var focusStyle: AlertStyle
     /// 0 = 일반 설정 따름
-    @Setting("focusDuration", default: 0.0) var focusDuration: Double
+    @Setting("focusDuration", default: 0.0, sanitize: { max(0, $0) }) var focusDuration: Double
     @Setting("focusPinned", default: false) var focusPinned: Bool
     /// 표시하지 않을 모드 이름 (쉼표 구분)
     @Setting("focusExcluded", default: "") var focusExcluded: String
@@ -173,7 +173,7 @@ final class AppSettings: ObservableObject {
 
     @Setting("mediaSource", default: MediaSource.all) var mediaSource: MediaSource
     /// 일시정지 후 숨김까지 초 (0 = 숨기지 않음)
-    @Setting("mediaHideAfterPause", default: 30.0) var mediaHideAfterPause: Double
+    @Setting("mediaHideAfterPause", default: 30.0, sanitize: { max(0, $0) }) var mediaHideAfterPause: Double
     @Setting("mediaShowTrackChange", default: true) var mediaShowTrackChange: Bool
     /// 곡 변경 팝업을 Apple Music·Spotify에서만
     @Setting("mediaTrackChangeMusicOnly", default: true) var mediaTrackChangeMusicOnly: Bool
@@ -201,7 +201,7 @@ final class AppSettings: ObservableObject {
     @Setting("trayKeepCopies", default: false) var trayKeepCopies: Bool
     /// 자동 정리까지 분 (0 = 끄기)
     @Setting("trayCleanupMinutes", read: AppSettings.savedTrayCleanup) var trayCleanupMinutes: Double
-    @Setting("dragZoneHeight", default: 120.0) var dragZoneHeight: Double
+    @Setting("dragZoneHeight", default: 120.0, sanitize: { min(200, max(60, $0)) }) var dragZoneHeight: Double
     /// 파일을 끌어왔을 때 먼저 보일 화면 (트레이·AI 채팅이 모두 켜져 있을 때)
     @Setting("fileDragPage", default: FileDragPage.tray) var fileDragPage: FileDragPage
 
@@ -218,7 +218,7 @@ final class AppSettings: ObservableObject {
     /// 비어 있으면 데스크탑
     @Setting("screenshotFolder", default: "") var screenshotFolder: String
     @Setting("screenshotJPEG", default: false) var screenshotJPEG: Bool
-    @Setting("screenshotAutoClose", default: 10.0) var screenshotAutoClose: Double
+    @Setting("screenshotAutoClose", default: 10.0, sanitize: { max(0, $0) }) var screenshotAutoClose: Double
 
     // MARK: - 화면 녹화
 
@@ -232,7 +232,7 @@ final class AppSettings: ObservableObject {
     @Setting("batteryChargerAlert", default: true) var batteryChargerAlert: Bool
     @Setting("batteryFullAlert", default: true) var batteryFullAlert: Bool
     @Setting("batteryLowAlert", default: true) var batteryLowAlert: Bool
-    @Setting("batteryLowThreshold", default: 20.0) var batteryLowThreshold: Double
+    @Setting("batteryLowThreshold", default: 20.0, sanitize: { min(50, max(5, $0)) }) var batteryLowThreshold: Double
     @Setting("batteryStyle", default: AlertStyle.compact) var batteryStyle: AlertStyle
     /// 충전 중 상시 표시 (배터리 %·완충까지 남은 시간). 완충·충전 멈춤(어댑터로만 동작) 중에는 표시 안 함
     @Setting("batteryChargingPinned", default: true) var batteryChargingPinned: Bool
@@ -243,7 +243,7 @@ final class AppSettings: ObservableObject {
     @Setting("hudDisplay", default: true) var hudDisplay: Bool
     @Setting("hudKeyboard", default: true) var hudKeyboard: Bool
     @Setting("hudStyle", default: HUDStyle.bar) var hudStyle: HUDStyle
-    @Setting("hudDuration", default: 1.5) var hudDuration: Double
+    @Setting("hudDuration", default: 1.5, sanitize: { max(0, $0) }) var hudDuration: Double
     @Setting("hudOutputIcon", default: true) var hudOutputIcon: Bool
     /// 키 없이 바뀐 화면 밝기(제어 센터)도 표시
     @Setting("hudDisplayExternal", default: true) var hudDisplayExternal: Bool
@@ -259,13 +259,13 @@ final class AppSettings: ObservableObject {
     /// 외부 가사 DB(LRCLIB) 조회 동의. 곡 제목·아티스트가 외부로 전송되므로 기본 꺼짐.
     @Setting("lyricsOnline", default: false) var lyricsOnline: Bool
     /// 0 = 작게, 1 = 보통, 2 = 크게
-    @Setting("lyricsSize", default: 1) var lyricsSize: Int
+    @Setting("lyricsSize", default: 1, sanitize: { min(2, max(0, $0)) }) var lyricsSize: Int
 
     // MARK: - 카메라 · 일정
 
     @Setting("cameraMirror", default: true) var cameraMirror: Bool
     /// 일정 시작 N분 전 알림 (0 = 끄기)
-    @Setting("calendarAlertMinutes", default: 10.0) var calendarAlertMinutes: Double
+    @Setting("calendarAlertMinutes", default: 10.0, sanitize: { max(0, $0) }) var calendarAlertMinutes: Double
     /// 다음(진행 중) 일정 상시 표시
     @Setting("calendarPinned", default: false) var calendarPinned: Bool
 

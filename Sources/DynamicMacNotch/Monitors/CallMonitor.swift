@@ -31,6 +31,8 @@ final class CallMonitor: ObservableObject {
     private var axActive: (end: AXControl?, mute: AXControl?)?
     private var activeSince: Date?
     private var lastName = ""
+    /// 마지막 손쉬운 사용 확인에서 통화와 관련된 창이 있었는지
+    private var axSawCall = false
 
     private static let bannerApps = ["com.apple.notificationcenterui"]
     private static let callApps = ["com.apple.mobilephone", "com.apple.FaceTime"]
@@ -218,9 +220,12 @@ final class CallMonitor: ObservableObject {
               (Self.bannerApps + Self.callApps).contains(id), observers[app.processIdentifier] == nil else { return }
         let pid = app.processIdentifier
         var observer: AXObserver?
-        let callback: AXObserverCallback = { _, _, _, refcon in
+        let callback: AXObserverCallback = { _, _, note, refcon in
             guard let refcon else { return }
-            Unmanaged<CallMonitor>.fromOpaque(refcon).takeUnretainedValue().refreshSoon()
+            let monitor = Unmanaged<CallMonitor>.fromOpaque(refcon).takeUnretainedValue()
+            // 요소가 사라졌다는 알림은 통화가 끝났는지 볼 때만 쓴다. 통화가 없을 때는 위젯·배너가 바뀔 때마다 오므로 건너뛴다.
+            if monitor.state == .idle, (note as String) == kAXUIElementDestroyedNotification { return }
+            monitor.refreshSoon()
         }
         guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
         let element = AXUIElementCreateApplication(pid)
@@ -253,6 +258,8 @@ final class CallMonitor: ObservableObject {
                 if delay > 0, self.state != before { self.burstActive = false; return }
                 if i == delays.count - 1 { self.burstActive = false }
                 self.refresh()
+                // 두 번 확인해도 통화와 관련된 창이 없으면(다른 알림 배너) 남은 확인은 건너뛴다
+                if i >= 1, self.state == .idle, !self.axSawCall { self.burstActive = false }
             }
         }
     }
@@ -261,11 +268,13 @@ final class CallMonitor: ObservableObject {
     private func axState() -> State? {
         axIncoming = nil
         axActive = nil
+        axSawCall = false
         guard AXIsProcessTrusted() else { return nil }
         // 수신 배너: '수락/받기' 버튼이 있는 알림
         for app in running(Self.bannerApps + Self.callApps) {
             for window in AXControl.windows(of: app.processIdentifier) {
                 let found = AXControl.search(window)
+                if found.callContext { axSawCall = true }
                 if found.accept != nil {
                     axIncoming = (found.accept, found.decline)
                     return .incoming(name: found.name ?? lastName)
@@ -394,12 +403,8 @@ struct AXControl {
         var name: String?
         /// 배너 설명에서 읽은 상대 이름(저장된 연락처) 또는 전화번호
         var caller: String?
-    }
-
-    private static func rawDescription(_ el: AXUIElement) -> String? {
-        var v: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &v) == .success, let s = v as? String else { return nil }
-        return s
+        /// 창 안에 전화·통화 관련 글이 있었는지
+        var callContext = false
     }
 
     /// "이름, 부가 설명 - 0:12" → "이름". 방향 표시 같은 보이지 않는 문자는 지운다.
@@ -422,13 +427,14 @@ struct AXControl {
         var texts: [String] = []
         var context = ""
         var visited = 0
-        func label(_ el: AXUIElement) -> String {
-            var parts: [String] = []
-            for attr in [kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, "AXIdentifier"] {
-                var v: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, attr as CFString, &v) == .success, let s = v as? String, !s.isEmpty { parts.append(s) }
-            }
-            return parts.joined(separator: " ").lowercased()
+        // 요소 하나의 속성을 한 번에 읽는다 (속성마다 따로 물으면 요소당 왕복이 8번이라 창이 크면 수십 ms가 든다)
+        let names = [kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, "AXIdentifier",
+                     kAXValueAttribute, kAXChildrenAttribute] as CFArray
+        func attributes(_ el: AXUIElement) -> [Any?] {
+            var values: CFArray?
+            guard AXUIElementCopyMultipleAttributeValues(el, names, AXCopyMultipleAttributeOptions(rawValue: 0), &values) == .success,
+                  let list = values as? [Any], list.count == 7 else { return Array(repeating: nil, count: 7) }
+            return list
         }
         // 한글은 포함 여부로, 영어는 단어 단위로 (예: "end"가 "calendar"에 걸리지 않게)
         func matches(_ text: String, _ words: [String]) -> Bool {
@@ -440,13 +446,12 @@ struct AXControl {
         func walk(_ el: AXUIElement, depth: Int) {
             visited += 1
             guard depth < 16, visited < 600 else { return }
-            var roleRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &roleRef)
-            let role = roleRef as? String ?? ""
+            let a = attributes(el)
+            let role = a[0] as? String ?? ""
             var actionsRef: CFArray?
             AXUIElementCopyActionNames(el, &actionsRef)
             let actions = (actionsRef as? [String]) ?? []
-            let text = label(el)
+            let text = a[1...4].compactMap { $0 as? String }.filter { !$0.isEmpty }.joined(separator: " ").lowercased()
             context += " " + text
             // 버튼만 이름으로 분류 (상대 이름 칸도 누를 수 있는 요소라, 이름이 '응답센터'여도 버튼으로 보지 않게)
             if role == kAXButtonRole as String || role == "AXCheckBox" {
@@ -455,14 +460,13 @@ struct AXControl {
                     if found.decline == nil, !matches(text, declineExclude) { found.decline = AXControl(element: el, action: kAXPressAction) }
                 } else if found.mute == nil, matches(text, muteWords) {
                     found.mute = AXControl(element: el, action: kAXPressAction)
-                    var v: CFTypeRef?
-                    if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &v) == .success, let n = v as? NSNumber {
+                    if let n = a[5] as? NSNumber {
                         found.muted = n.boolValue
                     } else {
                         found.muted = matches(text, unmuteWords)   // '소리 켬'이 보이면 지금 음소거 상태
                     }
                 } else if found.end == nil, matches(text, endWords) { found.end = AXControl(element: el, action: kAXPressAction) }
-            } else if found.caller == nil, let desc = rawDescription(el), let caller = Self.callerName(from: desc) {
+            } else if found.caller == nil, let desc = a[2] as? String, let caller = Self.callerName(from: desc) {
                 // 통화 배너의 상대 칸: "홍길동, iPhone으로부터 전달됨" / "‪010-0000-0000‬, iPhone으로부터 전달됨 - 0:12"
                 found.caller = caller
             }
@@ -473,17 +477,13 @@ struct AXControl {
                 if found.decline == nil, matches(lower, declineWords) { found.decline = AXControl(element: el, action: action) }
             }
             // 이름 후보: 짧은 글자(정적 텍스트·설명)
-            if role == kAXStaticTextRole as String || role == "AXHeading" {
-                var v: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &v) == .success, let s = v as? String { texts.append(s) }
-            }
-            var children: CFTypeRef?
-            AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &children)
-            for c in (children as? [AXUIElement]) ?? [] { walk(c, depth: depth + 1) }
+            if role == kAXStaticTextRole as String || role == "AXHeading", let s = a[5] as? String { texts.append(s) }
+            for c in (a[6] as? [AXUIElement]) ?? [] { walk(c, depth: depth + 1) }
         }
         walk(root, depth: 0)
         // 캘린더 초대처럼 '수락/거절'이 있는 다른 알림은 통화로 보지 않는다
         let callContext = ["전화", "통화", "facetime", "phone", "call"].contains { (context + " " + texts.joined(separator: " ").lowercased()).contains($0) }
+        found.callContext = callContext
         if !callContext { found.accept = nil; found.decline = nil; found.end = nil; found.mute = nil }
         found.name = found.caller ?? texts.first { t in
             let l = t.lowercased().trimmingCharacters(in: .whitespaces)

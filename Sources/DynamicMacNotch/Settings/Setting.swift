@@ -18,13 +18,16 @@ final class Setting<Value: Equatable>: SettingSlot {
     let key: String
     private let read: (UserDefaults) -> Value
     private let write: (UserDefaults, Value) -> Void
+    /// 범위 맞추기. 읽을 때와 넣을 때 모두 거친다.
+    private let clean: (Value) -> Value
     private let notifiesMainApp: Bool
     private var value: Value
     private var subject: CurrentValueSubject<Value, Never>?
 
-    private init(key: String, notifiesMainApp: Bool, read: @escaping (UserDefaults) -> Value,
-                 write: @escaping (UserDefaults, Value) -> Void) {
+    private init(key: String, notifiesMainApp: Bool, clean: ((Value) -> Value)? = nil,
+                 read: @escaping (UserDefaults) -> Value, write: @escaping (UserDefaults, Value) -> Void) {
         self.key = key
+        self.clean = clean ?? { $0 }
         self.notifiesMainApp = notifiesMainApp
         self.read = read
         self.write = write
@@ -35,7 +38,7 @@ final class Setting<Value: Equatable>: SettingSlot {
     /// `notifiesMainApp`을 끄면 글자마다 본 앱이 설정을 다시 읽지 않는다 (본 앱은 쓸 때 저장값을 직접 읽어야 한다).
     convenience init(_ key: String, default fallback: @escaping @autoclosure () -> Value,
                      notifiesMainApp: Bool = true, sanitize: ((Value) -> Value)? = nil) {
-        self.init(key: key, notifiesMainApp: notifiesMainApp, read: { defaults in
+        self.init(key: key, notifiesMainApp: notifiesMainApp, clean: sanitize, read: { defaults in
             let saved = defaults.object(forKey: key) as? Value ?? fallback()
             return sanitize?(saved) ?? saved
         }, write: { $0.set($1, forKey: key) })
@@ -65,6 +68,7 @@ final class Setting<Value: Equatable>: SettingSlot {
         get { owner[keyPath: storage].value }
         set {
             let setting = owner[keyPath: storage]
+            let newValue = setting.clean(newValue)
             guard setting.apply(newValue, owner: owner) else { return }
             setting.write(owner.defaults, newValue)
             owner.didSave(key: setting.key, notifiesMainApp: setting.notifiesMainApp)

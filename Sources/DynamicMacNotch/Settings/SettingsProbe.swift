@@ -85,6 +85,25 @@ enum SettingsProbe {
         if let savedContent { d.set(savedContent, forKey: "monitorContent") } else { d.removeObject(forKey: "monitorContent") }
         settings.reload()
 
+        // 숫자 범위: 읽을 때와 넣을 때 모두 맞춘다 (끝나면 되돌린다)
+        let savedPress = d.object(forKey: "longPressDuration")
+        d.set(0.0, forKey: "longPressDuration")
+        settings.reload()
+        check(settings.longPressDuration == 0.2, "long-press time: clamps a saved value")
+        settings.longPressDuration = 5
+        check(settings.longPressDuration == 0.8 && d.double(forKey: "longPressDuration") == 0.8, "long-press time: clamps an assigned value")
+        if let savedPress { d.set(savedPress, forKey: "longPressDuration") } else { d.removeObject(forKey: "longPressDuration") }
+        settings.reload()
+
+        // 네트워크: 무관한 인터페이스의 변화는 건너뛴다
+        check(NetworkMonitor.isNoise(key: "State:/Network/Interface/awdl0/IPv6"), "network: awdl is noise")
+        check(NetworkMonitor.isNoise(key: "State:/Network/Interface/llw0/IPv6"), "network: llw is noise")
+        check(!NetworkMonitor.isNoise(key: "State:/Network/Interface/utun4/IPv4"), "network: a VPN tunnel is not noise")
+        check(!NetworkMonitor.isNoise(key: "State:/Network/Interface/en0/IPv4"), "network: Wi-Fi is not noise")
+        check(!NetworkMonitor.isNoise(key: "State:/Network/Global/IPv4"), "network: global state is not noise")
+        check(!NetworkMonitor.isNoise(key: "State:/Network/Interface"), "network: the interface list is not noise")
+        check(!NetworkMonitor.isNoise(interface: "apple0") && NetworkMonitor.isNoise(interface: "ap1"), "network: only whole names match")
+
         // 순서 정리: 없어진 항목은 빼고, 새 항목은 기본 순서의 바로 앞 항목 뒤에
         let home = AppSettings.defaultHomeOrder, live = AppSettings.defaultPersistentOrder
         check(AppSettings.fixedHomeOrder([]) == home, "home order: empty → default")

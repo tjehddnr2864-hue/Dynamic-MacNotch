@@ -15,9 +15,11 @@ final class MissionControlMonitor {
     /// macOS 27.3에서 Mission Control을 열고 닫을 때 오는 번호. 평소에는 오지 않는다.
     private static let wakeEvents: [UInt32] = [1325, 1326, 1508]
     /// 이벤트가 창보다 먼저 오므로 그 뒤로 한동안 확인한다
-    private static let settleTime: TimeInterval = 1.2
+    /// 창은 이벤트 약 20ms 뒤에 생기고, 열리는 동안 이벤트가 이어서 와 그때마다 다시 연장된다
+    private static let settleTime: TimeInterval = 0.6
     private static let fastInterval: TimeInterval = 0.1
-    private static let safetyInterval: TimeInterval = 3
+    /// 창 목록 확인 한 번이 창이 많으면 3ms까지 들어, 이벤트가 믿을 만한 동안에는 드물게만 확인한다
+    private static let safetyInterval: TimeInterval = 10
     private static let fallbackInterval: TimeInterval = 0.5
     /// 빠르게 열고 닫을 때 깜빡이지 않게, 사라진 것이 이만큼 연속으로 확인되어야 끝난 것으로 본다
     private static let absentChecksToEnd = 2
@@ -47,7 +49,7 @@ final class MissionControlMonitor {
 
     // MARK: - 판정
 
-    /// 창 목록을 한 번 읽는다 (약 0.2ms)
+    /// 창 목록을 한 번 읽는다 (창 수에 따라 0.2~3ms)
     static func isShowing() -> Bool {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return false

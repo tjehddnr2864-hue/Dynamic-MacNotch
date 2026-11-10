@@ -41,9 +41,14 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
             try? client.startMonitoringEvent(with: event)
         }
         pathMonitor.pathUpdateHandler = { [weak self] path in
+            let signature = Self.signature(of: path)
             DispatchQueue.main.async {
-                self?.lastPath = path
-                self?.scheduleEvaluate()
+                guard let self else { return }
+                self.lastPath = path
+                // AirDrop용 인터페이스처럼 판단에 쓰지 않는 것만 바뀐 경로 갱신은 건너뛴다
+                guard signature != self.lastPathSignature else { return }
+                self.lastPathSignature = signature
+                self.scheduleEvaluate()
             }
         }
         pathMonitor.start(queue: DispatchQueue(label: "com.dynamicmacnotch.app.network"))
@@ -183,8 +188,10 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
     private func observeDynamicStore() {
         var ctx = SCDynamicStoreContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
                                         retain: nil, release: nil, copyDescription: nil)
-        guard let s = SCDynamicStoreCreate(nil, "DynamicMacNotch" as CFString, { _, _, info in
+        guard let s = SCDynamicStoreCreate(nil, "DynamicMacNotch" as CFString, { _, keys, info in
             guard let info else { return }
+            // 바뀐 키가 모두 무관한 인터페이스면 다시 읽지 않는다 (awdl0·llw0은 십여 초마다 바뀐다)
+            if let keys = keys as? [String], !keys.isEmpty, keys.allSatisfy(NetworkMonitor.isNoise(key:)) { return }
             Unmanaged<NetworkMonitor>.fromOpaque(info).takeUnretainedValue().scheduleEvaluate()
         }, &ctx) else { return }
         let patterns = [
@@ -199,6 +206,28 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         SCDynamicStoreSetNotificationKeys(s, nil, patterns)
         SCDynamicStoreSetDispatchQueue(s, .main)
         store = s
+    }
+
+    // MARK: - 무관한 변화 거르기
+
+    private var lastPathSignature = ""
+
+    /// Wi-Fi·VPN·핫스팟 판단과 무관한 인터페이스: AirDrop·AirPlay(awdl, llw), 내부용(anpi, ap), 루프백 등
+    static func isNoise(interface name: String) -> Bool {
+        name.range(of: #"^(awdl|llw|anpi|ap|lo|gif|stf)\d+$"#, options: .regularExpression) != nil
+    }
+
+    /// 시스템 네트워크 저장소 키가 무관한 인터페이스의 것인지 (예: State:/Network/Interface/awdl0/IPv6)
+    static func isNoise(key: String) -> Bool {
+        let parts = key.split(separator: "/")
+        guard parts.count >= 4, parts[1] == "Network", parts[2] == "Interface" else { return false }
+        return isNoise(interface: String(parts[3]))
+    }
+
+    /// readState가 경로에서 쓰는 값만 모은 것. 이것이 같으면 판단 결과도 같다.
+    private static func signature(of path: NWPath) -> String {
+        let interfaces = path.availableInterfaces.filter { !isNoise(interface: $0.name) }.map { "\($0.name):\($0.type)" }
+        return "\(path.status)|\(path.isExpensive)|\(path.usesInterfaceType(.wifi))|\(interfaces.joined(separator: ","))"
     }
 
     // MARK: - CWEventDelegate (백그라운드 스레드에서 호출됨)
