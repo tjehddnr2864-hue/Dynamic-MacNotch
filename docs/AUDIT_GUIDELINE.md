@@ -327,7 +327,7 @@ grep -rn --include='*.swift' 'print(\|NSLog(' Sources
 B="build/Dynamic MacNotch.app/Contents/MacOS/DynamicMacNotch"
 strings "$B" | grep -c -E "DMN_TEST_PASTEBOARD|monitordemand|monitorsample|claude -p|/Users/"   # 0이어야 함
 strings "$B" | grep -ci "gmail"                                                                     # 0이어야 함
-git grep -n -i -E "tjehddnr2864@|claude -p|oauth|cookie.*scrap" main -- Sources                     # 비어 있어야 함
+git grep -n -i -E "<내 이메일>|claude -p|oauth|cookie.*scrap" main -- Sources                     # 비어 있어야 함
 git log --format='%ae' origin/main..main | sort -u                                                  # noreply 주소만
 ```
 
