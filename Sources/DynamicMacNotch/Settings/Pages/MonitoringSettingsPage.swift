@@ -28,6 +28,9 @@ struct MonitoringSettingsPage: View {
                         Picker(T("AI 서비스", "AI service"), selection: $settings.aiUsageService) {
                             ForEach(AIService.allCases) { Text($0.name).tag($0.rawValue) }
                         }
+                        let service = AIService(rawValue: settings.aiUsageService) ?? .claude
+                        aiSidePicker(content == .ai ? T("왼쪽", "Left") : T("AI 사용량 ①", "AI usage ①"), service: service, left: true)
+                        aiSidePicker(content == .ai ? T("오른쪽", "Right") : T("AI 사용량 ②", "AI usage ②"), service: service, left: false)
                     }
                 }
                 .disabled(!settings.aiUsagePinned)
@@ -57,8 +60,8 @@ struct MonitoringSettingsPage: View {
     // MARK: 상시 표시
 
     private func liveFooter(aiOn: Bool, resourceOn: Bool) -> String {
-        var lines = [T("AI 사용량은 왼쪽에 5시간, 오른쪽에 주간 한도를 보입니다. 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호, 오른쪽에 그 한도를 보입니다. 자원 사용량은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
-                       "AI usage shows the 5-hour limit on the left and the weekly limit on the right. Plans with a single limit show the service mark on the left and that limit on the right. Resource usage is read on this Mac and never sent anywhere.")]
+        var lines = [T("AI 사용량은 서비스마다 양옆에 보일 한도(5시간, 주간, 모델별 한도 등)나 서비스 기호를 고릅니다. 고를 수 있는 한도는 요금제에 따라 다르며, 사용량을 한 번 불러온 뒤에 나타납니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호를 보입니다. 자원 사용량은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
+                       "For AI usage, pick what each side shows for each service: a limit (5-hour, weekly, a model's own limit and so on) or the service mark. The limits you can pick depend on your plan and appear after usage has loaded once. Automatic shows the 5-hour limit on the left and the weekly limit on the right; plans with a single limit show the service mark on the left. Resource usage is read on this Mac and never sent anywhere.")]
         switch (aiOn, resourceOn) {
         case (true, false): lines.append(T("자원 사용량은 홈 기능에서 꺼져 있습니다.", "Resource Usage is off in Home Features."))
         case (false, true): lines.append(T("AI 사용량은 홈 기능에서 꺼져 있습니다.", "AI Usage is off in Home Features."))
@@ -93,6 +96,22 @@ struct MonitoringSettingsPage: View {
             ForEach(MonitorLayout.choices(for: content).filter { $0 != other }) { metric in
                 Text(metric.label).tag(metric)
             }
+        }
+    }
+
+    /// AI 칸 하나: 자동, 서비스 기호, 이 서비스의 한도들. 반대쪽에서 고른 것은 목록에 없다.
+    private func aiSidePicker(_ title: String, service: AIService, left: Bool) -> some View {
+        let sides = settings.aiSides(service)
+        let current = left ? sides.left : sides.right, other = left ? sides.right : sides.left
+        var choices = ServiceUsage.cached()[service]?.sideChoices ?? [("mark", T("서비스 기호", "Service mark"))]
+        // 고른 한도가 지금은 없으면(요금제가 바뀜 등) 목록에 남겨 두고 표시한다. 노치에서는 자동으로 보인다.
+        if let current, !choices.contains(where: { $0.id == current }) {
+            choices.append((current, T("지금 없는 한도", "Not available now")))
+        }
+        return Picker(title, selection: Binding(get: { current ?? "" },
+                                                set: { settings.setAISide($0.isEmpty ? nil : $0, service: service, left: left) })) {
+            Text(T("자동", "Automatic")).tag("")
+            ForEach(choices.filter { $0.id != other }, id: \.id) { Text($0.label).tag($0.id) }
         }
     }
 

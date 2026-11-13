@@ -4,14 +4,14 @@ import SwiftUI
 /// 실시간 모니터링의 상시 표시 활동을 만든다 (미리보기도 같은 함수를 쓴다).
 /// 자원 값은 활동에 넣지 않고 `.metric`으로 칸만 정한다 (값은 ResourceSampler가 따로 갱신).
 enum MonitorActivity {
-    /// AI 사용량. 한도가 둘 이상이면 왼쪽 가장 짧은 한도, 오른쪽 가장 긴 한도.
-    /// 한도가 하나면(무료 30일, 주간 한도만 있는 요금제 등) 왼쪽 서비스 기호, 오른쪽 그 한도.
-    static func ai(service: AIService, usage: ServiceUsage?, ring: Bool) -> NotchActivity {
-        let windows = usage?.windows ?? []
+    /// AI 사용량. 칸마다 설정에서 고른 한도나 서비스 기호 (`ServiceUsage.sides`).
+    /// 자동: 한도가 둘 이상이면 왼쪽 가장 짧은 한도, 오른쪽 가장 긴 한도. 하나면(무료 30일, 주간 한도만 있는 요금제 등) 왼쪽 서비스 기호.
+    static func ai(service: AIService, usage: ServiceUsage?, ring: Bool,
+                   sides choice: (left: String?, right: String?) = (nil, nil)) -> NotchActivity {
         let left: ActivityValue, right: ActivityValue
-        if windows.count == 1, let only = windows.first {
-            left = .serviceMark(service)
-            right = .usage(label: only.shortLabel, percent: only.percent, ring: ring)
+        if let s = usage?.sides(left: choice.left, right: choice.right) {
+            left = value(of: s.left, service: service, ring: ring)
+            right = value(of: s.right, service: service, ring: ring)
         } else {
             left = value(for: .aiPrimary, usage: usage, ring: ring)
             right = value(for: .aiSecondary, usage: usage, ring: ring)
@@ -29,12 +29,27 @@ enum MonitorActivity {
                       leadingValue: value(for: slots.left, usage: nil, ring: ring))
     }
 
-    /// AI 및 자원 사용량 (칸마다 AI 또는 자원)
-    static func combined(slots: (left: MonitorMetric, right: MonitorMetric), service: AIService?, usage: ServiceUsage?, ring: Bool) -> NotchActivity {
-        NotchActivity(kind: .monitor, priority: ActivityPriority.pinned, symbol: "gauge.medium", tint: service?.tint ?? resourceTint,
-                      value: value(for: slots.right, usage: usage, ring: ring),
-                      title: T("AI 및 자원 사용량", "AI & Resource Usage"), subtitle: summary(usage),
-                      wing: NotchActivity.compactWing, leadingValue: value(for: slots.left, usage: usage, ring: ring))
+    /// AI 및 자원 사용량 (칸마다 AI 또는 자원). AI ①·②는 AI 사용량의 왼쪽·오른쪽 선택을 따른다 (자동이면 짧은 한도·긴 한도).
+    static func combined(slots: (left: MonitorMetric, right: MonitorMetric), service: AIService?, usage: ServiceUsage?, ring: Bool,
+                         sides choice: (left: String?, right: String?) = (nil, nil)) -> NotchActivity {
+        func cell(_ metric: MonitorMetric) -> ActivityValue {
+            let picked = metric == .aiPrimary ? choice.left : metric == .aiSecondary ? choice.right : nil
+            if picked != nil, let service, let s = usage?.sides(left: choice.left, right: choice.right) {
+                return value(of: metric == .aiPrimary ? s.left : s.right, service: service, ring: ring)
+            }
+            return value(for: metric, usage: usage, ring: ring)
+        }
+        return NotchActivity(kind: .monitor, priority: ActivityPriority.pinned, symbol: "gauge.medium", tint: service?.tint ?? resourceTint,
+                             value: cell(slots.right),
+                             title: T("AI 및 자원 사용량", "AI & Resource Usage"), subtitle: summary(usage),
+                             wing: NotchActivity.compactWing, leadingValue: cell(slots.left))
+    }
+
+    static func value(of side: AISide, service: AIService, ring: Bool) -> ActivityValue {
+        switch side {
+        case .mark: return .serviceMark(service)
+        case .window(let w): return .usage(label: w.shortLabel, percent: w.percent, ring: ring)
+        }
     }
 
     static let resourceTint = Color.mint
@@ -91,7 +106,7 @@ final class MonitorCoordinator {
         let service = usage.pinnedService
 
         if needed.contains(.aiUsage), let service {
-            center.setPersistent(MonitorActivity.ai(service: service, usage: usage.usage[service], ring: ring))
+            center.setPersistent(MonitorActivity.ai(service: service, usage: usage.usage[service], ring: ring, sides: settings.aiSides(service)))
         } else {
             center.removePersistent(.aiUsage)
         }
@@ -101,7 +116,8 @@ final class MonitorCoordinator {
             center.removePersistent(.resource)
         }
         if needed.contains(.monitor) {
-            center.setPersistent(MonitorActivity.combined(slots: settings.bothSlots, service: service, usage: service.flatMap { usage.usage[$0] }, ring: ring))
+            center.setPersistent(MonitorActivity.combined(slots: settings.bothSlots, service: service, usage: service.flatMap { usage.usage[$0] }, ring: ring,
+                                                          sides: service.map(settings.aiSides) ?? (nil, nil)))
         } else {
             center.removePersistent(.monitor)
         }

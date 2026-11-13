@@ -215,11 +215,14 @@ final class FeaturePreview {
         case .aiUsage:
             // 상시 표시 모양 (설정의 텍스트·원형을 따름) 6초
             let service = AIService(rawValue: AppSettings.shared.aiUsageService) ?? .claude
-            let sample = ServiceUsage(windows: [
+            // 불러온 적이 있으면 그 한도 모양으로 (고른 칸이 그대로 보이게), 없으면 예시 값
+            let saved = ServiceUsage.cached()[service].flatMap { $0.hasData ? $0 : nil }
+            let sample = saved ?? ServiceUsage(windows: [
                 UsageWindow(percent: 42, resetsAt: Date().addingTimeInterval(2 * 3600), seconds: UsageWindow.fiveHours),
                 UsageWindow(percent: 76, resetsAt: Date().addingTimeInterval(3 * 86400), seconds: UsageWindow.week)
             ], fetched: Date())
-            var a = MonitorActivity.ai(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring)
+            var a = MonitorActivity.ai(service: service, usage: sample, ring: AppSettings.shared.aiUsageStyle == .ring,
+                                       sides: AppSettings.shared.aiSides(service))
             a.kind = .demo
             showPersistent(a, for: 6)
         case .resourceLive, .monitorLive:

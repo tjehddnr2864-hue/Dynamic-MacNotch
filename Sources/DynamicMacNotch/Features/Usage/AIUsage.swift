@@ -76,19 +76,40 @@ struct UsageWindow: Codable, Equatable {
     var resetsAt: Date?
     /// 한도 기간 (초) — 5시간 18000, 주간 604800, 30일 2592000
     var seconds: Double
+    /// 모델·기능 하나에만 걸린 한도의 이름 (예: Claude의 "Fable" 주간 한도). 전체 한도면 nil.
+    var name: String?
 
     static let fiveHours: Double = 5 * 3600
     static let week: Double = 7 * 86400
 
-    /// 노치 안 짧은 이름 (5h · wk · 30d)
+    init(percent: Double, resetsAt: Date?, seconds: Double, name: String? = nil) {
+        self.percent = percent
+        self.resetsAt = resetsAt
+        self.seconds = seconds
+        self.name = name
+    }
+
+    /// 설정에 저장하는 이름 (5h · 168h · 168h:fable). 기간과 이름이 같으면 같은 한도다.
+    var id: String { "\(Int((seconds / 3600).rounded()))h" + (name.map { ":" + $0.lowercased() } ?? "") }
+
+    /// 노치 안 짧은 이름 (5h · wk · 30d · Fable)
     var shortLabel: String {
+        if let name { return name.count <= 5 ? name : String(name.prefix(4)) }
+        return periodShort
+    }
+
+    /// 화면의 이름 (5시간 · 주간 · 30일 · Fable 주간)
+    var label: String {
+        name.map { "\($0) \(periodLabel)" } ?? periodLabel
+    }
+
+    private var periodShort: String {
         if seconds <= 12 * 3600 { return "\(max(1, Int((seconds / 3600).rounded())))h" }
         if (6 * 86400...8 * 86400).contains(seconds) { return "wk" }
         return "\(Int((seconds / 86400).rounded()))d"
     }
 
-    /// 화면의 이름 (5시간 · 주간 · 30일)
-    var label: String {
+    private var periodLabel: String {
         if seconds <= 12 * 3600 {
             let h = max(1, Int((seconds / 3600).rounded()))
             return T("\(h)시간", "\(h)-hour")
@@ -97,6 +118,12 @@ struct UsageWindow: Codable, Equatable {
         let d = Int((seconds / 86400).rounded())
         return T("\(d)일", "\(d)-day")
     }
+}
+
+/// 노치 양옆 AI 칸 하나에 보일 것
+enum AISide: Equatable {
+    case mark
+    case window(UsageWindow)
 }
 
 struct ServiceUsage: Codable, Equatable {
@@ -109,17 +136,48 @@ struct ServiceUsage: Codable, Equatable {
     var hasData: Bool { !windows.isEmpty }
 
     init(windows: [UsageWindow] = [], fetched: Date, error: String? = nil) {
-        // 같은 기간은 하나만, 짧은 기간부터
-        var seen = Set<Int>()
-        self.windows = windows.sorted { $0.seconds < $1.seconds }.filter { seen.insert(Int($0.seconds / 3600)).inserted }
+        // 같은 한도는 하나만. 전체 한도를 짧은 기간부터, 그 뒤에 모델·기능별 한도
+        var seen = Set<String>()
+        self.windows = windows.sorted { ($0.name != nil ? 1 : 0, $0.seconds, $0.name ?? "") < ($1.name != nil ? 1 : 0, $1.seconds, $1.name ?? "") }
+            .filter { seen.insert($0.id).inserted }
         self.fetched = fetched
         self.error = error
     }
 
-    /// 노치 양옆에 둘 두 한도: 가장 짧은 것(왼쪽)과 가장 긴 것(오른쪽). 하나뿐이면 오른쪽은 nil.
-    var sides: (left: UsageWindow?, right: UsageWindow?) {
-        guard let first = windows.first else { return (nil, nil) }
-        return windows.count > 1 ? (first, windows.last) : (first, nil)
+    /// 노치 양옆 칸. `left`·`right`는 설정에서 고른 것("mark" 또는 한도 id, nil이면 자동).
+    /// 자동: 전체 한도가 둘 이상이면 가장 짧은 것과 가장 긴 것, 하나면 서비스 기호와 그 한도.
+    /// 고른 한도가 지금 없으면(요금제가 바뀜 등) 그 칸은 자동으로 돌아가고, 양쪽이 같아지지 않게 한다.
+    func sides(left: String?, right: String?) -> (left: AISide, right: AISide)? {
+        guard !windows.isEmpty else { return nil }
+        let overall = windows.filter { $0.name == nil }
+        let pool = overall.isEmpty ? windows : overall
+        let auto: (AISide, AISide) = pool.count > 1 ? (.window(pool[0]), .window(pool[pool.count - 1])) : (.mark, .window(pool[0]))
+        func pick(_ choice: String?) -> AISide? {
+            guard let choice else { return nil }
+            if choice == "mark" { return .mark }
+            return windows.first { $0.id == choice }.map(AISide.window)
+        }
+        let l = pick(left), r = pick(right)
+        var result = (left: l ?? auto.0, right: r ?? auto.1)
+        if result.left == result.right {
+            // 한쪽만 고른 경우: 자동인 쪽을 고른 것과 겹치지 않는 다른 후보로
+            let candidates = [auto.0, auto.1, .mark] + windows.map(AISide.window)
+            if l == nil { result.left = candidates.first { $0 != result.right } ?? .mark }
+            else { result.right = candidates.first { $0 != result.left } ?? .mark }
+        }
+        return result
+    }
+
+    /// 칸에 고를 수 있는 것: 서비스 기호와 지금 있는 한도들
+    var sideChoices: [(id: String, label: String)] {
+        [("mark", T("서비스 기호", "Service mark"))] + windows.map { ($0.id, $0.label) }
+    }
+
+    /// 설정 창(도우미 프로세스)이 고를 수 있는 한도를 보이도록 본 앱이 저장한 마지막 사용량을 읽는다
+    static func cached() -> [AIService: ServiceUsage] {
+        guard let data = UserDefaults.standard.data(forKey: UsageStore.cacheKey),
+              let saved = try? JSONDecoder().decode([String: ServiceUsage].self, from: data) else { return [:] }
+        return Dictionary(uniqueKeysWithValues: saved.compactMap { k, v in AIService(rawValue: k).map { ($0, v) } })
     }
 }
 
@@ -138,7 +196,7 @@ final class UsageStore: ObservableObject {
     private let settings = AppSettings.shared
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
-    private static let cacheKey = "aiUsageCache"
+    static let cacheKey = "aiUsageCache"
 
     init(center: ActivityCenter) {
         self.center = center
@@ -420,7 +478,7 @@ struct UsagePage: View {
             .help(T("사용량 페이지 열기", "Open usage page"))
             if let u, u.hasData {
                 // 한도가 몇 개든 그대로 (하나뿐이면 한 칸이 줄 전체를 쓴다)
-                ForEach(u.windows.prefix(2), id: \.seconds) { w in
+                ForEach(u.windows.prefix(3), id: \.id) { w in
                     meter(w.label, w, tint: service.tint)
                 }
             } else {

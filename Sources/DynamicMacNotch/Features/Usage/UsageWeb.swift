@@ -201,41 +201,66 @@ final class UsageFetchDelegate: NSObject, NSApplicationDelegate, WKNavigationDel
 // MARK: - 응답 읽기
 
 enum UsageParser {
-    /// claude.ai: {"five_hour": {"utilization": 42, "resets_at": "..."}, "seven_day": {...}}
+    /// claude.ai: {"five_hour": {"utilization": 42, "resets_at": "..."}, "seven_day": {...}, "seven_day_fable": {...}}
+    /// 요금제마다 오는 한도가 다르다: Max는 5시간·주간·모델별 주간(예: Fable), Ultra는 5시간이 없다(null).
+    /// `seven_day_<모델>`·`five_hour_<모델>`은 그 모델에만 걸린 한도로 읽는다 (값이 null이면 그 요금제에 없는 한도).
     static func claude(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        func window(_ key: String, _ seconds: Double) -> UsageWindow? {
-            guard let w = obj[key] as? [String: Any], let u = number(w["utilization"]) else { return nil }
-            return UsageWindow(percent: min(100, max(0, u)), resetsAt: (w["resets_at"] as? String).flatMap(date), seconds: seconds)
+        // 모델이 아닌 기능별 사용량 (한도로 보이지 않는다)
+        let notModels: Set<String> = ["oauth_apps", "cowork", "extra"]
+        var windows: [UsageWindow] = []
+        for (key, value) in obj {
+            guard let w = value as? [String: Any], let u = number(w["utilization"]) else { continue }
+            let seconds: Double, rest: Substring
+            if key.hasPrefix("five_hour") { seconds = UsageWindow.fiveHours; rest = key.dropFirst("five_hour".count) }
+            else if key.hasPrefix("seven_day") { seconds = UsageWindow.week; rest = key.dropFirst("seven_day".count) }
+            else { continue }
+            var name: String?
+            if !rest.isEmpty {
+                let model = rest.drop { $0 == "_" }
+                guard !model.isEmpty, !notModels.contains(String(model)) else { continue }
+                name = model.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+            }
+            windows.append(UsageWindow(percent: min(100, max(0, u)), resetsAt: (w["resets_at"] as? String).flatMap(date),
+                                       seconds: seconds, name: name))
         }
-        let usage = ServiceUsage(windows: [window("five_hour", UsageWindow.fiveHours), window("seven_day", UsageWindow.week)].compactMap { $0 },
-                                 fetched: Date())
+        let usage = ServiceUsage(windows: windows, fetched: Date())
         return usage.hasData ? usage : nil
     }
 
     /// chatgpt.com(Codex 한도): rate_limit.primary_window / secondary_window
     /// {"used_percent": 12, "limit_window_seconds": 18000, "reset_at": 1730000000 | "reset_after_seconds": 3600}
     /// 유료는 5시간·주간, 무료는 30일 한도 하나만 오는 식이라 기간을 그대로 담는다.
+    /// 전체 한도는 `rate_limit` 아래에 온다. 그 밖의 `*_rate_limit`(예: code_review_rate_limit)이나
+    /// 이름(`limit_name`·`feature`)이 붙은 한도는 그 기능에만 걸린 한도로 따로 담는다.
+    /// (2026-12 ChatGPT와 Codex 한도 통합: 응답 모양이 바뀌어도 기간·이름으로 구분해 같은 기간이 서로 덮지 않게 한다)
     static func chatgpt(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) else { return nil }
         var windows: [UsageWindow] = []
-        func visit(_ any: Any) {
+        func scopeName(_ key: String) -> String? {
+            guard key != "rate_limit", key.hasSuffix("_rate_limit") || key.hasSuffix("_rate_limits") else { return nil }
+            let base = key.replacingOccurrences(of: "_rate_limits", with: "").replacingOccurrences(of: "_rate_limit", with: "")
+            return base.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+        }
+        func visit(_ any: Any, scope: String?) {
             if let d = any as? [String: Any] {
+                let named = (d["limit_name"] as? String) ?? (d["feature"] as? String) ?? (d["metered_feature"] as? String)
+                let scope = named.flatMap { $0.isEmpty ? nil : $0 } ?? scope
                 if let used = number(d["used_percent"]) {
                     let seconds = number(d["limit_window_seconds"]) ?? 0
                     var reset: Date?
                     if let at = number(d["reset_at"]) { reset = Date(timeIntervalSince1970: at) }
                     else if let after = number(d["reset_after_seconds"]) { reset = Date().addingTimeInterval(after) }
                     if seconds > 0 {
-                        windows.append(UsageWindow(percent: min(100, max(0, used)), resetsAt: reset, seconds: seconds))
+                        windows.append(UsageWindow(percent: min(100, max(0, used)), resetsAt: reset, seconds: seconds, name: scope))
                     }
                 }
-                d.values.forEach(visit)
+                for (k, v) in d { visit(v, scope: scopeName(k) ?? scope) }
             } else if let a = any as? [Any] {
-                a.forEach(visit)
+                a.forEach { visit($0, scope: scope) }
             }
         }
-        visit(obj)
+        visit(obj, scope: nil)
         let usage = ServiceUsage(windows: windows, fetched: Date())
         return usage.hasData ? usage : nil
     }

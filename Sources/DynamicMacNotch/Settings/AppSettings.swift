@@ -337,6 +337,21 @@ final class AppSettings: ObservableObject {
     @Setting("aiRefreshMinutes", default: 5.0, sanitize: { [1, 2, 5, 10].contains($0) ? $0 : 10 }) var aiRefreshMinutes: Double
     /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
     @Setting("aiConnected", default: "") var aiConnected: String
+    /// 서비스별 노치 양옆 칸: "claude.left" → "mark" 또는 한도 id (UsageWindow.id). 없으면 자동.
+    @Setting("aiUsageSides", default: [:]) var aiUsageSides: [String: String]
+
+    func aiSides(_ service: AIService) -> (left: String?, right: String?) {
+        (aiUsageSides[service.rawValue + ".left"], aiUsageSides[service.rawValue + ".right"])
+    }
+
+    /// 한쪽 칸을 고른다 (nil이면 자동). 반대쪽과 같은 것을 고르면 반대쪽은 자동으로 돌린다.
+    func setAISide(_ choice: String?, service: AIService, left: Bool) {
+        var sides = aiUsageSides
+        let key = service.rawValue + (left ? ".left" : ".right"), other = service.rawValue + (left ? ".right" : ".left")
+        sides[key] = choice
+        if let choice, sides[other] == choice { sides[other] = nil }
+        aiUsageSides = sides
+    }
 
     // MARK: - AI 채팅
 

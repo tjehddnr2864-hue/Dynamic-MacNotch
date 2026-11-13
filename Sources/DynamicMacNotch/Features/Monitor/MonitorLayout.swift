@@ -48,8 +48,8 @@ enum MonitorMetric: String, CaseIterable, Identifiable {
     /// 설정 메뉴의 이름
     var label: String {
         switch self {
-        case .aiPrimary: return T("AI 5시간 (없으면 주간)", "AI 5-hour (or weekly)")
-        case .aiSecondary: return T("AI 주간", "AI weekly")
+        case .aiPrimary: return T("AI 사용량 ① (기본 5시간)", "AI usage ① (5-hour by default)")
+        case .aiSecondary: return T("AI 사용량 ② (기본 주간)", "AI usage ② (weekly by default)")
         case .cpu: return "CPU"
         case .gpu: return "GPU"
         case .mem: return T("메모리", "Memory")
@@ -252,6 +252,54 @@ enum MonitorProbe {
         check(claude(#"{"five_hour":null,"seven_day":{"utilization":30,"resets_at":null}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour null")
         check(claude(#"{"seven_day":{"utilization":30}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour missing")
         check(claude(#"{"five_hour":{"utilization":null},"seven_day":{"utilization":30}}"#)?.windows.map(\.seconds) == [UsageWindow.week], "five_hour without a value")
+
+        // Claude Max: 5시간·주간·모델별 주간(Fable). 자동은 5시간·주간, 모델 한도는 고를 때만
+        let max = claude(#"{"five_hour":{"utilization":10,"resets_at":null},"seven_day":{"utilization":30,"resets_at":null},"seven_day_fable":{"utilization":55,"resets_at":null},"seven_day_opus":null,"seven_day_oauth_apps":{"utilization":3}}"#)
+        check(max?.windows.map(\.id) == ["5h", "168h", "168h:fable"], "max: 5h, weekly, Fable weekly (oauth apps and null skipped)")
+        check(max?.windows.last?.label == T("Fable 주간", "Fable Weekly") && max?.windows.last?.shortLabel == "Fable", "Fable labels")
+        if let max {
+            var sd = max.sides(left: nil, right: nil)
+            check(sd?.left == .window(max.windows[0]) && sd?.right == .window(max.windows[1]), "max auto: 5h | weekly")
+            sd = max.sides(left: "168h:fable", right: nil)
+            check(sd?.left == .window(max.windows[2]) && sd?.right == .window(max.windows[1]), "max: Fable | auto weekly")
+            sd = max.sides(left: nil, right: "5h")
+            check(sd?.right == .window(max.windows[0]) && sd?.left != sd?.right, "auto side never repeats the chosen one")
+            sd = max.sides(left: "mark", right: "168h:fable")
+            check(sd?.left == .mark && sd?.right == .window(max.windows[2]), "max: mark | Fable")
+            let act = MonitorActivity.ai(service: .claude, usage: max, ring: false, sides: ("168h", "168h:fable"))
+            check(act.leadingValue == .usage(label: "wk", percent: 30, ring: false) && act.value == .usage(label: "Fable", percent: 55, ring: false), "activity follows the choice")
+            check(max.sideChoices.map(\.id) == ["mark", "5h", "168h", "168h:fable"], "choices: mark + every limit")
+        }
+        // Claude Ultra: 5시간 없음. 자동은 기호 | 주간, 5시간을 골라 뒀으면 그 칸은 자동으로 돌아간다
+        let ultra = claude(#"{"five_hour":null,"seven_day":{"utilization":20,"resets_at":null},"seven_day_fable":{"utilization":40,"resets_at":null}}"#)
+        check(ultra?.windows.map(\.id) == ["168h", "168h:fable"], "ultra: weekly and Fable only")
+        if let ultra {
+            var sd = ultra.sides(left: nil, right: nil)
+            check(sd?.left == .mark && sd?.right == .window(ultra.windows[0]), "ultra auto: mark | weekly")
+            sd = ultra.sides(left: "5h", right: "168h:fable")
+            check(sd?.left == .mark && sd?.right == .window(ultra.windows[1]), "missing 5h falls back to auto")
+            sd = ultra.sides(left: "168h", right: "168h:fable")
+            check(sd?.left == .window(ultra.windows[0]) && sd?.right == .window(ultra.windows[1]), "ultra: weekly | Fable")
+        }
+        // 설정: 반대쪽과 같은 것을 고르면 반대쪽은 자동으로
+        let savedSides = UserDefaults.standard.object(forKey: "aiUsageSides")
+        AppSettings.shared.setAISide("168h", service: .claude, left: false)
+        AppSettings.shared.setAISide("168h", service: .claude, left: true)
+        check(AppSettings.shared.aiSides(.claude) == ("168h", nil), "same choice moves, other side goes automatic")
+        if let savedSides { UserDefaults.standard.set(savedSides, forKey: "aiUsageSides") } else { UserDefaults.standard.removeObject(forKey: "aiUsageSides") }
+        AppSettings.shared.reload()
+        // ChatGPT: 전체 한도(rate_limit)와 기능별 한도가 같은 기간이어도 서로 덮지 않는다 (2026-12 통합 대비)
+        func gpt(_ json: String) -> ServiceUsage? { UsageParser.chatgpt(Data(json.utf8)) }
+        let merged = gpt(#"{"rate_limit":{"primary_window":{"used_percent":12,"limit_window_seconds":18000,"reset_after_seconds":60},"secondary_window":{"used_percent":40,"limit_window_seconds":604800,"reset_after_seconds":60}},"code_review_rate_limit":{"primary_window":{"used_percent":5,"limit_window_seconds":604800}}}"#)
+        check(merged?.windows.map(\.id) == ["5h", "168h", "168h:code review"], "chatgpt: overall + code review weekly kept apart")
+        check(merged?.windows.first(where: { $0.id == "168h" })?.percent == 40, "chatgpt: overall weekly not overwritten")
+        let named = gpt(#"{"rate_limit":{"primary_window":{"used_percent":7,"limit_window_seconds":604800}},"additional_rate_limits":[{"limit_name":"Codex","rate_limit":{"primary_window":{"used_percent":9,"limit_window_seconds":604800}}}]}"#)
+        check(named?.windows.map(\.id) == ["168h", "168h:codex"], "chatgpt: named limit in a list")
+        let free = gpt(#"{"rate_limit":{"primary_window":{"used_percent":7,"limit_window_seconds":2592000}}}"#)
+        check(free?.windows.count == 1 && free?.sides(left: nil, right: nil)?.left == .mark, "chatgpt free: mark | 30-day")
+        // 예전 캐시(이름 없음)도 읽힌다
+        let old = try? JSONDecoder().decode(UsageWindow.self, from: Data(#"{"percent":10,"seconds":18000}"#.utf8))
+        check(old?.id == "5h" && old?.name == nil, "old cache decodes")
 
         print("monitor checks=\(checks) failures=\(failures.count)")
         failures.prefix(10).forEach { print("  FAIL", $0) }
