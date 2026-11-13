@@ -270,6 +270,12 @@ enum MonitorProbe {
             check(act.leadingValue == .usage(label: "wk", percent: 30, ring: false) && act.value == .usage(label: "Fable", percent: 55, ring: false), "activity follows the choice")
             check(max.sideChoices.map(\.id) == ["mark", "5h", "168h", "168h:fable"], "choices: mark + every limit")
         }
+        // Claude 새 응답(limits 목록): 세션·주간·Fable. 예전 키는 null이어도 목록을 쓴다
+        let pro = claude(#"{"five_hour":{"utilization":17,"resets_at":"2026-11-13T09:10:00.112966+00:00"},"seven_day_opus":null,"limits":[{"kind":"session","group":"session","percent":17,"resets_at":"2026-11-13T09:10:00.112966+00:00","scope":null},{"kind":"weekly_all","group":"weekly","percent":24,"resets_at":"2026-11-15T22:59:59.112986+00:00","scope":null},{"kind":"weekly_scoped","group":"weekly","percent":6,"resets_at":"2026-11-15T23:00:00.113304+00:00","scope":{"model":{"id":null,"display_name":"Fable"},"surface":null}},{"kind":"weekly_scoped","group":"weekly","percent":1,"scope":{"model":null,"surface":null}}]}"#)
+        check(pro?.windows.map(\.id) == ["5h", "168h", "168h:fable"], "limits list: session, weekly, Fable (unknown scope skipped)")
+        check(pro?.windows.map(\.percent) == [17, 24, 6] && pro?.windows[2].resetsAt != nil, "limits list: values and reset time")
+        let ultraList = claude(#"{"limits":[{"kind":"weekly_all","group":"weekly","percent":20},{"kind":"weekly_scoped","group":"weekly","percent":40,"scope":{"model":{"display_name":"Fable"}}}]}"#)
+        check(ultraList?.windows.map(\.id) == ["168h", "168h:fable"] && ultraList?.sides(left: nil, right: nil)?.left == .mark, "limits list without a session (Ultra)")
         // Claude Ultra: 5시간 없음. 자동은 기호 | 주간, 5시간을 골라 뒀으면 그 칸은 자동으로 돌아간다
         let ultra = claude(#"{"five_hour":null,"seven_day":{"utilization":20,"resets_at":null},"seven_day_fable":{"utilization":40,"resets_at":null}}"#)
         check(ultra?.windows.map(\.id) == ["168h", "168h:fable"], "ultra: weekly and Fable only")

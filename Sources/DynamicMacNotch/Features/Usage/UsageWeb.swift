@@ -201,11 +201,13 @@ final class UsageFetchDelegate: NSObject, NSApplicationDelegate, WKNavigationDel
 // MARK: - 응답 읽기
 
 enum UsageParser {
-    /// claude.ai: {"five_hour": {"utilization": 42, "resets_at": "..."}, "seven_day": {...}, "seven_day_fable": {...}}
+    /// claude.ai: `limits` 목록이 있으면 그것으로 (claudeLimits). 없으면 예전 모양
+    /// {"five_hour": {"utilization": 42, "resets_at": "..."}, "seven_day": {...}, "seven_day_fable": {...}}
     /// 요금제마다 오는 한도가 다르다: Max는 5시간·주간·모델별 주간(예: Fable), Ultra는 5시간이 없다(null).
     /// `seven_day_<모델>`·`five_hour_<모델>`은 그 모델에만 걸린 한도로 읽는다 (값이 null이면 그 요금제에 없는 한도).
     static func claude(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let usage = claudeLimits(obj["limits"]) { return usage }
         // 모델이 아닌 기능별 사용량 (한도로 보이지 않는다)
         let notModels: Set<String> = ["oauth_apps", "cowork", "extra"]
         var windows: [UsageWindow] = []
@@ -222,6 +224,34 @@ enum UsageParser {
                 name = model.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
             }
             windows.append(UsageWindow(percent: min(100, max(0, u)), resetsAt: (w["resets_at"] as? String).flatMap(date),
+                                       seconds: seconds, name: name))
+        }
+        let usage = ServiceUsage(windows: windows, fetched: Date())
+        return usage.hasData ? usage : nil
+    }
+
+    /// claude.ai의 새 응답(2026-11 확인): "limits": [{"kind": "session" | "weekly_all" | "weekly_scoped", "group": "session" | "weekly",
+    /// "percent": 17, "resets_at": "...", "scope": {"model": {"display_name": "Fable"}, "surface": ...}}]
+    /// 화면의 "현재 세션"·"이번 주"·"Fable"과 같다. 요금제에 없는 한도는 목록에 없다 (Pro에도 Fable이 일시적으로 생긴다).
+    static func claudeLimits(_ any: Any?) -> ServiceUsage? {
+        guard let list = any as? [[String: Any]] else { return nil }
+        let periods: [String: Double] = ["session": UsageWindow.fiveHours, "five_hour": UsageWindow.fiveHours, "daily": 86400,
+                                         "weekly": UsageWindow.week, "monthly": 30 * 86400]
+        var windows: [UsageWindow] = []
+        for item in list {
+            guard let p = number(item["percent"]) ?? number(item["utilization"]) else { continue }
+            let group = (item["group"] as? String) ?? (item["kind"] as? String) ?? ""
+            guard let seconds = periods[group] ?? periods.first(where: { group.hasPrefix($0.key) })?.value else { continue }
+            var name: String?
+            if let scope = item["scope"] as? [String: Any] {
+                // 모델 한도 (예: Fable), 그 밖에 기능·화면 한도 (예: Claude Code)
+                for part in ["model", "surface"] {
+                    if let d = scope[part] as? [String: Any], let n = (d["display_name"] as? String) ?? (d["id"] as? String), !n.isEmpty { name = n; break }
+                    if let n = scope[part] as? String, !n.isEmpty { name = n; break }
+                }
+                if name == nil, (item["kind"] as? String)?.hasSuffix("_scoped") == true { continue }   // 무엇에 걸린 한도인지 모르면 건너뜀
+            }
+            windows.append(UsageWindow(percent: min(100, max(0, p)), resetsAt: (item["resets_at"] as? String).flatMap(date),
                                        seconds: seconds, name: name))
         }
         let usage = ServiceUsage(windows: windows, fetched: Date())
