@@ -267,9 +267,14 @@ enum UsageParser {
     static func chatgpt(_ data: Data) -> ServiceUsage? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) else { return nil }
         var windows: [UsageWindow] = []
+        // 전체 한도는 rate_limit 아래에만 온다. 그 밖의 곳(code_review_rate_limit, model_usage의 모델별 항목 등)은
+        // 가장 가까운 이름을 붙여 전체 한도와 섞이지 않게 한다. 묶음일 뿐인 키는 이름이 되지 않는다.
+        let passThrough: Set<String> = ["rate_limit", "primary_window", "secondary_window", "additional_rate_limits", "model_usage", "limits"]
         func scopeName(_ key: String) -> String? {
-            guard key != "rate_limit", key.hasSuffix("_rate_limit") || key.hasSuffix("_rate_limits") else { return nil }
+            guard !passThrough.contains(key) else { return nil }
             let base = key.replacingOccurrences(of: "_rate_limits", with: "").replacingOccurrences(of: "_rate_limit", with: "")
+            // 모델 이름(gpt-5-codex 등)은 그대로, 밑줄 이름(code_review)은 단어로
+            if base.contains("-") || base.contains(where: \.isNumber) { return base }
             return base.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
         }
         func visit(_ any: Any, scope: String?) {

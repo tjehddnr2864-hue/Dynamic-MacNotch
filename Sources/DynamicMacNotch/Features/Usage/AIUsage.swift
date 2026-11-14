@@ -312,8 +312,9 @@ final class UsageStore: ObservableObject {
                 guard let self else { return }
                 self.refreshing = false
                 for (s, u) in result {
-                    // 일시적 오류면 이전 값을 남겨 두고 오류만 표시
-                    if !u.hasData, var old = self.usage[s], old.hasData {
+                    // 일시적 오류면 이전 값을 남겨 두고 오류만 표시.
+                    // 읽기는 됐는데 한도가 없으면("nodata", 요금제 변경 등) 이전 한도를 남기지 않는다.
+                    if !u.hasData, u.error != "nodata", var old = self.usage[s], old.hasData {
                         old.error = u.error
                         self.usage[s] = old
                     } else {

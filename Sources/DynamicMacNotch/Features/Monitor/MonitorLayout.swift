@@ -303,6 +303,21 @@ enum MonitorProbe {
         check(named?.windows.map(\.id) == ["168h", "168h:codex"], "chatgpt: named limit in a list")
         let free = gpt(#"{"rate_limit":{"primary_window":{"used_percent":7,"limit_window_seconds":2592000}}}"#)
         check(free?.windows.count == 1 && free?.sides(left: nil, right: nil)?.left == .mark, "chatgpt free: mark | 30-day")
+        // ChatGPT 지금 응답(무료, 2026-11 확인): 빈 항목은 null. 모델별 사용량이 생겨도 전체 한도를 덮지 않는다
+        let freeNow = gpt(#"{"plan_type":"free","rate_limit":{"allowed":true,"primary_window":{"used_percent":7,"limit_window_seconds":2592000,"reset_after_seconds":60,"reset_at":1800000000},"secondary_window":null},"code_review_rate_limit":null,"additional_rate_limits":null,"model_usage":{}}"#)
+        check(freeNow?.windows.map(\.id) == ["720h"], "chatgpt free now: one 30-day limit")
+        let perModel = gpt(#"{"rate_limit":{"primary_window":{"used_percent":12,"limit_window_seconds":18000},"secondary_window":{"used_percent":40,"limit_window_seconds":604800}},"model_usage":{"gpt-5-codex":{"primary_window":{"used_percent":90,"limit_window_seconds":604800}}}}"#)
+        check(perModel?.windows.map(\.id) == ["5h", "168h", "168h:gpt-5-codex"] && perModel?.windows[1].percent == 40, "chatgpt model usage named, overall weekly kept")
+        // 한도가 사라지면 (Fable 종료, 요금제 변경) 고른 칸은 자동으로
+        let fableGone = claude(#"{"limits":[{"kind":"session","group":"session","percent":19},{"kind":"weekly_all","group":"weekly","percent":27}]}"#)
+        if let fableGone {
+            let sd = fableGone.sides(left: "5h", right: "168h:fable")
+            check(sd?.left == .window(fableGone.windows[0]) && sd?.right == .window(fableGone.windows[1]), "Fable gone: right falls back to weekly")
+            check(!fableGone.sideChoices.contains { $0.id == "168h:fable" }, "Fable gone: not offered")
+        }
+        // is_active는 '지금 걸리는 한도' 표시일 뿐이라 거르지 않는다 (Fable이 false여도 읽음)
+        let inactive = claude(#"{"limits":[{"kind":"weekly_all","group":"weekly","percent":27,"is_active":true},{"kind":"weekly_scoped","group":"weekly","percent":6,"is_active":false,"scope":{"model":{"display_name":"Fable"}}}]}"#)
+        check(inactive?.windows.count == 2, "inactive limit still read")
         // 예전 캐시(이름 없음)도 읽힌다
         let old = try? JSONDecoder().decode(UsageWindow.self, from: Data(#"{"percent":10,"seconds":18000}"#.utf8))
         check(old?.id == "5h" && old?.name == nil, "old cache decodes")
