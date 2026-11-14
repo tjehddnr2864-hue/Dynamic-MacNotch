@@ -183,6 +183,7 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
     /// 개발용: 국가 조회 결과를 정한다 (빈 문자열이면 조회 실패, nil이면 실제 조회)
     static var debugCountry: String?
     func debugEvaluate() { evaluate() }
+    static var debugLog: [String] = []
     #endif
 
     private func observeDynamicStore() {
@@ -241,12 +242,22 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
     }
 
     /// 여러 이벤트가 연달아 오므로 0.6초 모아서 한 번 판단한다.
+    /// Wi-Fi가 붙는 순간에는 Wi-Fi 정보(채널·이름)와 경로가 서로 다른 때에 갖춰져, 마지막 신호 때에도 아직 '연결 안 됨'으로
+    /// 읽힐 수 있다. 그래서 신호가 멎은 뒤 두 번 더 확인한다 (예전에는 십여 초마다 오던 AirDrop 신호가 우연히 이 역할을 했다).
     private func scheduleEvaluate() {
         pendingEvaluate?.cancel()
+        followUps.forEach { $0.cancel() }
         let work = DispatchWorkItem { [weak self] in self?.evaluate() }
         pendingEvaluate = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+        followUps = Self.followUpDelays.map { delay in
+            let item = DispatchWorkItem { [weak self] in self?.evaluate() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+            return item
+        }
     }
+    private var followUps: [DispatchWorkItem] = []
+    private static let followUpDelays: [TimeInterval] = [2.5, 6]
 
     // MARK: - 상태 읽기
 
@@ -345,6 +356,13 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         let old = state
         let new = readState()
         state = new
+        #if DEV
+        // 개발용: 판단 기록 (네트워크 이름은 남기지 않는다)
+        Self.debugLog.append("\(Date().timeIntervalSince1970) on=\(new.wifiOn) linked=\(new.wifiLinked) ssid=\(new.ssid != nil) "
+            + "channel=\(client.interface()?.wlanChannel() != nil) pathWifi=\(lastPath?.availableInterfaces.contains { $0.type == .wifi } ?? false) "
+            + "online=\(new.online) vpn=\(new.vpnName != nil) changed=\(new != old) quiet=\(Date() < quietUntil)")
+        if Self.debugLog.count > 60 { Self.debugLog.removeFirst(Self.debugLog.count - 60) }
+        #endif
         // 네트워크 변경 신호마다: VPN이 바뀌면 이전 국가를 지우고, 연결된 채면 서버가 바뀌었을 수 있으니 다시 조회
         if new.vpnName != old.vpnName { vpnCountry = nil }
         updateVPNCountry()
