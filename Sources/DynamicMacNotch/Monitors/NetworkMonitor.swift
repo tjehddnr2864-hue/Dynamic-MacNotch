@@ -25,6 +25,11 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
     private var lastPath: NWPath?
     private var state = State()
     private var quietUntil = Date().addingTimeInterval(2)   // 시작 직후 초기 상태는 알리지 않는다
+    private static let wakeQuiet: TimeInterval = 3
+    /// 잠든 동안 (어두운 깨어남 중의 변화도 알리지 않는다)
+    private var asleep = false
+    /// 잠들기 전 상태. 깨어난 뒤 첫 알림 판단에서 이것과 비교하고 지운다.
+    private var sleepBaseline: State?
     private var pendingEvaluate: DispatchWorkItem?
     private var store: SCDynamicStore?
     private var pinObservers = Set<AnyCancellable>()
@@ -53,9 +58,20 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         }
         pathMonitor.start(queue: DispatchQueue(label: "com.dynamicmacnotch.app.network"))
 
-        // 잠자기 해제 직후 3초간은 연결/해제 알림을 무시한다.
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.quietUntil = Date().addingTimeInterval(3)
+        // 잠들기 전 상태를 기억해 두고, 잠든 동안과 깨어난 직후 3초는 알리지 않는다 (깨어날 때 끊김·연결이 번갈아 생긴다).
+        // 3초가 지나면 잠들기 전과 비교해 네트워크가 달라졌을 때만 알린다 (같은 Wi-Fi에 다시 붙으면 알리지 않음).
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.asleep = true
+            if self.sleepBaseline == nil { self.sleepBaseline = self.state }
+        }
+        ws.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.asleep = false
+            if self.sleepBaseline == nil { self.sleepBaseline = self.state }
+            self.quietUntil = Date().addingTimeInterval(Self.wakeQuiet)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.wakeQuiet + 0.2) { [weak self] in self?.evaluate() }
         }
         // VPN 연결·해제는 경로 변화 없이 일어나기도 하므로, 주기 확인 대신 시스템 네트워크 설정 저장소의
         // 변경 알림(SCDynamicStore)을 받는다. 아무 변화가 없으면 아무 일도 하지 않는다.
@@ -367,11 +383,15 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         if new.vpnName != old.vpnName { vpnCountry = nil }
         updateVPNCountry()
         applyHotspotPin()
-        guard new != old, Date() >= quietUntil else { return }
+        // 잠든 동안·깨어난 직후에는 상태만 따라가고 알리지 않는다
+        guard !asleep, Date() >= quietUntil else { return }
+        let before = sleepBaseline ?? old
+        sleepBaseline = nil
+        guard new != before else { return }
 
         // 쓰던 네트워크가 중간에 끊겨 연결된 네트워크가 하나도 없으면 상세 팝업으로 알린다.
         // (사용자가 Wi-Fi를 직접 끈 경우는 'Wi-Fi 꺼짐'으로 알리므로 제외, 잠깐 끊겼다 붙는 경우는 2초 뒤 다시 확인)
-        if old.online, !new.online, new.wifiOn == old.wifiOn {
+        if before.online, !new.online, new.wifiOn == before.wifiOn {
             offlineCheck?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 guard let self, !self.state.online, self.settings.netWifiConnection else { return }
@@ -388,7 +408,7 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
         }
         if new.online { offlineCheck?.cancel() }
 
-        if new.wifiOn != old.wifiOn {
+        if new.wifiOn != before.wifiOn {
             if settings.netWifiPower {
                 post(symbol: new.wifiOn ? "wifi" : "wifi.slash", tint: new.wifiOn ? .blue : .gray,
                      short: new.wifiOn ? T("켜짐", "On") : T("꺼짐", "Off"), title: "Wi-Fi", detail: new.wifiOn ? T("Wi-Fi 켜짐", "Wi-Fi On") : T("Wi-Fi 꺼짐", "Wi-Fi Off"))
@@ -396,11 +416,11 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
             return   // 전원 변화에 딸린 연결/해제는 따로 알리지 않는다
         }
 
-        if new.hotspot != old.hotspot, settings.netHotspot {
+        if new.hotspot != before.hotspot, settings.netHotspot {
             post(symbol: "personalhotspot", tint: new.hotspot ? .green : .gray,
                  short: new.hotspot ? T("연결됨", "Connected") : T("해제됨", "Disconnected"), title: T("개인용 핫스팟", "Personal Hotspot"),
                  detail: new.hotspot ? (new.ssid ?? T("연결됨", "Connected")) : T("연결 해제됨", "Disconnected"))
-        } else if (new.wifiLinked != old.wifiLinked || (new.wifiLinked && new.ssid != old.ssid)), settings.netWifiConnection {
+        } else if (new.wifiLinked != before.wifiLinked || (new.wifiLinked && new.ssid != before.ssid)), settings.netWifiConnection {
             if new.wifiLinked {
                 post(symbol: "wifi", tint: .blue, short: T("연결됨", "Connected"), title: "Wi-Fi", detail: new.ssid ?? T("연결됨", "Connected"))
             } else {
@@ -408,7 +428,7 @@ final class NetworkMonitor: NSObject, CWEventDelegate {
             }
         }
 
-        if new.vpnName != old.vpnName, settings.netVPN {
+        if new.vpnName != before.vpnName, settings.netVPN {
             if let name = new.vpnName {
                 post(symbol: "network", tint: .blue, short: T("연결됨", "Connected"), title: "VPN", detail: name)
             } else {

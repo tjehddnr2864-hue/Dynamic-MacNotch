@@ -213,6 +213,10 @@ extension AppDelegate {
                     }
                     + Displays.all().map { "display \($0.uuid) \($0.label) builtIn=\($0.isBuiltIn) notch=\($0.hasNotch)" }
                 try? (lines.joined(separator: "\n") + "\n").write(toFile: NSTemporaryDirectory() + "dmn-display.txt", atomically: true, encoding: .utf8)
+            case "devsleep":   // 개발용: 잠자기 알림만 흉내 (실제로 잠들지 않음)
+                NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+            case "devwake":
+                NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: NSWorkspace.shared)
             case "netlog":   // 개발용: 네트워크 판단 기록
                 try? (NetworkMonitor.debugLog.joined(separator: "\n") + "\n").write(toFile: NSTemporaryDirectory() + "dmn-netlog.txt", atomically: true, encoding: .utf8)
             case "mcstate":   // 개발용: Mission Control 숨김 상태 기록
