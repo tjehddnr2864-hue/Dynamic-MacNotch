@@ -219,6 +219,20 @@ final class DisplayNotch: NotchGestureDelegate {
         return CGRect(x: f.midX - size.width / 2, y: f.maxY - size.height, width: size.width, height: size.height)
     }
 
+    /// 실제로 노치인 곳: 노치 도형과, 열린 노치 아래의 점 묶음. 점 줄의 빈 곳은 노치가 아니다
+    /// (거기를 누르면 아래 창이 클릭을 받고 노치는 닫힌다).
+    private func hitsNotch(_ p: CGPoint) -> Bool {
+        let rect = interactiveRect
+        let dots = vm.isExpanded ? (vm.expandedPage == .home ? vm.homePages.count : vm.showsPersistentDots ? vm.persistentPages.count : 0) : 0
+        guard dots > 0 else { return rect.insetBy(dx: -4, dy: -4).contains(p) }
+        let band = DisplayNotchState.dotsAreaHeight
+        let shape = CGRect(x: rect.minX, y: rect.minY + band, width: rect.width, height: rect.height - band)
+        // 점 하나 20pt + 좌우 여백 (HomeView.PageDots·PersistentDots)
+        let width = CGFloat(dots) * 20 + 12 + 8
+        let pill = CGRect(x: rect.midX - width / 2, y: rect.minY, width: width, height: band)
+        return shape.insetBy(dx: -4, dy: -4).contains(p) || pill.contains(p)
+    }
+
     // MARK: - 마우스 감시
 
     private func installMonitors() {
@@ -250,7 +264,14 @@ final class DisplayNotch: NotchGestureDelegate {
         }
         // 다른 디스플레이의 노치를 눌러도 '바깥 클릭'이다 (같은 앱이라 위의 전역 감시에는 오지 않는다)
         if let m = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
-            guard let self, self.vm.isExpanded, event.window !== self.panel, !FilePicker.isChoosing else { return event }
+            guard let self, self.vm.isExpanded, !FilePicker.isChoosing else { return event }
+            if event.window === self.panel {
+                // 노치 창은 노치보다 크다 (투명한 여백). 커서 판단이 늦어 여백이 클릭을 받았으면 바깥 클릭이다.
+                guard !self.hitsNotch(NSEvent.mouseLocation) else { return event }
+                self.collapse()
+                self.updateHover()
+                return nil
+            }
             self.collapse()
             return event
         }) {
@@ -260,7 +281,7 @@ final class DisplayNotch: NotchGestureDelegate {
         if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
             // 파일 선택 창을 쓰는 동안의 클릭은 '바깥 클릭'이 아니다
             guard let self, self.vm.isExpanded, !FilePicker.isChoosing else { return }
-            if !self.interactiveRect.contains(NSEvent.mouseLocation) { self.collapse() }
+            if !self.hitsNotch(NSEvent.mouseLocation) { self.collapse() }
         }) {
             monitors.append(m)
         }
@@ -299,6 +320,9 @@ final class DisplayNotch: NotchGestureDelegate {
             lastCursorMove = now
         }
         scheduleHoverPoll(now.timeIntervalSince(lastCursorMove) < Self.fastHold ? Self.fastPoll : Self.slowPoll)
+        // 열린 동안에는 확인할 때마다 맞춘다: 노치 창이 키보드를 받는 중(타이머·메모 입력 등)에는 이동 이벤트가 오지 않아
+        // 투명한 여백이 클릭을 계속 받을 수 있다
+        if vm.isExpanded { updateHover() }
         // 보이는 노치 도형에서 조금 떨어진 곳까지를 '근처'로 본다 (닿기 전에 감시가 켜지도록)
         let near = interactiveRect.insetBy(dx: -60, dy: -40).contains(loc) || vm.isHovering || vm.isFileDragging
         if near, nearMonitor == nil {
@@ -354,7 +378,7 @@ final class DisplayNotch: NotchGestureDelegate {
         if loc.y < panel.frame.minY || abs(loc.x - panel.frame.midX) > panel.frame.width / 2 {
             if !vm.isHovering && panel.ignoresMouseEvents { return }
         }
-        let inside = interactiveRect.insetBy(dx: -4, dy: -4).contains(loc)
+        let inside = hitsNotch(loc)
         // 노치 도형 밖에서는 클릭이 아래 메뉴바·앱으로 통과한다.
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
         guard inside != vm.isHovering else { return }
