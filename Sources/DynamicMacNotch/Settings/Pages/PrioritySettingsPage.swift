@@ -67,6 +67,15 @@ struct HomeSettingsPage: View {
             }
             SettingsSection(T("카메라", "Camera"), disabled: !settings.isHomeFeatureOn("camera")) {
                 Toggle(T("좌우 반전(거울)", "Mirror the camera"), isOn: $settings.cameraMirror)
+                Picker(T("카메라", "Camera"), selection: $settings.cameraDevice) {
+                    Text(T("시스템 기본", "System default")).tag("")
+                    let cameras = Cameras.all()
+                    ForEach(cameras, id: \.uniqueID) { Text($0.localizedName).tag($0.uniqueID) }
+                    // 고른 카메라가 지금 연결돼 있지 않으면 이름 대신 표시 (노치에서는 기본 카메라를 쓴다)
+                    if !settings.cameraDevice.isEmpty, !cameras.contains(where: { $0.uniqueID == settings.cameraDevice }) {
+                        Text(T("연결 안 된 카메라", "Camera not connected")).tag(settings.cameraDevice)
+                    }
+                }
             }
         }
         .settingsForm()

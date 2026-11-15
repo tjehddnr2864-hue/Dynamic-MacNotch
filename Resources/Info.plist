@@ -43,6 +43,8 @@
 	<string>Used to show today's events in the notch.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Used for the camera (mirror) in the notch.</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Used to save and detect screenshots.</string>
 	<key>NSDownloadsFolderUsageDescription</key>

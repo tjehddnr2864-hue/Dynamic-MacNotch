@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// 메뉴바 아이콘과 노치 우클릭 메뉴
 extension AppDelegate {
@@ -34,6 +35,8 @@ extension AppDelegate {
         demoItem.submenu = demo
         menu.addItem(demoItem)
         menu.addItem(item(T("홈 열기", "Open Home"), #selector(openHome)))
+        // 두 손가락으로 쓸어 올려 상시 표시를 잠시 숨기는 것과 같다 (제목은 메뉴를 열 때 validateMenuItem이 정함)
+        menu.addItem(item(T("콘텐츠 가리기", "Hide Content"), #selector(toggleContentHidden)))
         menu.addItem(.separator())
         menu.addItem(item(T("업데이트 확인…", "Check for Updates…"), #selector(checkForUpdates)))
         menu.addItem(item(T("Dynamic MacNotch 다시 시작", "Restart Dynamic MacNotch"), #selector(restart), key: "r"))
@@ -50,6 +53,11 @@ extension AppDelegate {
     @objc private func openSettings() { showSettings() }
     @objc private func openPermissions() { showPermissions(onboarding: false) }
     @objc private func openHome() { vm.expand(page: .home) }
+
+    @objc private func toggleContentHidden() {
+        let hide = !center.persistentHidden
+        withAnimation(hide ? vm.closeSpring : vm.openSpring) { center.setPersistentHidden(hide) }
+    }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func checkForUpdates() { Updater.shared.check(userInitiated: true) }
 
@@ -69,5 +77,14 @@ extension AppDelegate {
     @objc private func runDemo(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let d = PreviewID(rawValue: raw) else { return }
         featurePreview.run(d)
+    }
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    /// 메뉴를 열 때마다: 콘텐츠 가리기 ↔ 보이기, 상시 표시가 없으면 흐리게
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(toggleContentHidden) else { return true }
+        menuItem.title = center.persistentHidden ? T("콘텐츠 보이기", "Show Content") : T("콘텐츠 가리기", "Hide Content")
+        return center.persistentHidden || center.hasPersistent
     }
 }

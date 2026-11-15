@@ -73,13 +73,13 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Two-finger swipe up** while open | Closes |
 | **Two-finger swipe up / down** on a compact live activity | Hides / shows live activities |
 | **Two-finger swipe left / right** while music shows | Next / previous track (does nothing if the app or video has no next/previous) |
-| **Right-click** the notch | Menu: Open Home, Settings, Permissions, Preview alerts, Restart, Quit |
+| **Right-click** the notch | Menu: Open Home, Hide Content (same as swiping up with two fingers; Show Content brings it back), Settings, Permissions, Preview alerts, Restart, Quit |
 | **Hover** | Optional: grow slightly, or open on hover (Settings → General) |
 
 ### Home (8 pages)
 Reorder the pages or turn features off in **Settings → Interactions → Home Features**. A feature that's off disappears from the notch and stops running in the background. AirDrop & Tray can also be hidden from Home while dragging files to the notch still works.
 
-1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages.
+1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages. Choose the camera (built-in, a connected camera, or a nearby iPhone through Continuity Camera) in Settings → Interactions → Home Features, or with the switch button at the top left of the camera view.
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
 3. **AI Usage** — 5-hour and weekly limits for **Claude, ChatGPT (Codex) and Gemini**, with reset times. Sign in to each website once in Settings → Interactions → Live Monitoring; sign-in data stays in the app's own web storage. For each service, choose what the left and right sides show: any limit your plan has (5-hour, weekly, or a model's own limit such as Claude's Fable weekly limit) or the service mark; an item picked on one side can't be picked on the other. Automatic shows 5-hour on the left and weekly on the right, and plans with a single limit (for example Claude Ultra, weekly only) show the service mark on the left. Optionally **keep it in the notch**: 5-hour on the left, weekly on the right, as text or rings. Services with a single limit (e.g. ChatGPT Free's 30-day limit) show one bar, and the notch shows that limit with the time to reset. If AI usage is the only live activity, long-pressing it opens Home on this page (swipe or use the dots for the other Home pages); with other live activities it opens in the live-activity popup. Choose how often it refreshes (1, 2, 5 or 10 min). When it isn't kept in the notch, nothing runs in the background: it refreshes only when you open the page. While a higher-priority live activity covers it, refreshing pauses and resumes once it's visible again. It also pauses once you've hidden the live activities (two-finger swipe up) for a full refresh interval, and resumes when you bring them back. Each refresh runs in a short-lived helper process, so the web memory is released right after.
 4. **Resource Usage** — CPU, GPU, memory and network, read on this Mac and sent nowhere. Its Home page and long-press popup show graphs for CPU, GPU and network, and memory split into app, compressed and wired, with swap. Values are read only while they are visible.
@@ -276,13 +276,13 @@ scripts/build.sh --install --run  # install to /Applications
 | 열린 상태에서 **두 손가락 위로 쓸기** | 닫기 |
 | 컴팩트 라이브 활동 위에서 **두 손가락 위 / 아래** | 라이브 활동 숨기기 / 다시 보이기 |
 | 음악이 떠 있을 때 **두 손가락 좌 / 우** | 다음 / 이전 곡 (앱·영상에 다음·이전이 없으면 아무 동작 안 함) |
-| 노치 **우클릭** | 메뉴: 홈 열기, 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
+| 노치 **우클릭** | 메뉴: 홈 열기, 콘텐츠 가리기(두 손가락 위로 쓸기와 같음, 콘텐츠 보이기로 되돌림), 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
 | **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 일반) |
 
 ### 홈 (8페이지)
 **설정 → 상호작용 → 홈 기능**에서 페이지 순서를 바꾸거나 기능을 끌 수 있습니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다. 에어드랍·트레이는 홈에서만 가리고 파일을 노치로 끌어오면 동작하게 할 수도 있습니다.
 
-1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다.
+1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다. 쓸 카메라(내장, 연결된 카메라, 연속성 카메라로 근처 iPhone)는 설정 → 상호작용 → 홈 기능에서, 또는 카메라 화면 왼쪽 위 전환 버튼으로 고릅니다.
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
 3. **AI 사용량** — **Claude, ChatGPT(Codex), Gemini**의 5시간·주간 한도와 초기화 시각. 설정 → 상호작용 → 실시간 모니터링에서 각 웹사이트에 한 번 로그인합니다. 서비스마다 노치 왼쪽·오른쪽에 보일 것을 고릅니다: 요금제에 있는 한도(5시간, 주간, Claude Fable 주간 한도 같은 모델별 한도) 또는 서비스 기호. 한쪽에서 고른 것은 반대쪽에서 고를 수 없습니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제(예: 주간 한도만 있는 Claude Ultra)는 왼쪽에 서비스 기호를 보입니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다. **노치에 상시 표시**(왼쪽 5시간, 오른쪽 주간 · 텍스트 또는 원형)를 켤 수 있고, 한도가 하나뿐인 서비스(예: ChatGPT 무료 30일 한도)는 바 하나로, 노치에는 그 한도와 초기화까지 남은 시간이 나옵니다. 상시 항목이 AI 사용량뿐이면 길게 눌렀을 때 홈의 이 페이지가 열리고(점·스와이프로 다른 홈 기능), 다른 상시 항목과 함께면 상시 항목 팝업에서 열립니다. 새로고침 빈도(1·2·5·10분)를 고릅니다. 상시 표시를 끄면 백그라운드에서는 아무것도 하지 않고 이 페이지를 열 때만 새로고침합니다. 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다. 두 손가락으로 상시 항목을 숨긴 지 새로고침 주기 한 번이 지나도 쉬고, 다시 보이면 이어서 합니다. 새로고침은 잠깐 뜨는 도우미 프로세스가 하므로 끝나면 웹 메모리가 바로 반환됩니다.
 4. **자원 사용량** — CPU, GPU, 메모리, 네트워크. 이 Mac에서만 읽고 어디로도 보내지 않습니다. 홈 페이지와 꾹 눌러 여는 화면에서 CPU·GPU·네트워크 그래프, 앱·압축·와이어드로 나눈 메모리와 스왑을 보입니다. 보이는 동안만 읽습니다.

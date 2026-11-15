@@ -5,6 +5,19 @@ import EventKit
 
 // MARK: - 카메라 (거울)
 
+/// 고를 수 있는 카메라: 내장, 연결된 카메라(USB 등), 연속성 카메라(근처의 iPhone 등)
+enum Cameras {
+    static func all() -> [AVCaptureDevice] {
+        AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera],
+                                         mediaType: .video, position: .unspecified).devices
+    }
+
+    /// 고른 카메라가 지금 있으면 그것, 없으면 시스템 기본 카메라
+    static func preferred(_ id: String) -> AVCaptureDevice? {
+        (id.isEmpty ? nil : all().first { $0.uniqueID == id }) ?? AVCaptureDevice.default(for: .video)
+    }
+}
+
 /// 홈의 카메라 페이지. 페이지가 보이는 동안만 세션을 켜고, 닫히면 즉시 끈다 (초록 표시등 꺼짐).
 struct CameraPage: View {
     @ObservedObject var settings = AppSettings.shared
@@ -24,8 +37,9 @@ struct CameraPage: View {
 
     var body: some View {
         if active, status == .authorized {
-            CameraPreview(mirror: settings.cameraMirror)
+            CameraPreview(mirror: settings.cameraMirror, deviceID: settings.cameraDevice)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(alignment: .topLeading) { cameraMenu }
                 .overlay(alignment: .topTrailing) {
                     Button { active = false } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -56,6 +70,32 @@ struct CameraPage: View {
         }
     }
 
+    /// 카메라가 둘 이상이면 왼쪽 위에서 바로 바꾼다 (메뉴를 열 때만 목록을 읽는다)
+    @ViewBuilder
+    private var cameraMenu: some View {
+        if Cameras.all().count > 1 {
+            Menu {
+                let current = Cameras.preferred(settings.cameraDevice)?.uniqueID
+                ForEach(Cameras.all(), id: \.uniqueID) { device in
+                    Button {
+                        settings.cameraDevice = device.uniqueID
+                    } label: {
+                        if device.uniqueID == current { Label(device.localizedName, systemImage: "checkmark") } else { Text(device.localizedName) }
+                    }
+                }
+            } label: {
+                Image(systemName: "arrow.triangle.2.circlepath.camera.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(6)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(T("카메라 바꾸기", "Switch camera"))
+        }
+    }
+
     private func turnOn() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -75,6 +115,7 @@ struct CameraPage: View {
 
 struct CameraPreview: NSViewRepresentable {
     var mirror: Bool
+    var deviceID: String
 
     final class PreviewView: NSView {
         let session = AVCaptureSession()
@@ -89,10 +130,19 @@ struct CameraPreview: NSViewRepresentable {
             layer?.backgroundColor = NSColor.black.cgColor
             layer?.addSublayer(layerPreview)
             session.sessionPreset = .medium
-            if let device = AVCaptureDevice.default(for: .video),
-               let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) {
-                session.addInput(input)
-            }
+        }
+
+        private(set) var deviceID: String?
+
+        /// 카메라를 바꾼다 (같으면 아무것도 하지 않음). 세션은 그대로 두고 입력만 바꾼다.
+        func use(_ id: String) {
+            guard id != deviceID else { return }
+            deviceID = id
+            guard let device = Cameras.preferred(id), let input = try? AVCaptureDeviceInput(device: device) else { return }
+            session.beginConfiguration()
+            session.inputs.forEach(session.removeInput)
+            if session.canAddInput(input) { session.addInput(input) }
+            session.commitConfiguration()
         }
 
         required init?(coder: NSCoder) { fatalError() }
@@ -120,11 +170,13 @@ struct CameraPreview: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PreviewView {
         let v = PreviewView(frame: .zero)
+        v.use(deviceID)
         v.setMirror(mirror)
         return v
     }
 
     func updateNSView(_ nsView: PreviewView, context: Context) {
+        nsView.use(deviceID)
         nsView.setMirror(mirror)
     }
 

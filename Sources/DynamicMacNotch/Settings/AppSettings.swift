@@ -264,6 +264,8 @@ final class AppSettings: ObservableObject {
     // MARK: - 카메라 · 일정
 
     @Setting("cameraMirror", default: true) var cameraMirror: Bool
+    /// 카메라 페이지에 쓸 카메라 (AVCaptureDevice.uniqueID). 비었거나 연결이 끊겼으면 시스템 기본 카메라.
+    @Setting("cameraDevice", default: "") var cameraDevice: String
     /// 일정 시작 N분 전 알림 (0 = 끄기)
     @Setting("calendarAlertMinutes", default: 10.0, sanitize: { max(0, $0) }) var calendarAlertMinutes: Double
     /// 다음(진행 중) 일정 상시 표시
