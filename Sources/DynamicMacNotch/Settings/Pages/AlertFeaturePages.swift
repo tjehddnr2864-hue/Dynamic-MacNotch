@@ -153,7 +153,10 @@ struct HUDSettingsPage: View {
                 }
                 if LiquidHUD.isEnabled {
                     SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudLiquidValue)
-                    ValueSlider(title: T("유리 투명도", "Glass transparency"), value: $settings.hudLiquidTransparency, range: 0...1, step: 0.05) {
+                    ValueSlider(title: T("명도", "Brightness"), value: $settings.hudLiquidBrightness, range: 0...1, step: 0.05) {
+                        "\(Int(($0 * 100).rounded()))%"
+                    }
+                    ValueSlider(title: T("투명도", "Transparency"), value: $settings.hudLiquidClearness, range: 0...1, step: 0.05) {
                         "\(Int(($0 * 100).rounded()))%"
                     }
                 } else {

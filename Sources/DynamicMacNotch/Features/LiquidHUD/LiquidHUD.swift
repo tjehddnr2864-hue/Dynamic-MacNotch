@@ -174,54 +174,78 @@ struct LiquidHUDView: View {
         // 알약으로 떨어져 나가면 노치 쪽 유리는 줄어들며 사라진다 (떨어지는 순간 둘이 갈라지는 모습)
         let stub: CGSize = stage == .hanging ? CGSize(width: 32, height: 8) : .zero
 
-        // 노치에서 나올 때는 노치처럼 검은색이었다가, 떨어져 나가며 유리로 이어서 바뀐다 (검은 덮개의 진하기가 스프링으로 변함).
+        // 노치에서 나올 때는 노치처럼 검은색이었다가, 떨어져 나가며 유리로 이어서 바뀐다 (덮개의 색·진하기가 스프링으로 변함).
         // 유리 색조(tint)는 거의 검게 되지 않아 덮개로 칠한다.
-        let t = settings.hudLiquidTransparency
-        let glass: Glass = t > Self.defaultTransparency ? .clear : .regular
-        let dim = Self.dim(t)
-        let cover = stage == .pill ? dim : 1
+        let tone = Self.tone(settings.hudLiquidBrightness)
+        let coverColor = stage == .pill ? tone.color : Color.black
+        let coverOpacity = stage == .pill ? tone.opacity : 1
+        // 투명도: 시스템 유리는 블러 세기를 정할 수 없고 늘 흐리게 한다. 그래서 알약에서는 유리를 테두리(rim)에만 남겨
+        // Liquid 가장자리를 살리고, 안쪽 블러는 직접 깔아 투명도만큼 옅게 한다 (100%면 안쪽은 배경이 그대로 보인다).
+        // 나올 때(검은 물방울)는 테두리 두께가 반지름만큼이라 꽉 찬 유리다.
+        let blur = 1 - settings.hudLiquidClearness
+        let radius = min(size.width, size.height) / 2
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let rim = RimShape(cornerRadius: radius, thickness: stage == .pill ? Self.rimWidth : radius)
+
+        ZStack(alignment: .top) {
+            // 블러는 유리 아래에 둔다: 유리가 흐려진 배경을 다시 굴절시켜 가장자리 효과가 그대로 남는다
+            BackdropBlur()
+                .clipShape(shape)
+                .frame(width: size.width, height: size.height)
+                .opacity(stage == .pill ? blur : 0)
+                .offset(y: centerY - size.height / 2)
 
         GlassEffectContainer(spacing: 18) {
             ZStack(alignment: .top) {
                 Capsule()
                     .fill(Color.black)
                     .frame(width: stub.width, height: stub.height)
-                    .glassEffect(glass, in: Capsule())
+                    .glassEffect(.clear, in: Capsule())
                     .opacity(stage == .hanging ? 1 : 0)
                     .offset(y: notch - stub.height / 2)
 
-                RoundedRectangle(cornerRadius: min(size.width, size.height) / 2, style: .continuous)
-                    .fill(Color.black.opacity(cover))
+                shape
+                    .fill(coverColor.opacity(coverOpacity))
                     .frame(width: size.width, height: size.height)
-                    .overlay { content(onDark: dim >= 0.3).opacity(stage == .pill ? 1 : 0) }
-                    .glassEffect(glass, in: RoundedRectangle(cornerRadius: min(size.width, size.height) / 2, style: .continuous))
+                    .overlay { content(ink: tone.ink).opacity(stage == .pill ? 1 : 0) }
+                    .clipShape(shape)   // 작은 물방울일 때 알약 크기의 글자가 밖으로 비치지 않게
+                    .glassEffect(.clear, in: rim)
                     .opacity(stage == .hidden ? 0 : 1)
                     .offset(y: centerY - size.height / 2)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    /// 유리 투명도: 기본(70%)은 보통 유리, 낮추면 검은 덮개가 진해지고(0%에서 70%), 높이면 더 투명한 유리(clear).
-    static let defaultTransparency = 0.7
-    static func dim(_ t: Double) -> Double { max(0, defaultTransparency - t) }
+    /// 알약 테두리 유리의 두께
+    static let rimWidth: CGFloat = 5
+
+    /// 명도: 50%는 덮개 없음, 낮추면 검게(0%에서 80%), 높이면 희게(100%에서 80%).
+    /// `ink`는 덮개가 진할 때 쓸 글자색 (nil이면 유리가 배경에 맞춰 정한다)
+    static func tone(_ b: Double) -> (color: Color, opacity: Double, ink: Color?) {
+        let strength = min(0.8, abs(b - 0.5) * 1.6)
+        let dark = b < 0.5
+        let ink: Color? = strength >= 0.3 ? (dark ? .white : .black) : nil
+        return (dark ? .black : .white, strength, ink)
+    }
 
     /// 알약 안: 왼쪽 아이콘, 오른쪽 가로 바(16칸) 또는 숫자. 좌우 여백은 같다.
     private static let inset: CGFloat = 21
     private static let iconBox: CGFloat = 27
 
-    /// `onDark`: 덮개가 진해 배경과 상관없이 흰 글자를 쓴다 (유리의 자동 색은 어두운 덮개를 모른다)
-    private func content(onDark: Bool) -> some View {
+    /// `ink`: 덮개가 진하면 그 반대 색 글자 (유리의 자동 색은 덮개를 모른다)
+    private func content(ink: Color?) -> some View {
         HStack(spacing: 0) {
             Image(systemName: model.symbol)
                 .font(.system(size: 21, weight: .semibold))
-                .foregroundStyle(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+                .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.primary))
                 .frame(width: Self.iconBox, height: Self.iconBox)
                 .contentTransition(.symbolEffect(.replace))
             if settings.hudLiquidValue == .bar {
                 Spacer(minLength: 16)
-                SegmentBar(level: model.level, onDark: onDark)
+                SegmentBar(level: model.level, ink: ink)
                     .frame(height: 5)
             } else {
                 Spacer(minLength: 0)
@@ -232,7 +256,7 @@ struct LiquidHUDView: View {
                     Text(model.number)
                         .font(.system(size: model.unit == nil ? 21 : 18, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+                        .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.primary))
                         .contentTransition(.numericText())
                 }
                 .frame(minWidth: Self.iconBox, alignment: .trailing)
@@ -246,7 +270,7 @@ struct LiquidHUDView: View {
 /// 16칸 가로 바. 칸마다 채운 만큼 밝다 (마지막 칸은 부분만).
 private struct SegmentBar: View {
     var level: Double
-    var onDark = false
+    var ink: Color?
     private static let count = 16
 
     var body: some View {
@@ -257,12 +281,44 @@ private struct SegmentBar: View {
                 ForEach(0..<Self.count, id: \.self) { i in
                     let fill = max(0, min(1, level * Double(Self.count) - Double(i)))
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1.5).fill(onDark ? AnyShapeStyle(Color.white.opacity(0.25)) : AnyShapeStyle(.tertiary))
-                        RoundedRectangle(cornerRadius: 1.5).fill(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary)).frame(width: width * fill)
+                        RoundedRectangle(cornerRadius: 1.5).fill(ink.map { AnyShapeStyle($0.opacity(0.25)) } ?? AnyShapeStyle(.tertiary))
+                        RoundedRectangle(cornerRadius: 1.5).fill(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.primary)).frame(width: width * fill)
                     }
                     .frame(width: width)
                 }
             }
         }
+    }
+}
+
+/// 창 뒤(바탕화면·다른 앱)를 흐리게 보이는 층. 세기는 투명도 설정만큼 opacity로 섞는다.
+private struct BackdropBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .popover   // 밝은·어두운 화면 모두 무난한 중립 블러
+        v.blendingMode = .behindWindow
+        v.state = .active
+        return v
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+/// 둥근 사각형의 테두리만 (두께가 반지름 이상이면 꽉 찬 모양). 두께는 애니메이션된다.
+private struct RimShape: Shape {
+    var cornerRadius: CGFloat
+    var thickness: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(cornerRadius, thickness) }
+        set { cornerRadius = newValue.first; thickness = newValue.second }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let outer = Path(roundedRect: rect, cornerRadius: cornerRadius, style: .continuous)
+        let inset = min(thickness, min(rect.width, rect.height) / 2)
+        let innerRect = rect.insetBy(dx: inset, dy: inset)
+        guard innerRect.width > 0.5, innerRect.height > 0.5 else { return outer }
+        let inner = Path(roundedRect: innerRect, cornerRadius: max(0, cornerRadius - inset), style: .continuous)
+        return outer.subtracting(inner)
     }
 }
