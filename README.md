@@ -123,7 +123,7 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable). While actually charging, the notch can keep showing the battery % on the left and the time to full (from macOS) on the right. It isn't shown when fully charged, or when charging is paused and the Mac runs on the adapter (charge limit / Optimized Battery Charging).
 - **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Interactions → Downloads, plus extra folders); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
-- **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, or drag the thumbnail into another app.
+- **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, **AirDrop**, or drag the thumbnail into another app.
 - **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Interactions → Screen Recording: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in the same page to match where macOS saves your recordings.
 
 Every alert can be **compact or detailed**, and durations are configurable. **Long-press a compact alert** to see its detailed card; detailed alerts only respond to a click.
@@ -326,7 +326,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능). 실제로 충전 중일 때는 왼쪽에 배터리 %, 오른쪽에 완충까지 남은 시간(macOS 계산값)을 상시 표시할 수 있습니다. 완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 어댑터로만 동작할 때는 표시하지 않습니다.
 - **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 상호작용 → 다운로드에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
-- **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, 썸네일을 끌어 다른 앱에 첨부.
+- **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, **에어드랍**, 썸네일을 끌어 다른 앱에 첨부.
 - **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 상호작용 → 화면 녹화에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 같은 페이지에서 바꿀 수 있습니다.
 
 모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. **컴팩트 알림을 길게 누르면** 상세 카드로 바뀌고, 상세 알림은 클릭에만 반응합니다.

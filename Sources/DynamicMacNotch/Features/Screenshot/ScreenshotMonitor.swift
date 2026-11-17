@@ -30,6 +30,8 @@ final class ScreenshotMonitor: ObservableObject {
     private(set) var lastSaved: URL?
     /// 실제 스크린샷이 들어왔을 때 (화면 녹화 오감지 정리용, AppDelegate가 연결)
     var onCapture: (() -> Void)?
+    /// 에어드랍으로 보낸다 (AppDelegate가 트레이의 에어드랍에 연결: 진행률·결과 알림을 같이 쓴다)
+    var onAirDrop: (([URL]) -> Void)?
 
     init(center: ActivityCenter) {
         self.center = center
@@ -156,9 +158,12 @@ final class ScreenshotMonitor: ObservableObject {
             kind: .screenshot, priority: ActivityPriority.screenshot, presentation: .detail,
             duration: settings.screenshotAutoClose,
             symbol: "camera.viewfinder", tint: .white, value: .none,
-            title: T("스크린샷", "Screenshot"), detailHeight: 96
+            title: T("스크린샷", "Screenshot"), detailHeight: Self.cardHeight
         ))
     }
+
+    /// 카드에서 노치 아래로 늘어나는 높이
+    static let cardHeight: CGFloat = 96
 
     private var cardWatch: AnyCancellable?
 
@@ -269,13 +274,35 @@ final class ScreenshotMonitor: ObservableObject {
         dismiss(after: 0.5)
     }
 
+    /// 에어드랍: 파일로 저장된 스크린샷은 그 파일을, 클립보드 스크린샷은 임시 PNG를 보낸다.
+    /// 에어드랍 창이 떠야 하므로 카드는 바로 닫는다.
+    func airDrop() {
+        if previewOnly(T("에어드랍", "AirDrop")) { return }
+        guard let s = shot else { return }
+        let send: (URL) -> Void = { [weak self] url in
+            guard let self else { return }
+            self.dismiss(after: 0)
+            self.onAirDrop?([url])
+        }
+        if let url = s.fileURL { send(url); return }
+        withPNG(s) { png in
+            let url = Self.tempURL(for: s.date)
+            if (try? png.write(to: url)) != nil { send(url) }
+        }
+    }
+
+    /// 드래그·에어드랍에 쓰는 임시 파일 자리 (스크린샷_년도_월_일_시_분_초.png)
+    private static func tempURL(for date: Date) -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent(fileName(for: date) + ".png")
+    }
+
     /// 드래그로 첨부할 임시 파일 (스크린샷_년도_월_일_시_분_초.png).
     func dragProvider() -> NSItemProvider {
         guard let s = shot else { return NSItemProvider() }
         if let url = s.fileURL { return NSItemProvider(contentsOf: url) ?? NSItemProvider() }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appendingPathComponent(Self.fileName(for: s.date) + ".png")
+        let url = Self.tempURL(for: s.date)
         try? (Self.isPNG(s.data) ? s.data : (ImageTool.processSync(.png, s.data) ?? s.data)).write(to: url)
         return NSItemProvider(contentsOf: url) ?? NSItemProvider()
     }
@@ -320,48 +347,77 @@ struct ScreenshotCard: View {
     var body: some View {
         VStack(spacing: 0) {
             Color.clear.frame(height: notchSize.height)
-            HStack(spacing: 14) {
+            // 왼쪽 여백 = 썸네일과 버튼 사이 = 오른쪽 여백 (남는 폭을 세 칸이 똑같이 나눈다)
+            HStack(spacing: 0) {
+                Spacer(minLength: Self.minGap)
                 if let shot = monitor.shot {
+                    // 테두리는 이미지에 붙인다
                     Image(decorative: shot.thumb ?? Self.emptyImage, scale: 2)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: 150, maxHeight: 76)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.15)))
                         .onDrag { monitor.dragProvider() }
                         .help(T("끌어서 다른 앱에 첨부", "Drag to attach in another app"))
+                        .frame(maxWidth: Self.thumbMaxWidth, maxHeight: Self.gridHeight)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: Self.minGap)
                 }
-                Spacer(minLength: 0)
-                if let status = monitor.status {
-                    Label(status, systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.green)
-                        .transition(.scale.combined(with: .opacity))
-                } else {
-                    HStack(spacing: 10) {
-                        action("doc.on.doc", T("복사", "Copy")) { monitor.copy() }
-                        action("square.and.arrow.down", T("저장", "Save")) { monitor.save() }
-                        action("trash", T("삭제", "Delete"), tint: .red) { monitor.delete() }
+                Group {
+                    if let status = monitor.status {
+                        Label(status, systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Grid(horizontalSpacing: Self.buttonGap, verticalSpacing: Self.buttonGap) {
+                            GridRow {
+                                action("doc.on.doc", T("복사", "Copy")) { monitor.copy() }
+                                action("square.and.arrow.down", T("저장", "Save")) { monitor.save() }
+                            }
+                            GridRow {
+                                action("dot.radiowaves.left.and.right", T("에어드랍", "AirDrop")) { monitor.airDrop() }
+                                action("trash", T("삭제", "Delete"), tint: .red) { monitor.delete() }
+                            }
+                        }
                     }
                 }
+                .frame(width: Self.gridWidth, height: Self.gridHeight)
+                Spacer(minLength: Self.minGap)
             }
-            .padding(.horizontal, 35)
-            .frame(maxHeight: .infinity)
-            .padding(.bottom, 14)
+            .frame(height: Self.gridHeight)
+            // 위아래 여백을 같게: 카드 높이(96) = 위 14 + 버튼 두 줄 68 + 아래 14.
+            // 상세 카드는 위쪽 모서리(topRadius 13)만큼 몸통이 안쪽으로 들어가 있어 그만큼 비운다
+            .padding(.horizontal, 13)
+            .padding(.vertical, (ScreenshotMonitor.cardHeight - Self.gridHeight) / 2)
             .animation(.spring(response: 0.3, dampingFraction: 0.75), value: monitor.status)
         }
     }
 
+    private static let minGap: CGFloat = 14
+    private static let thumbMaxWidth: CGFloat = 130
+    private static let buttonGap: CGFloat = 8
+    private static let buttonHeight: CGFloat = 30
+    private static let buttonWidth: CGFloat = 86
+    private static let gridHeight = buttonHeight * 2 + buttonGap
+    private static let gridWidth = buttonWidth * 2 + buttonGap
+
+    /// 아이콘과 이름이 한 줄인 알약 버튼 (2×2로 놓는다)
     private func action(_ symbol: String, _ title: String, tint: Color = .white, run: @escaping () -> Void) -> some View {
         Button(action: run) {
-            VStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: symbol)
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color.white.opacity(0.12), in: Circle())
-                Text(title).font(.system(size: 10))
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .frame(width: 16)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(tint)
+            .frame(width: Self.buttonWidth, height: Self.buttonHeight)
+            .background(Color.white.opacity(0.12), in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }

@@ -146,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         downloads.start()
         screenshot.start()
         screenshot.onCapture = { [weak self] in self?.recording.screenshotTaken() }
+        screenshot.onAirDrop = { [weak self] urls in self?.tray.airDrop(urls) }
         recording.start()
         call.start()
     }
