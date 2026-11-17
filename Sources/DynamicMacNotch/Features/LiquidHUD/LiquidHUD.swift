@@ -40,10 +40,10 @@ final class LiquidHUD: ObservableObject {
 
     // MARK: - 크기·속도
 
-    static let pillSize = CGSize(width: 350, height: 74)
+    static let pillSize = CGSize(width: 280, height: 59)
     /// 알약 위쪽과 노치 아래 사이
-    static let pillGap: CGFloat = 12
-    private static let panelWidth: CGFloat = 420
+    static let pillGap: CGFloat = 10
+    private static let panelWidth: CGFloat = 340
     private static var panelExtra: CGFloat { pillGap + pillSize.height + 24 }
 
     /// 나오기: 매달리기 0.09초 뒤 떨어져 알약으로. 들어가기: 물방울로 줄어든 뒤 0.12초에 노치로.
@@ -96,10 +96,14 @@ final class LiquidHUD: ObservableObject {
         cancelSteps()
         guard stage != .hidden else { return }
         withAnimation(Self.hideSpring) { stage = .hanging }
-        after(Self.retractDelay) { [weak self] in withAnimation(Self.hangSpring) { self?.stage = .hidden } }
+        after(Self.retractDelay) { [weak self] in
+            guard let self else { return }
+            withAnimation(Self.hangSpring) { self.stage = .hidden }
+            // 물방울이 노치로 들어가는 것과 함께 노치의 상시 표시가 나온다 (끝날 때까지 기다리면 잠깐 빈 노치가 보인다)
+            self.onActiveChange?(false)
+        }
         after(Self.retractDelay + Self.settleAfterHide) { [weak self] in
             guard let self, self.stage == .hidden else { return }
-            self.onActiveChange?(false)
             self.panel?.orderOut(nil)
         }
     }
@@ -158,32 +162,39 @@ struct LiquidHUDView: View {
         // 물방울: 숨김(노치 속 작은 점) → 매달림(노치 아래 길쭉한 방울) → 알약
         let size: CGSize = switch stage {
         case .hidden: .zero   // 유리는 opacity로 숨지 않으므로 크기로 없앤다
-        case .hanging: CGSize(width: 30, height: 34)
+        case .hanging: CGSize(width: 24, height: 27)
         case .pill: pill
         }
         let centerY: CGFloat = switch stage {
         case .hidden: notch - 8
-        case .hanging: notch + 15
+        case .hanging: notch + 12
         case .pill: notch + LiquidHUD.pillGap + pill.height / 2
         }
         // 노치 끝에 붙은 작은 유리: 물방울과 가까우면 한 덩어리로 이어져 '매달린' 모습이 된다
         // 알약으로 떨어져 나가면 노치 쪽 유리는 줄어들며 사라진다 (떨어지는 순간 둘이 갈라지는 모습)
-        let stub: CGSize = stage == .hanging ? CGSize(width: 40, height: 10) : .zero
+        let stub: CGSize = stage == .hanging ? CGSize(width: 32, height: 8) : .zero
 
-        GlassEffectContainer(spacing: 22) {
+        // 노치에서 나올 때는 노치처럼 검은색이었다가, 떨어져 나가며 유리로 이어서 바뀐다 (검은 덮개의 진하기가 스프링으로 변함).
+        // 유리 색조(tint)는 거의 검게 되지 않아 덮개로 칠한다.
+        let t = settings.hudLiquidTransparency
+        let glass: Glass = t > Self.defaultTransparency ? .clear : .regular
+        let dim = Self.dim(t)
+        let cover = stage == .pill ? dim : 1
+
+        GlassEffectContainer(spacing: 18) {
             ZStack(alignment: .top) {
                 Capsule()
-                    .fill(.clear)
+                    .fill(Color.black)
                     .frame(width: stub.width, height: stub.height)
-                    .glassEffect(.regular, in: Capsule())
+                    .glassEffect(glass, in: Capsule())
                     .opacity(stage == .hanging ? 1 : 0)
                     .offset(y: notch - stub.height / 2)
 
                 RoundedRectangle(cornerRadius: min(size.width, size.height) / 2, style: .continuous)
-                    .fill(.clear)
+                    .fill(Color.black.opacity(cover))
                     .frame(width: size.width, height: size.height)
-                    .overlay { content.opacity(stage == .pill ? 1 : 0) }
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: min(size.width, size.height) / 2, style: .continuous))
+                    .overlay { content(onDark: dim >= 0.3).opacity(stage == .pill ? 1 : 0) }
+                    .glassEffect(glass, in: RoundedRectangle(cornerRadius: min(size.width, size.height) / 2, style: .continuous))
                     .opacity(stage == .hidden ? 0 : 1)
                     .offset(y: centerY - size.height / 2)
             }
@@ -192,31 +203,36 @@ struct LiquidHUDView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    /// 알약 안: 왼쪽 아이콘, 오른쪽 가로 바(16칸) 또는 숫자. 좌우 여백은 같다.
-    private static let inset: CGFloat = 26
-    private static let iconBox: CGFloat = 34
+    /// 유리 투명도: 기본(70%)은 보통 유리, 낮추면 검은 덮개가 진해지고(0%에서 70%), 높이면 더 투명한 유리(clear).
+    static let defaultTransparency = 0.7
+    static func dim(_ t: Double) -> Double { max(0, defaultTransparency - t) }
 
-    private var content: some View {
+    /// 알약 안: 왼쪽 아이콘, 오른쪽 가로 바(16칸) 또는 숫자. 좌우 여백은 같다.
+    private static let inset: CGFloat = 21
+    private static let iconBox: CGFloat = 27
+
+    /// `onDark`: 덮개가 진해 배경과 상관없이 흰 글자를 쓴다 (유리의 자동 색은 어두운 덮개를 모른다)
+    private func content(onDark: Bool) -> some View {
         HStack(spacing: 0) {
             Image(systemName: model.symbol)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(.primary)
+                .font(.system(size: 21, weight: .semibold))
+                .foregroundStyle(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
                 .frame(width: Self.iconBox, height: Self.iconBox)
                 .contentTransition(.symbolEffect(.replace))
             if settings.hudLiquidValue == .bar {
-                Spacer(minLength: 20)
-                SegmentBar(level: model.level)
-                    .frame(height: 6)
+                Spacer(minLength: 16)
+                SegmentBar(level: model.level, onDark: onDark)
+                    .frame(height: 5)
             } else {
                 Spacer(minLength: 0)
                 VStack(spacing: 0) {
                     if let unit = model.unit {
-                        Text(unit).font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
+                        Text(unit).font(.system(size: 8, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
                     }
                     Text(model.number)
-                        .font(.system(size: model.unit == nil ? 26 : 22, weight: .semibold, design: .rounded))
+                        .font(.system(size: model.unit == nil ? 21 : 18, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
                         .contentTransition(.numericText())
                 }
                 .frame(minWidth: Self.iconBox, alignment: .trailing)
@@ -230,18 +246,19 @@ struct LiquidHUDView: View {
 /// 16칸 가로 바. 칸마다 채운 만큼 밝다 (마지막 칸은 부분만).
 private struct SegmentBar: View {
     var level: Double
+    var onDark = false
     private static let count = 16
 
     var body: some View {
         GeometryReader { geo in
-            let gap: CGFloat = 3
+            let gap: CGFloat = 2.5
             let width = (geo.size.width - gap * CGFloat(Self.count - 1)) / CGFloat(Self.count)
             HStack(spacing: gap) {
                 ForEach(0..<Self.count, id: \.self) { i in
                     let fill = max(0, min(1, level * Double(Self.count) - Double(i)))
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1.5).fill(.tertiary)
-                        RoundedRectangle(cornerRadius: 1.5).fill(.primary).frame(width: width * fill)
+                        RoundedRectangle(cornerRadius: 1.5).fill(onDark ? AnyShapeStyle(Color.white.opacity(0.25)) : AnyShapeStyle(.tertiary))
+                        RoundedRectangle(cornerRadius: 1.5).fill(onDark ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary)).frame(width: width * fill)
                     }
                     .frame(width: width)
                 }

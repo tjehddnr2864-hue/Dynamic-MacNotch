@@ -248,6 +248,8 @@ final class AppSettings: ObservableObject {
     /// HUD 모양. Liquid는 macOS 26 이상에서만 쓰이고, 그 아래에서는 노치로 보인다.
     @Setting("hudDesign", default: HUDDesign.notch) var hudDesign: HUDDesign
     @Setting("hudLiquidValue", default: LiquidHUDValue.bar) var hudLiquidValue: LiquidHUDValue
+    /// Liquid 유리 투명도 (0 진함 ~ 1 가장 투명, 0.7이 보통 유리)
+    @Setting("hudLiquidTransparency", default: 0.7, sanitize: { min(1, max(0, $0)) }) var hudLiquidTransparency: Double
     @Setting("hudDuration", default: 1.5, sanitize: { max(0, $0) }) var hudDuration: Double
     @Setting("hudOutputIcon", default: true) var hudOutputIcon: Bool
     /// 키 없이 바뀐 화면 밝기(제어 센터)도 표시

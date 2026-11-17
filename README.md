@@ -114,7 +114,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 - Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Interactions → Calls.
 
 ### System HUD replacement
-Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. Display brightness can instead show nits (a small "nit" above the number) on the built-in display. On macOS 26 and later, the **Liquid** design shows volume and brightness in a Liquid Glass pill below the notch instead: the notch tucks its content in, a drop hangs from the notch and falls into the pill, and it flows back in reverse; it shows a 16-segment bar or a number. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
+Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. Display brightness can instead show nits (a small "nit" above the number) on the built-in display. On macOS 26 and later, the **Liquid** design shows volume and brightness in a Liquid Glass pill below the notch instead: the notch tucks its content in, a drop hangs from the notch and falls into the pill, and it flows back in reverse while the notch content returns; it shows a 16-segment bar or a number, and the glass transparency is adjustable. The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
 
 ### Alerts
 - **Network** — Wi-Fi on/off, connected/disconnected (with network name), **VPN** connected/disconnected (system VPNs and app VPNs like NordVPN/WireGuard; can keep showing the icon and the connected country while connected), personal hotspot (can stay pinned), and a card when every network is lost.
@@ -317,7 +317,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 상호작용 → 통화에서 끌 수 있습니다.
 
 ### 시스템 HUD 대체
-음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 화면 밝기는 내장 디스플레이에서 니트(숫자 위에 작은 "nit")로 보이게 할 수 있습니다. macOS 26 이상에서는 **Liquid** 디자인을 고르면 음량·밝기를 노치 아래 Liquid Glass 알약으로 보입니다: 노치의 내용이 들어가고, 노치 끝에 물방울이 매달렸다가 떨어지며 알약으로 커지고, 사라질 때는 거꾸로 들어갑니다. 16칸 가로 바 또는 숫자로 표시합니다. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
+음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 화면 밝기는 내장 디스플레이에서 니트(숫자 위에 작은 "nit")로 보이게 할 수 있습니다. macOS 26 이상에서는 **Liquid** 디자인을 고르면 음량·밝기를 노치 아래 Liquid Glass 알약으로 보입니다: 노치의 내용이 들어가고, 노치 끝에 물방울이 매달렸다가 떨어지며 알약으로 커지고, 사라질 때는 거꾸로 들어가며 노치의 내용이 이어서 돌아옵니다. 16칸 가로 바 또는 숫자로 표시하고, 유리 투명도를 조절할 수 있습니다. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
 
 ### 알림
 - **네트워크** — Wi-Fi 켜짐/꺼짐, 연결/해제(네트워크 이름), **VPN** 연결/해제(시스템 VPN과 NordVPN·WireGuard 같은 앱 VPN, 연결 중 아이콘과 연결 국가 상시 표시 가능), 개인용 핫스팟(상시 표시 가능), 모든 네트워크가 끊기면 카드로 알림.
