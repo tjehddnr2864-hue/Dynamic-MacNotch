@@ -74,6 +74,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let features = NotchFeatures(media: media, screenshot: screenshot, recording: recording, tray: tray, calendar: calendar,
                                      call: call, usage: usage, memo: memo, chat: chat)
         let shared = SharedNotchState()
+        LiquidHUD.shared.onActiveChange = { active in
+            withAnimation(active ? .spring(response: 0.18, dampingFraction: 0.9) : .spring(response: 0.3, dampingFraction: 0.8)) {
+                shared.liquidHUDActive = active
+            }
+        }
+        LiquidHUD.shared.anchor = { [weak self] in
+            guard let notch = self?.notch, let screen = notch.panel.screen else { return nil }
+            return (screen, notch.vm.notchSize.height)
+        }
         shared.verticalScrollHandler = { [weak self] dy in self?.timer.handleScroll(fingerDY: dy) ?? false }
         shared.verticalScrollEnded = { [weak self] in self?.timer.endScroll() }
         // 음악 팝업·작은 노치에서 두 손가락 좌우: 다음/이전 곡 (넘길 수 없는 미디어면 아무 일도 하지 않음)

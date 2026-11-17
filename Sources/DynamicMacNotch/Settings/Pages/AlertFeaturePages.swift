@@ -148,7 +148,14 @@ struct HUDSettingsPage: View {
                 Toggle(T("키보드 밝기", "Keyboard brightness"), isOn: $settings.hudKeyboard)
             }
             SettingsSection(SectionTitle.style, disabled: !anyOn) {
-                SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudStyle)
+                if #available(macOS 26.0, *) {
+                    SegmentedChoice(T("디자인", "Design"), selection: $settings.hudDesign)
+                }
+                if LiquidHUD.isEnabled {
+                    SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudLiquidValue)
+                } else {
+                    SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudStyle)
+                }
                 SegmentedChoice(T("화면 밝기 단위", "Display brightness unit"), selection: $settings.hudBrightnessUnit)
                     .disabled(!settings.hudDisplay)
                 ValueMenu(title: T("표시 시간", "Duration"), selection: $settings.hudDuration, values: [1.0, 1.5, 2.5, 4.0]) {

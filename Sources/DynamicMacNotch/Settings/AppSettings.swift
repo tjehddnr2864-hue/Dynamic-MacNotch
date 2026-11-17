@@ -245,6 +245,9 @@ final class AppSettings: ObservableObject {
     @Setting("hudStyle", default: HUDStyle.bar) var hudStyle: HUDStyle
     /// 화면 밝기 HUD를 니트로 보일지 (위에 작은 "nit", 아래에 숫자). 니트를 읽을 수 없는 화면은 백분율.
     @Setting("hudBrightnessUnit", default: BrightnessUnit.percent) var hudBrightnessUnit: BrightnessUnit
+    /// HUD 모양. Liquid는 macOS 26 이상에서만 쓰이고, 그 아래에서는 노치로 보인다.
+    @Setting("hudDesign", default: HUDDesign.notch) var hudDesign: HUDDesign
+    @Setting("hudLiquidValue", default: LiquidHUDValue.bar) var hudLiquidValue: LiquidHUDValue
     @Setting("hudDuration", default: 1.5, sanitize: { max(0, $0) }) var hudDuration: Double
     @Setting("hudOutputIcon", default: true) var hudOutputIcon: Bool
     /// 키 없이 바뀐 화면 밝기(제어 센터)도 표시

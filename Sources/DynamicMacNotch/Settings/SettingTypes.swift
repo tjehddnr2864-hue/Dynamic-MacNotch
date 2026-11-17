@@ -45,6 +45,30 @@ enum HUDStyle: String, CaseIterable, Identifiable {
     }
 }
 
+/// HUD 모양: 노치 안(기존) 또는 노치 아래 Liquid Glass 알약 (macOS 26 이상)
+enum HUDDesign: String, CaseIterable, Identifiable {
+    case notch, liquid
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .notch: return T("노치", "Notch")
+        case .liquid: return "Liquid"
+        }
+    }
+}
+
+/// Liquid HUD의 수치: 가로 바(16칸) 또는 숫자
+enum LiquidHUDValue: String, CaseIterable, Identifiable {
+    case bar, number
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .bar: return T("가로 바", "Bar")
+        case .number: return T("숫자", "Number")
+        }
+    }
+}
+
 /// 화면 밝기 HUD의 수치: 백분율 또는 니트 (내장 디스플레이에서만 읽힘)
 enum BrightnessUnit: String, CaseIterable, Identifiable {
     case percent, nits

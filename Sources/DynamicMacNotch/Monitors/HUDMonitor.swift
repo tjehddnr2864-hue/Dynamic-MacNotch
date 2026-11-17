@@ -241,6 +241,13 @@ final class HUDMonitor: ObservableObject {
     /// 밝기는 몇백 ms에 걸쳐 바뀌므로 니트는 잠시 뒤 두 번 더 읽어 맞춘다.
     private func postDisplay(_ level: Float) {
         let symbol = level < 0.5 ? "sun.min.fill" : "sun.max.fill"
+        if LiquidHUD.isEnabled {
+            let nits = settings.hudBrightnessUnit == .nits ? Brightness.nits() : nil
+            LiquidHUD.shared.show(symbol: symbol, level: Double(level), number: nits.map(String.init) ?? Self.percent(Double(level)),
+                                  unit: nits == nil ? nil : "nit", duration: settings.hudDuration)
+            if nits != nil { refreshNits { n in LiquidHUD.shared.update(number: "\(n)") } }
+            return
+        }
         guard settings.hudBrightnessUnit == .nits, let nits = Brightness.nits() else {
             post(symbol: symbol, value: Double(level), tint: .yellow)
             return
@@ -249,23 +256,32 @@ final class HUDMonitor: ObservableObject {
             kind: .hud, priority: ActivityPriority.hud, duration: settings.hudDuration,
             symbol: symbol, tint: .yellow, value: Self.nitsValue(nits), wing: 54
         ))
+        refreshNits { [weak self] n in
+            self?.center.update(.hud) { a in
+                if a.symbol.hasPrefix("sun") { a.value = Self.nitsValue(n) }
+            }
+        }
+    }
+
+    private func refreshNits(_ apply: @escaping (Int) -> Void) {
         nitsRefresh.forEach { $0.cancel() }
         nitsRefresh = [0.3, 0.8].map { delay in
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, let n = Brightness.nits() else { return }
-                self.center.update(.hud) { a in
-                    if a.symbol.hasPrefix("sun") { a.value = Self.nitsValue(n) }
-                }
-            }
+            let work = DispatchWorkItem { if let n = Brightness.nits() { apply(n) } }
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
             return work
         }
     }
+
+    static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))" }
     private var nitsRefresh: [DispatchWorkItem] = []
 
     static func nitsValue(_ nits: Int) -> ActivityValue { .labeledText(label: "nit", text: "\(nits)") }
 
     private func post(symbol: String, value: Double, tint: Color) {
+        if LiquidHUD.isEnabled {
+            LiquidHUD.shared.show(symbol: symbol, level: value, number: Self.percent(value), unit: nil, duration: settings.hudDuration)
+            return
+        }
         let v: ActivityValue
         switch settings.hudStyle {
         case .number: v = .bigNumber(value)

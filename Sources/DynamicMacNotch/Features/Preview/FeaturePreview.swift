@@ -157,16 +157,29 @@ final class FeaturePreview {
             // 연속으로 조절할 때처럼 값만 바뀌는지 보여 준다
             for (i, v) in [0.40, 0.46, 0.53, 0.60].enumerated() {
                 schedule(after: Double(i) * 0.25) { [weak self] in
+                    if LiquidHUD.isEnabled {
+                        LiquidHUD.shared.show(symbol: "speaker.wave.2.fill", level: v, number: HUDMonitor.percent(v), unit: nil, duration: 1.5)
+                        return
+                    }
                     self?.center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "speaker.wave.2.fill",
                                                     value: Self.hudValue(v), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
                 }
             }
         case .hudBrightness:
             let nits = AppSettings.shared.hudBrightnessUnit == .nits ? Brightness.nits() : nil
+            if LiquidHUD.isEnabled {
+                LiquidHUD.shared.show(symbol: "sun.max.fill", level: 0.7, number: nits.map(String.init) ?? "70",
+                                      unit: nits == nil ? nil : "nit", duration: 1.5)
+                return
+            }
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "sun.max.fill", tint: .yellow,
                                       value: nits.map(HUDMonitor.nitsValue) ?? Self.hudValue(0.7),
                                       wing: nits == nil && AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .hudKeyboard:
+            if LiquidHUD.isEnabled {
+                LiquidHUD.shared.show(symbol: "light.max", level: 0.6, number: "60", unit: nil, duration: 1.5)
+                return
+            }
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "light.max",
                                       value: Self.hudValue(0.6), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .charger:

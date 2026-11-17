@@ -10,6 +10,9 @@ final class SharedNotchState: ObservableObject {
     /// 입력 칸이 여러 줄로 늘어난 높이
     @Published var chatInputExtra: CGFloat = 0
 
+    /// Liquid HUD가 노치 아래에 떠 있는 동안: 노치에 보이던 항목(알림·상시 표시)을 들여보낸다
+    @Published var liquidHUDActive = false
+
     /// 트레이 파일을 끌고 있는지. 이 동안에는 노치를 '놓는 곳'으로 바꾸지 않는다.
     @Published var trayItemDragActive = false
 

@@ -115,7 +115,10 @@ final class DisplayNotchState: ObservableObject {
 
     /// 노치에 표시할 주 액티비티. 잠금 상태에서는 자물쇠만 보인다.
     var displayed: NotchActivity? {
-        center.lockActivity ?? visibleTransient ?? topPersistent
+        if let lock = center.lockActivity { return lock }
+        // Liquid HUD가 떠 있는 동안 노치는 기본 모양으로 들어가 있는다 (물방울이 노치 끝에서 나온다)
+        if shared.liquidHUDActive { return nil }
+        return visibleTransient ?? topPersistent
     }
 
     // MARK: - 상태

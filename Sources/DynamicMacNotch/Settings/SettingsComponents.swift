@@ -80,6 +80,8 @@ extension AlertStyle: SettingOption {}
 extension BatteryDisplay: SettingOption {}
 extension HUDStyle: SettingOption {}
 extension BrightnessUnit: SettingOption {}
+extension HUDDesign: SettingOption {}
+extension LiquidHUDValue: SettingOption {}
 extension ProgressStyle: SettingOption {}
 extension ScreenshotSource: SettingOption {}
 extension RecordingStyle: SettingOption {}
