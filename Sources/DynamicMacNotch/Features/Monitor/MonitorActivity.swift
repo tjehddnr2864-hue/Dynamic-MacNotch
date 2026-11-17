@@ -25,7 +25,7 @@ enum MonitorActivity {
     static func resource(slots: (left: MonitorMetric, right: MonitorMetric), ring: Bool) -> NotchActivity {
         NotchActivity(kind: .resource, priority: ActivityPriority.pinned, symbol: "cpu", tint: resourceTint,
                       value: value(for: slots.right, usage: nil, ring: ring),
-                      title: T("자원 사용량", "Resource Usage"), wing: NotchActivity.compactWing,
+                      title: T("시스템 모니터링", "System Monitoring"), wing: NotchActivity.compactWing,
                       leadingValue: value(for: slots.left, usage: nil, ring: ring))
     }
 
@@ -41,7 +41,7 @@ enum MonitorActivity {
         }
         return NotchActivity(kind: .monitor, priority: ActivityPriority.pinned, symbol: "gauge.medium", tint: service?.tint ?? resourceTint,
                              value: cell(slots.right),
-                             title: T("AI 및 자원 사용량", "AI & Resource Usage"), subtitle: summary(usage),
+                             title: T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring"), subtitle: summary(usage),
                              wing: NotchActivity.compactWing, leadingValue: cell(slots.left))
     }
 

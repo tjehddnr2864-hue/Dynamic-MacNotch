@@ -79,6 +79,7 @@ extension HapticStrength: SettingOption {}
 extension AlertStyle: SettingOption {}
 extension BatteryDisplay: SettingOption {}
 extension HUDStyle: SettingOption {}
+extension BrightnessUnit: SettingOption {}
 extension ProgressStyle: SettingOption {}
 extension ScreenshotSource: SettingOption {}
 extension RecordingStyle: SettingOption {}

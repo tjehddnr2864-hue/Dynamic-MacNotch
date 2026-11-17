@@ -14,8 +14,8 @@ extension ActivityKind {
         case "vpn": return "VPN"
         case "focusPinned": return T("집중 모드", "Focus")
         case "aiUsage": return T("AI 사용량", "AI Usage")
-        case "resource": return T("자원 사용량", "Resource Usage")
-        case "monitor": return T("AI 및 자원 사용량", "AI & Resource Usage")
+        case "resource": return T("시스템 모니터링", "System Monitoring")
+        case "monitor": return T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring")
         case "battery": return T("충전 중", "Charging")
         case "calendar": return T("일정", "Calendar")
         default: return key

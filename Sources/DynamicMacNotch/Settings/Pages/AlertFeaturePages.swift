@@ -149,11 +149,14 @@ struct HUDSettingsPage: View {
             }
             SettingsSection(SectionTitle.style, disabled: !anyOn) {
                 SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudStyle)
+                SegmentedChoice(T("화면 밝기 단위", "Display brightness unit"), selection: $settings.hudBrightnessUnit)
+                    .disabled(!settings.hudDisplay)
                 ValueMenu(title: T("표시 시간", "Duration"), selection: $settings.hudDuration, values: [1.0, 1.5, 2.5, 4.0]) {
                     L10n.seconds($0, digits: 1)
                 }
             }
-            SettingsSection(SectionTitle.details, footer: T("자동 밝기로 바뀐 값은 표시하지 않습니다.", "Changes made by automatic brightness are not shown.")) {
+            SettingsSection(SectionTitle.details, footer: T("자동 밝기로 바뀐 값은 표시하지 않습니다. 니트는 내장 디스플레이의 현재 밝기이며, 읽을 수 없는 디스플레이에서는 백분율로 보입니다.",
+                                                           "Changes made by automatic brightness are not shown. Nits are the built-in display's current brightness; displays that don't report it show a percentage.")) {
                 Toggle(T("음량 HUD에 출력 기기 아이콘 표시", "Show the output device icon in the volume HUD"), isOn: $settings.hudOutputIcon)
                     .disabled(!settings.hudVolume)
                 Toggle(T("제어 센터에서 바꾼 화면 밝기도 표시", "Also show display brightness changed in Control Center"), isOn: $settings.hudDisplayExternal)

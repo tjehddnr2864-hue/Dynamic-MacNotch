@@ -173,7 +173,10 @@ final class ScreenshotMonitor: ObservableObject {
             .dropFirst()
             .receive(on: RunLoop.main)
             .sink { [weak self] t in
-                guard let self, t?.kind != .screenshot else { return }
+                // 다른 알림(음량 HUD 등)에 잠시 밀려 대기 중이면 스크린샷을 지우지 않는다 (다시 뜬 카드가 빈 채로 먹통이 되던 문제).
+                // 값은 늦게 도착하므로 지금 상태로 판단한다 (HUD가 끝나는 순간 nil → 카드 순서로 바뀐다)
+                guard let self, t?.kind != .screenshot, self.center.transient?.kind != .screenshot,
+                      !self.center.isPending(.screenshot) else { return }
                 self.shot = nil
                 self.cardWatch = nil
                 MemoryGuard.shared.checkSoon()

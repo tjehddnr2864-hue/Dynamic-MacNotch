@@ -10,7 +10,7 @@ struct ResourcePage: View {
         let s = readings.snapshot
         VStack(spacing: 8) {
             HStack {
-                Text(T("자원 사용량", "Resource Usage"))
+                Text(T("시스템 모니터링", "System Monitoring"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
                 Spacer()

@@ -130,8 +130,8 @@ NotchHub (1개)
 | 길게 누르기, 깊게 누르기 | Long-press, Force Click | 길게누르기 |
 | 끄기 | Off | |
 | 실시간 모니터링 | Live Monitoring | 설정 페이지 이름 (AI 사용량 + 자원 사용량) |
-| 자원 사용량 | Resource Usage | CPU·GPU·메모리·네트워크 |
-| 표시할 항목 | Show | AI 사용량 / 자원 사용량 / 둘 다 |
+| 시스템 모니터링 | System Monitoring | CPU·GPU·메모리·네트워크 (예전 이름 자원 사용량. 코드·설정 키는 resource) |
+| 표시할 항목 | Show | AI 사용량 / 시스템 모니터링 / 둘 다 |
 
 **영어 표기:** 구역 제목과 버튼은 Title Case, 줄 이름은 첫 글자만 대문자로 씁니다.
 

@@ -45,6 +45,18 @@ enum HUDStyle: String, CaseIterable, Identifiable {
     }
 }
 
+/// 화면 밝기 HUD의 수치: 백분율 또는 니트 (내장 디스플레이에서만 읽힘)
+enum BrightnessUnit: String, CaseIterable, Identifiable {
+    case percent, nits
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .percent: return T("백분율", "Percent")
+        case .nits: return T("니트", "Nits")
+        }
+    }
+}
+
 enum ProgressStyle: String, CaseIterable, Identifiable {
     case percent, ring
     var id: String { rawValue }

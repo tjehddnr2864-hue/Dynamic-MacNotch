@@ -161,7 +161,7 @@ final class HUDMonitor: ObservableObject {
         Brightness.setDisplay(next)
         lastDisplay = next
         lastOwnChange = Date()
-        post(symbol: next < 0.5 ? "sun.min.fill" : "sun.max.fill", value: Double(next), tint: .yellow)
+        postDisplay(next)
         return true
     }
 
@@ -201,7 +201,7 @@ final class HUDMonitor: ObservableObject {
         defer { lastDisplay = d }
         guard Date().timeIntervalSince(lastOwnChange) > 0.6, let last = lastDisplay, abs(d - last) >= 0.01,
               settings.hudDisplay, settings.hudDisplayExternal, Self.userJustInteracted(), manualAdjustment() else { return }
-        post(symbol: d < 0.5 ? "sun.min.fill" : "sun.max.fill", value: Double(d), tint: .yellow)
+        postDisplay(d)
     }
 
     /// 자동 밝기는 짧은 간격으로 알림을 연달아 보내므로, 창 목록 조회 결과를 0.5초 동안 재사용한다.
@@ -236,6 +236,34 @@ final class HUDMonitor: ObservableObject {
     }
 
     // MARK: - 표시
+
+    /// 화면 밝기 HUD. 니트로 보이게 했으면 위에 작은 "nit", 아래에 숫자.
+    /// 밝기는 몇백 ms에 걸쳐 바뀌므로 니트는 잠시 뒤 두 번 더 읽어 맞춘다.
+    private func postDisplay(_ level: Float) {
+        let symbol = level < 0.5 ? "sun.min.fill" : "sun.max.fill"
+        guard settings.hudBrightnessUnit == .nits, let nits = Brightness.nits() else {
+            post(symbol: symbol, value: Double(level), tint: .yellow)
+            return
+        }
+        center.post(NotchActivity(
+            kind: .hud, priority: ActivityPriority.hud, duration: settings.hudDuration,
+            symbol: symbol, tint: .yellow, value: Self.nitsValue(nits), wing: 54
+        ))
+        nitsRefresh.forEach { $0.cancel() }
+        nitsRefresh = [0.3, 0.8].map { delay in
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, let n = Brightness.nits() else { return }
+                self.center.update(.hud) { a in
+                    if a.symbol.hasPrefix("sun") { a.value = Self.nitsValue(n) }
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            return work
+        }
+    }
+    private var nitsRefresh: [DispatchWorkItem] = []
+
+    static func nitsValue(_ nits: Int) -> ActivityValue { .labeledText(label: "nit", text: "\(nits)") }
 
     private func post(symbol: String, value: Double, tint: Color) {
         let v: ActivityValue
@@ -323,6 +351,17 @@ enum AudioOutput {
 // MARK: - 밝기 (비공개 프레임워크, 동적 로드)
 
 enum Brightness {
+    /// 내장 디스플레이의 지금 밝기 (니트). Apple Silicon의 백라이트(AppleARMBacklight)가 알려 주는 값이며, 없으면 nil.
+    static func nits() -> Int? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleARMBacklight"))
+        guard service != 0 else { return nil }
+        defer { IOObjectRelease(service) }
+        guard let params = IORegistryEntryCreateCFProperty(service, "IODisplayParameters" as CFString, kCFAllocatorDefault, 0)?
+                .takeRetainedValue() as? [String: Any],
+              let milli = (params["BrightnessMilliNits"] as? [String: Any])?["value"] as? NSNumber else { return nil }
+        return Int((milli.doubleValue / 1000).rounded())
+    }
+
     private typealias GetDisplay = @convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32
     private typealias SetDisplay = @convention(c) (CGDirectDisplayID, Float) -> Int32
     private typealias GetKeyboard = @convention(c) (AnyObject, Selector, UInt64) -> Float

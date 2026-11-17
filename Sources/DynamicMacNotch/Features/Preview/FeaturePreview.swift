@@ -162,8 +162,10 @@ final class FeaturePreview {
                 }
             }
         case .hudBrightness:
+            let nits = AppSettings.shared.hudBrightnessUnit == .nits ? Brightness.nits() : nil
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "sun.max.fill", tint: .yellow,
-                                      value: Self.hudValue(0.7), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
+                                      value: nits.map(HUDMonitor.nitsValue) ?? Self.hudValue(0.7),
+                                      wing: nits == nil && AppSettings.shared.hudStyle == .bar ? 66 : 54))
         case .hudKeyboard:
             center.post(NotchActivity(kind: .hud, priority: ActivityPriority.hud, duration: 1.5, symbol: "light.max",
                                       value: Self.hudValue(0.6), wing: AppSettings.shared.hudStyle == .bar ? 66 : 54))
@@ -233,7 +235,7 @@ final class FeaturePreview {
             let a = NotchActivity(kind: .demo, priority: ActivityPriority.pinned, symbol: "cpu",
                                   tint: id == .resourceLive ? MonitorActivity.resourceTint : service.tint,
                                   value: .usage(label: id == .resourceLive ? "MEM" : "CPU", percent: id == .resourceLive ? 61 : 23, ring: ring),
-                                  title: id == .resourceLive ? T("자원 사용량", "Resource Usage") : T("AI 및 자원 사용량", "AI & Resource Usage"),
+                                  title: id == .resourceLive ? T("시스템 모니터링", "System Monitoring") : T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring"),
                                   wing: NotchActivity.compactWing, leadingValue: left)
             showPersistent(a, for: 6)
         case .stopAll: stopAll()

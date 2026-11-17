@@ -24,8 +24,8 @@ final class BluetoothMonitor: NSObject {
         var budsSummary: String? {
             guard left != nil || right != nil else { return nil }
             var parts: [String] = []
-            if let left { parts.append(T("왼쪽 \(left)%", "L \(left)%")) }
-            if let right { parts.append(T("오른쪽 \(right)%", "R \(right)%")) }
+            if let left { parts.append("L \(left)%") }
+            if let right { parts.append("R \(right)%") }
             if let caseLevel { parts.append(T("케이스 \(caseLevel)%", "Case \(caseLevel)%")) }
             return parts.joined(separator: " · ")
         }

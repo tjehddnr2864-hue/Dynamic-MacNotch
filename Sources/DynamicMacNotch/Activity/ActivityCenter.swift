@@ -76,15 +76,26 @@ final class ActivityCenter: ObservableObject {
                 return
             }
             if activity.priority < current.priority {
-                pending.append(activity)
-                pending.sort { $0.priority > $1.priority }
-                // 대기열이 쌓이지 않게 최대 4개만 (우선순위 낮은 것부터 버림)
-                if pending.count > 4 { pending.removeLast(pending.count - 4) }
+                enqueue(activity)
                 return
             }
+            // 새 알림이 지금 알림을 대신한다. 지금 알림은 버리지 않고 끝난 뒤 다시 보인다
+            // (예: 스크린샷 카드 위로 음량 HUD가 뜨면 HUD가 끝난 뒤 카드가 돌아온다). HUD는 순간 반응이라 다시 띄우지 않는다.
+            if current.kind != .hud { enqueue(current) }
         }
         show(activity, restartDetail: true)
     }
+
+    private func enqueue(_ activity: NotchActivity) {
+        pending.removeAll { $0.kind == activity.kind }
+        pending.append(activity)
+        pending.sort { $0.priority > $1.priority }
+        // 대기열이 쌓이지 않게 최대 4개만 (우선순위 낮은 것부터 버림)
+        if pending.count > 4 { pending.removeLast(pending.count - 4) }
+    }
+
+    /// 그 종류의 알림이 대기열에 있는지
+    func isPending(_ kind: ActivityKind) -> Bool { pending.contains { $0.kind == kind } }
 
     /// 표시 중인 같은 종류 액티비티의 값만 바꾼다(타이머는 유지).
     func update(_ kind: ActivityKind, _ mutate: (inout NotchActivity) -> Void) {

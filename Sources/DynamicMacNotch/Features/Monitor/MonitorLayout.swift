@@ -10,7 +10,7 @@ enum MonitorContent: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .ai: return T("AI 사용량", "AI Usage")
-        case .resource: return T("자원 사용량", "Resource Usage")
+        case .resource: return T("시스템 모니터링", "System Monitoring")
         case .both: return T("둘 다", "Both")
         }
     }
@@ -26,7 +26,7 @@ enum MonitorExpand: String, CaseIterable, Identifiable {
         switch self {
         case .follow: return T("노치에 보이는 항목을 따름", "Same as shown")
         case .ai: return T("AI 사용량", "AI Usage")
-        case .resource: return T("자원 사용량", "Resource Usage")
+        case .resource: return T("시스템 모니터링", "System Monitoring")
         case .both: return T("둘 다 (점으로 넘김)", "Both (swipe between)")
         }
     }

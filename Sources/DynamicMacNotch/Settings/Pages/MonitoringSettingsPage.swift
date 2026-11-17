@@ -14,7 +14,7 @@ struct MonitoringSettingsPage: View {
             SettingsSection(SectionTitle.show, footer: T("홈 기능의 스위치와 같은 설정입니다. 끄면 그 기능은 노치에서 사라지고 백그라운드에서도 멈춥니다.",
                                                         "Same as the switches in Home Features. A feature that's off disappears from the notch and stops running in the background.")) {
                 HomePageToggle(settings: settings, key: "usage", title: T("AI 사용량", "AI Usage"))
-                HomePageToggle(settings: settings, key: "resource", title: T("자원 사용량 (CPU · GPU · 메모리 · 네트워크)", "Resource Usage (CPU, GPU, Memory, Network)"))
+                HomePageToggle(settings: settings, key: "resource", title: T("시스템 모니터링 (CPU · GPU · 메모리 · 네트워크)", "System Monitoring (CPU, GPU, Memory, Network)"))
             }
             SettingsSection(SectionTitle.live, footer: liveFooter(aiOn: aiOn, resourceOn: resourceOn), disabled: content == nil) {
                 Toggle(T("노치에 상시 표시", "Show in the notch"), isOn: $settings.aiUsagePinned)
@@ -39,20 +39,20 @@ struct MonitoringSettingsPage: View {
                 SegmentedChoice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
                 expandPicker(aiOn: aiOn, resourceOn: resourceOn)
             }
-            SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 자원 사용량은 노치에 보이는 동안만 읽습니다.",
-                                                           "AI usage is read by signing in to each service's website. Sign-in data stays in this app's own web storage. With the Live Activity off, AI usage refreshes only when you open its Home page. Resource usage is read only while it's visible in the notch.")) {
+            SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 시스템 모니터링은 노치에 보이는 동안만 읽습니다.",
+                                                           "AI usage is read by signing in to each service's website. Sign-in data stays in this app's own web storage. With the Live Activity off, AI usage refreshes only when you open its Home page. System Monitoring is read only while it's visible in the notch.")) {
                 ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: [1, 2, 5, 10]) {
                     T("\(Int($0))분", "\(Int($0)) min")
                 }
                 .disabled(!aiOn)
-                ValueMenu(title: T("자원 사용량 새로고침", "Refresh resource usage every"), selection: $settings.resourceRefreshSeconds, values: [1, 2, 5, 10]) {
+                ValueMenu(title: T("시스템 모니터링 새로고침", "Refresh System Monitoring every"), selection: $settings.resourceRefreshSeconds, values: [1, 2, 5, 10]) {
                     T("\(Int($0))초", "\(Int($0)) s")
                 }
                 .disabled(!resourceOn)
                 accounts.disabled(!aiOn)
             }
-            PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("자원 사용량", "Resource Usage")),
-                            (.monitorLive, T("AI 및 자원 사용량", "AI & Resource Usage"))])
+            PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("시스템 모니터링", "System Monitoring")),
+                            (.monitorLive, T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring"))])
         }
         .settingsForm()
     }
@@ -60,10 +60,10 @@ struct MonitoringSettingsPage: View {
     // MARK: 상시 표시
 
     private func liveFooter(aiOn: Bool, resourceOn: Bool) -> String {
-        var lines = [T("AI 사용량은 서비스마다 양옆에 보일 한도(5시간, 주간, 모델별 한도 등)나 서비스 기호를 고릅니다. 고를 수 있는 한도는 요금제에 따라 다르며, 사용량을 한 번 불러온 뒤에 나타납니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호를 보입니다. 자원 사용량은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
-                       "For AI usage, pick what each side shows for each service: a limit (5-hour, weekly, a model's own limit and so on) or the service mark. The limits you can pick depend on your plan and appear after usage has loaded once. Automatic shows the 5-hour limit on the left and the weekly limit on the right; plans with a single limit show the service mark on the left. Resource usage is read on this Mac and never sent anywhere.")]
+        var lines = [T("AI 사용량은 서비스마다 양옆에 보일 한도(5시간, 주간, 모델별 한도 등)나 서비스 기호를 고릅니다. 고를 수 있는 한도는 요금제에 따라 다르며, 사용량을 한 번 불러온 뒤에 나타납니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호를 보입니다. 시스템 모니터링은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
+                       "For AI usage, pick what each side shows for each service: a limit (5-hour, weekly, a model's own limit and so on) or the service mark. The limits you can pick depend on your plan and appear after usage has loaded once. Automatic shows the 5-hour limit on the left and the weekly limit on the right; plans with a single limit show the service mark on the left. System Monitoring is read on this Mac and never sent anywhere.")]
         switch (aiOn, resourceOn) {
-        case (true, false): lines.append(T("자원 사용량은 홈 기능에서 꺼져 있습니다.", "Resource Usage is off in Home Features."))
+        case (true, false): lines.append(T("시스템 모니터링은 홈 기능에서 꺼져 있습니다.", "System Monitoring is off in Home Features."))
         case (false, true): lines.append(T("AI 사용량은 홈 기능에서 꺼져 있습니다.", "AI Usage is off in Home Features."))
         case (false, false): lines.append(T("두 기능이 모두 홈 기능에서 꺼져 있습니다.", "Both features are off in Home Features."))
         default: break

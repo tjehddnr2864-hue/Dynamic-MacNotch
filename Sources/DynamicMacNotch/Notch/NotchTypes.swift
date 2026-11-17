@@ -37,7 +37,7 @@ enum HomeOption: Int, CaseIterable {
         case .calendar: return T("오늘 일정", "Today")
         case .tray: return T("에어드랍·트레이", "AirDrop & Tray")
         case .chat: return T("AI 채팅", "AI Chat")
-        case .resource: return T("자원 사용량", "Resource Usage")
+        case .resource: return T("시스템 모니터링", "System Monitoring")
         }
     }
 
