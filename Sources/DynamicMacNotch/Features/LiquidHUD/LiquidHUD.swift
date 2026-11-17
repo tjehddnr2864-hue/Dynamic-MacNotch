@@ -220,7 +220,7 @@ struct LiquidHUDView: View {
     }
 
     /// 알약 테두리 유리의 두께
-    static let rimWidth: CGFloat = 5
+    static let rimWidth: CGFloat = 2
 
     /// 명도: 50%는 덮개 없음, 낮추면 검게(0%에서 80%), 높이면 희게(100%에서 80%).
     /// `ink`는 덮개가 진할 때 쓸 글자색 (nil이면 유리가 배경에 맞춰 정한다)
