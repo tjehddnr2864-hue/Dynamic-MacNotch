@@ -217,6 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ResourceSampler.shared.compact()
         }
         MemoryGuard.shared.relaunch = { [weak self] in self?.restart() }
+        MemoryGuard.shared.isTransientlyLarge = { LiquidHUD.shared.isOnScreen }
         MemoryGuard.shared.start()
         Updater.shared.start()
     }

@@ -32,6 +32,9 @@ final class LiquidHUD: ObservableObject {
     private var steps: [DispatchWorkItem] = []
     private var hideWork: DispatchWorkItem?
 
+    /// 창이 화면에 있는지 (나오는 중·떠 있음·들어가는 중). 유리는 이 동안 GPU 메모리를 크게 쓴다.
+    var isOnScreen: Bool { panel?.isVisible == true }
+
     /// macOS 26 이상이고 설정에서 Liquid를 골랐을 때
     static var isEnabled: Bool {
         guard #available(macOS 26.0, *) else { return false }
@@ -189,11 +192,13 @@ struct LiquidHUDView: View {
 
         ZStack(alignment: .top) {
             // 블러는 유리 아래에 둔다: 유리가 흐려진 배경을 다시 굴절시켜 가장자리 효과가 그대로 남는다
-            BackdropBlur()
-                .clipShape(shape)
-                .frame(width: size.width, height: size.height)
-                .opacity(stage == .pill ? blur : 0)
-                .offset(y: centerY - size.height / 2)
+            if blur > 0.01 {
+                BackdropBlur()
+                    .clipShape(shape)
+                    .frame(width: size.width, height: size.height)
+                    .opacity(stage == .pill ? blur : 0)
+                    .offset(y: centerY - size.height / 2)
+            }
 
         GlassEffectContainer(spacing: 18) {
             ZStack(alignment: .top) {

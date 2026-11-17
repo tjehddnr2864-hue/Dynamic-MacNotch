@@ -60,12 +60,21 @@ final class MemoryGuard {
     func debugCheckNow() { check() }
     #endif
 
+    /// 잠깐 떠 있는 동안만 메모리를 크게 쓰는 화면이 있는지 (Liquid HUD의 유리는 보이는 동안 GPU 메모리 약 130MB, 숨기면 반환)
+    var isTransientlyLarge: (() -> Bool)?
+
     private func check() {
-        guard settings.memoryGuard, idleWait == nil, Self.footprintMB() > Self.limitMB else { return }
+        guard settings.memoryGuard, idleWait == nil else { return }
+        // 그런 화면이 떠 있으면 사라진 뒤 다시 잰다 (그 수치로 정리·재시작하지 않게)
+        if isTransientlyLarge?() == true {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.check() }
+            return
+        }
+        guard Self.footprintMB() > Self.limitMB else { return }
         releaseCaches?()
         MemoryTrim.soon()
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            guard let self, Self.footprintMB() > Self.limitMB else { return }
+            guard let self, self.isTransientlyLarge?() != true, Self.footprintMB() > Self.limitMB else { return }
             self.waitForIdleThenRelaunch()
         }
     }
