@@ -105,6 +105,29 @@ enum DisplayProbe {
         check(allMain.monitorMapped(DisplayChoice.kind("monitor")) == DisplayChoice.kind("aiUsage"), "combined stored, single mode → that kind")
         let off = DisplayRules(content: [:], fallbackToMain: true, alertScopeAll: false, criticalEnabled: true, critical: CriticalAlert.defaults, monitor: nil)
         check(off.neededMonitorKinds(aiOn: true, resourceOn: true).isEmpty, "live display off: nothing posted")
+        // 전체 화면 판단: ① 공간 종류(디스플레이별 UUID, 전체 화면 = 4), ② 없으면 화면 폭·아래 끝까지 덮는 창
+        do {
+            typealias W = Fullscreen.Window
+            let a = CGRect(x: 0, y: 0, width: 1512, height: 982), b = CGRect(x: 1512, y: 0, width: 1920, height: 1080)
+            let screens = [(uuid: "A", frame: a), (uuid: "B", frame: b)]
+            func space(_ id: String, _ type: Int) -> [String: Any] { ["Display Identifier": id, "Current Space": ["type": type]] }
+            check(Fullscreen.fromSpaces([space("A", 0), space("B", 0)], connected: ["A", "B"]) == [], "spaces: none full screen")
+            check(Fullscreen.fromSpaces([space("A", 4), space("B", 0)], connected: ["A", "B"]) == ["A"], "spaces: only A")
+            check(Fullscreen.fromSpaces([space("a", 0), space("b", 4)], connected: ["A", "B"]) == ["B"], "spaces: UUID case ignored")
+            check(Fullscreen.fromSpaces([space("Main", 4)], connected: ["A", "B"]) == nil, "spaces: shared Spaces → fall back to windows")
+            check(Fullscreen.fromSpaces([], connected: ["A"]) == nil, "spaces: nothing → fall back")
+            let fullA = W(layer: 0, owner: "Safari", name: "", frame: CGRect(x: 0, y: 38, width: 1512, height: 944))   // 노치 아래 ~ 화면 끝
+            let zoomedA = W(layer: 0, owner: "Safari", name: "", frame: CGRect(x: 0, y: 38, width: 1512, height: 870))  // Dock 위까지
+            let fullB = W(layer: 0, owner: "Keynote", name: "", frame: b)
+            let small = W(layer: 0, owner: "Notes", name: "", frame: CGRect(x: 100, y: 100, width: 600, height: 500))
+            func fs(_ w: [W]) -> Set<String> { Fullscreen.displays(windows: w, screens: screens, ownName: "DynamicMacNotch") }
+            check(fs([small]).isEmpty, "windows: normal desktop")
+            check(fs([fullA]) == ["A"], "windows: full screen below the notch")
+            check(fs([zoomedA]).isEmpty, "windows: zoomed window above the Dock")
+            check(fs([fullB, small]) == ["B"], "windows: only the external display")
+            check(fs([W(layer: 0, owner: "DynamicMacNotch", name: "", frame: a)]).isEmpty, "windows: own windows ignored")
+        }
+
         print("checks=\(checks) failures=\(failures.count)")
         failures.prefix(10).forEach { print("  FAIL", $0) }
         exit(failures.isEmpty ? 0 : 1)

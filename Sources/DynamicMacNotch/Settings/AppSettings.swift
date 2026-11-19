@@ -43,6 +43,8 @@ final class AppSettings: ObservableObject {
     @Setting("displayContent", default: [:]) var displayContent: [String: String]
     /// 선택한 상시 표시가 비활성이면 주 디스플레이의 상시 표시를 대신 보인다
     @Setting("displayFallbackToMain", default: true) var displayFallbackToMain: Bool
+    /// 전체 화면 앱이 떠 있는 디스플레이에서는 알림·HUD를 컴팩트로 (다른 디스플레이는 원래대로)
+    @Setting("fullscreenCompact", default: false) var fullscreenCompact: Bool
     @Setting("alertScope", default: AlertScope.main) var alertScope: AlertScope
     /// 중요한 알림은 노치를 켠 모든 디스플레이에 보인다
     @Setting("criticalAlertsEnabled", default: true) var criticalAlertsEnabled: Bool

@@ -25,6 +25,8 @@ final class LiquidHUD: ObservableObject {
 
     /// 알약을 띄울 화면과 그 화면 노치 높이 (AppDelegate가 연결: 알림을 받는 주 노치)
     var anchor: (() -> (screen: NSScreen, notchHeight: CGFloat)?)?
+    /// 지금은 알약 대신 노치 HUD를 써야 하는지 (AppDelegate가 연결)
+    var compactInstead: (() -> Bool)?
     /// 노치에 보이던 항목을 들여보내고 되돌린다
     var onActiveChange: ((Bool) -> Void)?
 
@@ -38,7 +40,8 @@ final class LiquidHUD: ObservableObject {
     /// macOS 26 이상이고 설정에서 Liquid를 골랐을 때
     static var isEnabled: Bool {
         guard #available(macOS 26.0, *) else { return false }
-        return AppSettings.shared.hudDesign == .liquid
+        // 알약이 뜰 디스플레이가 전체 화면이면 노치 안 컴팩트 HUD로 (설정 '전체 화면에서 컴팩트로')
+        return AppSettings.shared.hudDesign == .liquid && shared.compactInstead?() != true
     }
 
     // MARK: - 크기·속도

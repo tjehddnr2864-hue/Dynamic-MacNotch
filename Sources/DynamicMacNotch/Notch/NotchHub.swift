@@ -52,6 +52,9 @@ final class NotchHub {
             .dropFirst(2)
             .sink { [weak self] in DispatchQueue.main.async { self?.sync() } }
             .store(in: &cancellables)
+        settings.$fullscreenCompact
+            .sink { [weak self] on in DispatchQueue.main.async { self?.updateFullscreenWatch(on) } }
+            .store(in: &cancellables)
         // 무엇을 보일지 정하는 설정이 바뀌면 지금 보이는 항목을 다시 맞춘다
         settings.$displayContent.map { _ in () }
             .merge(with: settings.$displayFallbackToMain.map { _ in () }, settings.$alertScope.map { _ in () },
@@ -152,11 +155,40 @@ final class NotchHub {
     }
 
     /// 각 노치에 자기 상황을 알려 주고, 바뀌었으면 보이는 항목을 다시 맞춘다
+    /// 전체 화면인 디스플레이 (설정 '전체 화면에서 컴팩트로'를 켰을 때만 읽는다)
+    private var fullscreenUUIDs = Set<String>()
+    private var fullscreenObservers: [NSObjectProtocol] = []
+
+    private func updateFullscreenWatch(_ on: Bool) {
+        fullscreenObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        fullscreenObservers = []
+        if on {
+            // 전체 화면에 들어가고 나오면 공간이 바뀐다. 앱 전환·화면 구성 변화도 함께 본다.
+            for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
+                fullscreenObservers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    // 전체 화면 전환 애니메이션(약 0.7초)이 끝난 뒤의 창 목록을 본다
+                    for delay in [0.4, 1.0, 2.0] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.refreshFullscreen() }
+                    }
+                })
+            }
+        }
+        refreshFullscreen()
+    }
+
+    private func refreshFullscreen() {
+        let now = settings.fullscreenCompact ? Fullscreen.current() : []
+        guard now != fullscreenUUIDs else { return }
+        fullscreenUUIDs = now
+        updateContexts()
+    }
+
     private func updateContexts() {
         let enabled = displays.map(\.uuid)
         let main = Displays.screens.first.flatMap(Displays.uuid(of:)) ?? enabled[0]
         for display in displays {
-            let context = DisplayContext(uuid: display.uuid, main: main, enabled: enabled)
+            let context = DisplayContext(uuid: display.uuid, main: main, enabled: enabled,
+                                         fullscreen: fullscreenUUIDs.contains(display.uuid))
             guard context != display.vm.context else { continue }
             display.vm.context = context
             display.vm.resyncPersistentOrder()

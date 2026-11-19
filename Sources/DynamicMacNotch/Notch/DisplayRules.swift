@@ -7,6 +7,8 @@ struct DisplayContext: Equatable {
     var main: String
     /// 노치를 켠 디스플레이 전부
     var enabled: [String]
+    /// 이 디스플레이에 전체 화면 앱이 떠 있는지 (설정을 켰을 때만 채운다)
+    var fullscreen = false
 }
 
 /// 중요한 알림 목록의 한 줄. 일회성 알림 하나를 가리키며, 통화·녹화만 상시 표시에도 적용된다.
