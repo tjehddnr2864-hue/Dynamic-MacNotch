@@ -127,8 +127,13 @@ final class DisplayNotchState: ObservableObject {
     private var baseState: NotchState {
         if isExpanded { return .expanded }
         guard let a = displayed else { return .idle }
-        if center.showingDetail, center.transient?.id == a.id { return .detail }
+        if center.showingDetail, center.transient?.id == a.id, !compactForFullscreen(a) { return .detail }
         return .compact
+    }
+
+    /// 전체 화면인 디스플레이에서는 상세 알림도 컴팩트로 (설정). 버튼으로 답해야 하는 카드(전화 수신, 스크린샷)는 그대로.
+    func compactForFullscreen(_ a: NotchActivity) -> Bool {
+        settings.fullscreenCompact && context.fullscreen && a.kind != .call && a.kind != .screenshot
     }
 
     var state: NotchState {

@@ -19,6 +19,7 @@ struct DisplaysSettingsPage: View {
                 contentSection
                 alertSection
             }
+            fullscreenSection
         }
         .settingsForm()
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
@@ -104,6 +105,14 @@ struct DisplaysSettingsPage: View {
     }
 
     // MARK: 알림
+
+    private var fullscreenSection: some View {
+        SettingsSection(T("전체 화면", "Full Screen"),
+                        footer: T("전체 화면 앱이 떠 있는 디스플레이에서만 상세 알림과 HUD(Liquid 포함)를 노치 안 컴팩트로 보입니다. 다른 디스플레이는 원래 설정대로 뜹니다. 전화 수신 카드와 스크린샷 카드는 버튼이 필요해 그대로 보입니다.",
+                                  "Only on a display with a full-screen app, detailed alerts and the HUD (including Liquid) show as compact in the notch. Other displays keep their settings. Incoming-call and screenshot cards keep their buttons.")) {
+            Toggle(T("전체 화면에서 알림·HUD를 컴팩트로", "Compact alerts and HUD in full screen"), isOn: $settings.fullscreenCompact)
+        }
+    }
 
     private var alertSection: some View {
         SettingsSection(T("디스플레이별 알림", "Alerts by Display"),

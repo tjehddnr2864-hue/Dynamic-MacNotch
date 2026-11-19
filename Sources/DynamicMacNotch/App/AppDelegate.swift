@@ -79,6 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 shared.liquidHUDActive = active
             }
         }
+        LiquidHUD.shared.compactInstead = { [weak self] in
+            guard let self, self.settings.fullscreenCompact, let notch = self.notch else { return false }
+            return notch.vm.context.fullscreen
+        }
         LiquidHUD.shared.anchor = { [weak self] in
             guard let notch = self?.notch, let screen = notch.panel.screen else { return nil }
             return (screen, notch.vm.notchSize.height)
