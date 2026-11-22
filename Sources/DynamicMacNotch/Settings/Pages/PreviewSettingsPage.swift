@@ -14,7 +14,7 @@ struct PreviewSettingsPage: View {
                     Button(T("모든 미리보기 중지", "Stop All Previews")) { PreviewID.stopAll.run() }
                 }
             }
-            SettingsSection(T("미디어", "Media"), footer: T("테스트 곡이 노치에 재생됩니다. 길게 눌러 플레이어를 열고 재생·다음·이전·재생 바를 시험해 보세요. 30초 동안 조작이 없으면 자동으로 중지됩니다.",
+            SettingsSection(T("미디어", "Media"), footer: T("30초 동안 조작이 없으면 자동으로 멈춥니다.", "Stops after 30 seconds without interaction."), more: T("테스트 곡이 노치에 재생됩니다. 길게 눌러 플레이어를 열고 재생·다음·이전·재생 바를 시험해 보세요. 30초 동안 조작이 없으면 자동으로 중지됩니다.",
                                                          "A test song plays in the notch. Long-press to open the player and try play, next, previous and the progress bar. It stops automatically after 30 seconds without interaction.")) {
                 HStack {
                     Button(T("재생 테스트 시작", "Start Playback Test")) { PreviewID.mediaStart.run() }
@@ -58,7 +58,7 @@ struct PreviewSettingsPage: View {
     }
 
     private func fixedSection(_ title: String, _ items: [(id: PreviewID, label: String)], note: String) -> some View {
-        SettingsSection(title, footer: note) {
+        SettingsSection(title, footer: T("가짜 통화·잠금화면은 실제로 걸거나 잠그지 않습니다.", "Fake calls and the lock screen don't really call or lock."), more: note) {
             PreviewButtonGrid(items: items) { $0.run() }
         }
     }
@@ -92,7 +92,8 @@ private struct StylePreviewSection: View {
 
     var body: some View {
         SettingsSection(title) {
-            AlertStylePicker(selection: styleState.projectedValue)
+            // 저장하지 않는 미리보기용 값이라 진짜 설정과 이름을 달리한다 (인벤토리 §1-④)
+            AlertStylePicker(title: T("미리 볼 형태", "Preview style"), selection: styleState.projectedValue)
             PreviewButtonGrid(items: items) { $0.run(style: styleState.wrappedValue) }
         }
     }

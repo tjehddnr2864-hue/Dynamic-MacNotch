@@ -111,6 +111,16 @@ NotchHub (1개)
 
 `Choices`의 목록을 바꿀 때는 예전 값을 빼지 않습니다. 저장된 값이 목록에 없으면 메뉴가 빈칸으로 보입니다 (`--settings-probe`가 지금 저장된 값을 확인).
 
+**글** — `scripts/check-settings-ui.sh`가 길이를 확인합니다.
+
+| 자리 | 규칙 |
+|---|---|
+| 줄 이름 | 무엇을 켜고 고르는지의 짧은 명사구, 한국어 14자 이내 ("곡 바뀜 알림", "출력 기기 아이콘"). 조건·괄호 설명은 넣지 않음 |
+| 보조 설명 `detail:` | 줄 이름 바로 아래 11pt 한 문장, 60자 이내, "~합니다/~보입니다." (`Toggle(_:detail:isOn:)`, `Choice`·`ListChoice`·`ValueMenu`·`ValueSlider`·`ListField`·`HomePageToggle`의 `detail:`) |
+| 구역 설명 `footer:` | 한두 줄 요약, 60자 이내. 더 긴 설명·개인정보·동작 원리는 `more:`에 두면 '자세히'로 펼침 |
+| 비활성 이유 `disabledNote:` | 구역이 꺼져 있을 때 "…을 켜면 바꿀 수 있습니다." 한 페이지에 한 번만 |
+| 글 크기 | 최소 11pt (`footnote`, `RowLabel`의 보조 설명은 `.subheadline`) |
+
 **꺼졌을 때:** 주 스위치가 꺼지면 거기에 딸린 구역은 `SettingsSection(disabled:)`로 비활성화합니다. 위 항목에 딸린 한 줄은 `Indented`로 들여 씁니다.
 
 **옵션의 자리:** 앱 전체에 적용되는 것만 일반에 둡니다. 한 기능에 속하는 옵션은 그 기능 페이지에 둡니다.

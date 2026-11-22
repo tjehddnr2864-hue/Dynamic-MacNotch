@@ -16,9 +16,9 @@ extension View {
     }
 }
 
-/// 구역 아래의 설명. 구역 제목과 같은 왼쪽 줄에 맞춘다.
+/// 구역 아래의 설명. 구역 제목과 같은 왼쪽 줄에 맞춘다. 11pt (macOS subheadline) — 설정 화면 글의 최소 크기.
 func footnote(_ text: String) -> some View {
-    Text(text).font(.caption).foregroundStyle(.secondary)
+    Text(text).font(.subheadline).foregroundStyle(.secondary)
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: .leading)
 }
@@ -32,29 +32,81 @@ enum SectionTitle {
     static var preview: String { T("미리보기", "Preview") }
 }
 
-/// 제목, 설명, 비활성 조건이 있는 구역
+/// 제목, 설명, 비활성 조건이 있는 구역.
+/// - `footer`: 한두 줄(60자 안팎) 요약. 더 긴 설명은 `more`에 두면 '자세히'를 눌러 펼친다.
+/// - `disabledNote`: 구역이 비활성일 때 왜 그런지 (예: "다운로드 진행 표시를 켜면 바꿀 수 있습니다.")
 struct SettingsSection<Content: View>: View {
     var title: String?
     var footer: String?
+    var more: String?
     var disabled: Bool
+    var disabledNote: String?
     private let content: Content
+    private let expandedState = State(initialValue: false)
 
-    init(_ title: String? = nil, footer: String? = nil, disabled: Bool = false, @ViewBuilder content: () -> Content) {
+    init(_ title: String? = nil, footer: String? = nil, more: String? = nil, disabled: Bool = false, disabledNote: String? = nil,
+         @ViewBuilder content: () -> Content) {
         self.title = title
         self.footer = footer
+        self.more = more
         self.disabled = disabled
+        self.disabledNote = disabledNote
         self.content = content()
     }
 
     var body: some View {
         Section {
             content
+                .disabled(disabled)
         } header: {
             if let title { Text(title) }
         } footer: {
-            if let footer { footnote(footer) }
+            if (disabled && disabledNote != nil) || footer != nil || more != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    if disabled, let disabledNote {
+                        Label(disabledNote, systemImage: "info.circle").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    if footer != nil || more != nil {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            if let footer { footnote(footer).fixedSize(horizontal: false, vertical: true) }
+                            if more != nil {
+                                Button(expandedState.wrappedValue ? T("접기", "Less") : T("자세히", "Details")) {
+                                    withAnimation(.snappy(duration: 0.2)) { expandedState.wrappedValue.toggle() }
+                                }
+                                .buttonStyle(.link)
+                                .font(.subheadline)
+                                .fixedSize()
+                                if footer == nil { Spacer(minLength: 0) }
+                            }
+                        }
+                        if expandedState.wrappedValue, let more { footnote(more) }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .disabled(disabled)
+    }
+}
+
+/// 줄 이름 + 그 아래 작은 보조 설명 (한 문장, 60자 안팎). 설정 화면의 모든 줄이 이 모양을 쓴다.
+struct RowLabel: View {
+    var title: String
+    var detail: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            if let detail {
+                Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+extension Toggle where Label == RowLabel {
+    /// 이름 + 보조 설명이 있는 스위치
+    init(_ title: String, detail: String?, isOn: Binding<Bool>) {
+        self.init(isOn: isOn) { RowLabel(title: title, detail: detail) }
     }
 }
 
@@ -153,12 +205,14 @@ private extension View {
 /// 종류 고르기. `options`를 주면 그 선택지만 보인다 (지금 켜진 기능만 고를 때).
 struct Choice<Option: SettingOption>: View {
     var title: String
+    var detail: String?
     @Binding var selection: Option
     var options: [Option]?
     var style: ChoiceStyle
 
-    init(_ title: String, selection: Binding<Option>, options: [Option]? = nil, style: ChoiceStyle = .automatic) {
+    init(_ title: String, detail: String? = nil, selection: Binding<Option>, options: [Option]? = nil, style: ChoiceStyle = .automatic) {
         self.title = title
+        self.detail = detail
         _selection = selection
         self.options = options
         self.style = style
@@ -166,9 +220,9 @@ struct Choice<Option: SettingOption>: View {
 
     var body: some View {
         let items = options ?? Array(Option.allCases)
-        Picker(title, selection: $selection) {
+        Picker(selection: $selection) {
             ForEach(items) { Text($0.label).tag($0) }
-        }
+        } label: { RowLabel(title: title, detail: detail) }
         .choiceStyle(style, count: items.count)
     }
 }
@@ -176,21 +230,23 @@ struct Choice<Option: SettingOption>: View {
 /// 실행 중에 정해지는 목록에서 고르기 (기기, 서비스, 한도 등)
 struct ListChoice<Value: Hashable>: View {
     var title: String
+    var detail: String?
     @Binding var selection: Value
     var items: [(value: Value, label: String)]
     var style: ChoiceStyle = .automatic
 
-    init(_ title: String, selection: Binding<Value>, items: [(value: Value, label: String)], style: ChoiceStyle = .automatic) {
+    init(_ title: String, detail: String? = nil, selection: Binding<Value>, items: [(value: Value, label: String)], style: ChoiceStyle = .automatic) {
         self.title = title
+        self.detail = detail
         _selection = selection
         self.items = items
         self.style = style
     }
 
     var body: some View {
-        Picker(title, selection: $selection) {
+        Picker(selection: $selection) {
             ForEach(items.indices, id: \.self) { i in Text(items[i].label).tag(items[i].value) }
-        }
+        } label: { RowLabel(title: title, detail: detail) }
         .choiceStyle(style, count: items.count)
     }
 }
@@ -215,43 +271,46 @@ struct ChoiceMenu<Value: Hashable, Content: View>: View {
 /// 정해진 값 목록에서 고르기. `zero`가 있으면 맨 위에 0 값의 선택지를 둔다 (끄기, 기본값 등).
 struct ValueMenu: View {
     var title: String
+    var detail: String? = nil
     @Binding var selection: Double
     var values: [Double]
     var zero: String? = nil
     var label: (Double) -> String
 
     var body: some View {
-        Picker(title, selection: $selection) {
+        Picker(selection: $selection) {
             if let zero { Text(zero).tag(0.0) }
             ForEach(values, id: \.self) { Text(label($0)).tag($0) }
-        }
+        } label: { RowLabel(title: title, detail: detail) }
     }
 }
 
 /// 값이 오른쪽에 보이는 슬라이더
 struct ValueSlider: View {
     var title: String
+    var detail: String? = nil
     @Binding var value: Double
     var range: ClosedRange<Double>
     var step: Double
     var format: (Double) -> String
 
     var body: some View {
-        LabeledContent(title) {
+        LabeledContent {
             HStack {
                 Slider(value: $value, in: range, step: step)
                 Text(format(value)).monospacedDigit().frame(width: 52, alignment: .trailing)
             }
-        }
+        } label: { RowLabel(title: title, detail: detail) }
     }
 }
 
 /// 일회성 알림의 형태
 struct AlertStylePicker: View {
+    var title = T("표시 형태", "Style")
     @Binding var selection: AlertStyle
 
     var body: some View {
-        Choice(T("표시 형태", "Style"), selection: $selection)
+        Choice(title, selection: $selection)
     }
 }
 
@@ -277,15 +336,16 @@ struct ProgressStylePicker: View {
 /// 쉼표로 나눠 적는 목록. 비어 있어도 입력 칸인 줄 알 수 있게 테두리와 안내 글을 둔다.
 struct ListField: View {
     var title: String
+    var detail: String? = nil
     @Binding var text: String
 
     var body: some View {
-        LabeledContent(title) {
+        LabeledContent {
             TextField("", text: $text, prompt: Text(T("쉼표로 구분", "Comma-separated")))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
                 .labelsHidden()
-        }
+        } label: { RowLabel(title: title, detail: detail) }
     }
 }
 
@@ -294,9 +354,10 @@ struct HomePageToggle: View {
     @ObservedObject var settings: AppSettings
     var key: String
     var title: String? = nil
+    var detail: String? = nil
 
     var body: some View {
-        Toggle(title ?? T("홈에 페이지 표시", "Show page in Home"),
+        Toggle(title ?? T("홈에 페이지 표시", "Show page in Home"), detail: detail,
                isOn: Binding(get: { settings.isHomeFeatureOn(key) }, set: { settings.setHomeFeature(key, on: $0) }))
     }
 }
