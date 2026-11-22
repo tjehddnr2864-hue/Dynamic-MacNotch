@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 설정 창. 왼쪽 사이드바(Liquid Glass) + 오른쪽 페이지. 값은 바뀌는 즉시 노치에 반영된다.
+/// 설정 창. 왼쪽 시스템 사이드바(묶음 + 검색) + 오른쪽 페이지. 값은 바뀌는 즉시 노치에 반영된다.
 /// 페이지는 Settings/Pages/에 하나씩 있다.
 struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
@@ -9,29 +9,26 @@ struct SettingsView: View {
     #if DEV
     // 개발용: DMN_SETTINGS_PAGE=<페이지>로 특정 페이지를 열어 화면을 확인한다
     private static let startPage = ProcessInfo.processInfo.environment["DMN_SETTINGS_PAGE"].flatMap(SettingsPage.init) ?? .general
+    // 개발용: DMN_SETTINGS_QUERY=<검색어>로 검색 칸을 채워 연다
+    private static let startQuery = ProcessInfo.processInfo.environment["DMN_SETTINGS_QUERY"] ?? ""
     #else
     private static let startPage = SettingsPage.general
+    private static let startQuery = ""
     #endif
-    private let pageState = State(initialValue: SettingsView.startPage)
-    private let expandedState = State(initialValue: SettingsPage.features.contains(SettingsView.startPage) || SettingsView.startPage == .interaction)
-    private var page: SettingsPage {
-        get { pageState.wrappedValue }
-        nonmutating set { pageState.wrappedValue = newValue }
-    }
-    private var interactionsExpanded: Bool {
-        get { expandedState.wrappedValue }
-        nonmutating set { expandedState.wrappedValue = newValue }
-    }
+    private let selectionState = State<SettingsPage?>(initialValue: SettingsView.startPage)
+    private let queryState = State(initialValue: SettingsView.startQuery)
+    private var page: SettingsPage { selectionState.wrappedValue ?? .general }
 
     static let windowSize = CGSize(width: 860, height: 620)
-    /// 사이드바 유리(곡률 18, 안쪽 10pt)와 같은 중심이 되도록 18 + 10
+    /// 창 모서리. macOS 26의 사이드바 유리와 같은 중심이 되는 값
     static let windowCornerRadius: CGFloat = 28
+    static let sidebarWidth: CGFloat = 214
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             sidebar
-                .frame(width: 214)
-                .padding(10)
+                .navigationSplitViewColumnWidth(Self.sidebarWidth)
+        } detail: {
             VStack(alignment: .leading, spacing: 0) {
                 Text(page.title)
                     .font(.title2.bold())
@@ -44,10 +41,14 @@ struct SettingsView: View {
                     .clipped()
             }
             .id(page)
+            // 창 버튼 줄의 빈 도구 막대 자리를 쓰지 않고 제목을 위에 붙인다 (창 버튼은 사이드바 위에 있다)
+            .ignoresSafeArea(.container, edges: .top)
         }
+        .navigationSplitViewStyle(.balanced)
+        .toolbar(removing: .sidebarToggle)
         .frame(minWidth: Self.windowSize.width, maxWidth: .infinity, minHeight: Self.windowSize.height, maxHeight: .infinity)
         .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency))
-        // 창 배경이 투명하므로 모서리 둥글림을 직접 잘라 준다 (사이드바 유리와 같은 중심의 곡률)
+        // 창 배경이 투명하므로 모서리 둥글림을 직접 잘라 준다
         .clipShape(RoundedRectangle(cornerRadius: Self.windowCornerRadius, style: .continuous))
         .ignoresSafeArea()
     }
@@ -57,106 +58,70 @@ struct SettingsView: View {
         switch page {
         case .general: GeneralSettingsPage()
         case .displays: DisplaysSettingsPage()
-        case .priority: PrioritySettingsPage()
-        case .interaction: InteractionsOverview { item in
-            withAnimation(.snappy(duration: 0.25)) {
-                interactionsExpanded = true
-                page = item
-            }
-        }
+        case .permissions: PermissionsView(onboarding: false, embedded: true) {}
+        case .notchControls: NotchControlsSettingsPage()
         case .home: HomeSettingsPage()
+        case .priority: PrioritySettingsPage()
         case .network: NetworkSettingsPage()
         case .bluetooth: BluetoothSettingsPage()
-        case .focus: FocusSettingsPage()
         case .call: CallSettingsPage()
-        case .media: MediaSettingsPage()
-        case .download: DownloadSettingsPage()
         case .airdrop: TraySettingsPage()
+        case .media: MediaSettingsPage()
         case .screenshot: ScreenshotSettingsPage()
         case .recording: RecordingSettingsPage()
+        case .download: DownloadSettingsPage()
         case .battery: BatterySettingsPage()
-        case .hud: HUDSettingsPage(hud: hud) { page = .permissions }
+        case .focus: FocusSettingsPage()
+        case .hud: HUDSettingsPage(hud: hud) { selectionState.wrappedValue = .permissions }
         case .lock: LockSettingsPage()
         case .calendar: CalendarSettingsPage()
         case .aiUsage: MonitoringSettingsPage()
         case .chat: ChatSettingsPage(settings: settings)
         case .agent: AgentSettingsPage()
         case .preview: PreviewSettingsPage()
-        case .permissions: PermissionsView(onboarding: false, embedded: true) {}
         case .about: AboutSettingsPage()
         }
     }
 
-    // MARK: - 사이드바
+    // MARK: - 사이드바 (시스템 사이드바: macOS 26 이상은 Liquid Glass를 저절로 입는다)
+
+    /// 검색어가 있으면 이름이 맞는 페이지만 (전체 설정 검색은 단계 6)
+    private func visible(_ group: SettingsGroup) -> [SettingsPage] {
+        let q = queryState.wrappedValue.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return group.pages }
+        return group.pages.filter { $0.title.localizedStandardContains(q) }
+    }
+
+    private func expanded(_ group: SettingsGroup) -> Binding<Bool> {
+        Binding(get: { !settings.settingsCollapsedGroups.contains(group.rawValue) || !queryState.wrappedValue.isEmpty },
+                set: { open in
+                    settings.settingsCollapsedGroups = settings.settingsCollapsedGroups.filter { $0 != group.rawValue } + (open ? [] : [group.rawValue])
+                })
+    }
 
     private var sidebar: some View {
-        VStack(spacing: 0) {
-            // 창 버튼(빨강·노랑·초록) 자리: 메뉴는 이 아래에서만 스크롤되어 버튼과 겹치지 않는다
-            Color.clear.frame(height: 40)
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(SettingsPage.top) { item in
-                        if item == .interaction {
-                            interactionRows
-                        } else {
-                            sidebarRow(item) { page = item }
+        List(selection: selectionState.projectedValue) {
+            ForEach(SettingsGroup.allCases) { group in
+                let pages = visible(group)
+                if !pages.isEmpty {
+                    Section(isExpanded: expanded(group)) {
+                        ForEach(pages) { item in
+                            Label {
+                                Text(item.title).lineLimit(1)
+                            } icon: {
+                                // 시스템 사이드바는 아이콘을 키운다(imageScale .large). 기존 크기 13pt를 지킨다
+                                SettingsIcon(page: item, size: 13).imageScale(.medium)
+                            }
+                            .tag(item)
                         }
+                    } header: {
+                        Text(group.title)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 2)
-                .padding(.bottom, 8)
-            }
-            .clipped()
-        }
-        .modifier(LiquidGlassPanel(cornerRadius: 18))
-    }
-
-    @ViewBuilder
-    private var interactionRows: some View {
-        sidebarRow(.interaction, trailing: AnyView(
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.secondary)
-                .rotationEffect(.degrees(interactionsExpanded ? 90 : 0))
-        )) {
-            withAnimation(.snappy(duration: 0.25)) {
-                interactionsExpanded.toggle()
-                page = .interaction
             }
         }
-        if interactionsExpanded {
-            ForEach(SettingsPage.features) { child in
-                sidebarRow(child, indent: 16) { page = child }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-
-    private func sidebarRow(_ item: SettingsPage, indent: CGFloat = 0, trailing: AnyView? = nil,
-                            action: @escaping () -> Void) -> some View {
-        let selected = page == item
-        return Button(action: action) {
-            HStack(spacing: 9) {
-                SettingsIcon(page: item, size: 13)
-                    .frame(width: 20)
-                    .foregroundStyle(selected ? Color.white : Color.accentColor)
-                Text(item.title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Spacer(minLength: 0)
-                if let trailing { trailing }
-            }
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .padding(.leading, 8 + indent)
-            .padding(.trailing, 8)
-            .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.85) : Color.clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        .listStyle(.sidebar)
+        .searchable(text: queryState.projectedValue, placement: .sidebar, prompt: T("검색", "Search"))
     }
 }
 
@@ -186,22 +151,6 @@ private struct BehindWindowBlur: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
-}
-
-/// 사이드바 패널: macOS 26 이상은 Liquid Glass, 그 전에는 얇은 머티리얼.
-private struct LiquidGlassPanel: ViewModifier {
-    var cornerRadius: CGFloat
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: shape)
-        } else {
-            content
-                .background(.ultraThinMaterial, in: shape)
-                .overlay(shape.strokeBorder(Color.white.opacity(0.15)))
-        }
-    }
 }
 
 // MARK: - 아이콘

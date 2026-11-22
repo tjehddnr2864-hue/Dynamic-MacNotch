@@ -142,6 +142,24 @@ enum SettingsProbe {
             old.removePersistentDomain(forName: suite)
         }
 
+        // 설정 창 페이지: 아이콘 기호는 바꾸지 않는다 (docs/SETTINGS_REDESIGN_GUIDELINE.md §1.2). 2026-11 개편 전 24개 + 새 페이지
+        let frozenSymbols: [String: String] = [
+            "general": "gearshape", "displays": "display.2", "priority": "list.number", "home": "square.grid.2x2",
+            "network": "wifi", "bluetooth": "airpodspro", "focus": "moon", "call": "phone", "media": "music.note",
+            "download": "arrow.down.circle", "airdrop": "tray.and.arrow.down", "screenshot": "camera.viewfinder",
+            "recording": "record.circle", "battery": "battery.75percent", "hud": "speaker.wave.2", "lock": "lock",
+            "calendar": "calendar", "aiUsage": "gauge.medium", "chat": "bubble.left.and.text.bubble.right", "agent": "terminal",
+            "preview": "play.rectangle", "permissions": "hand.raised", "about": "info.circle",
+            "notchControls": "hand.tap",
+        ]
+        for page in SettingsPage.allCases {
+            check(frozenSymbols[page.rawValue] == page.symbol, "settings page icon unchanged: \(page.rawValue)")
+        }
+        let grouped = SettingsGroup.allCases.flatMap(\.pages)
+        check(grouped.count == SettingsPage.allCases.count && Set(grouped) == Set(SettingsPage.allCases), "every settings page is in exactly one sidebar group")
+        check(SettingsGroup.allCases.allSatisfy { !$0.pages.isEmpty && !$0.title.isEmpty }, "sidebar groups have pages and titles")
+        check(SettingsPage(rawValue: "interaction") == nil, "old Interactions page is gone (its pages are in groups)")
+
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }

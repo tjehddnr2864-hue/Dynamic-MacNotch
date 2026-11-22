@@ -129,7 +129,7 @@ struct MenuChoice<Option: SettingOption>: View {
     }
 }
 
-/// 정해진 값 목록에서 고르기. `zero`가 있으면 맨 위에 0 값의 선택지를 둔다 (끄기, 일반 설정 따름 등).
+/// 정해진 값 목록에서 고르기. `zero`가 있으면 맨 위에 0 값의 선택지를 둔다 (끄기, 기본값 등).
 struct ValueMenu: View {
     var title: String
     @Binding var selection: Double
@@ -172,13 +172,13 @@ struct AlertStylePicker: View {
     }
 }
 
-/// 알림의 표시 시간. 0이면 일반 설정을 따른다.
+/// 알림의 표시 시간. 0이면 노치 조작 페이지의 기본 표시 시간을 따른다.
 struct AlertDurationMenu: View {
     @Binding var selection: Double
 
     var body: some View {
         ValueMenu(title: T("표시 시간", "Duration"), selection: $selection, values: [1.5, 2.5, 4.0, 6.0],
-                  zero: T("일반 설정 따름", "Same as General")) { L10n.seconds($0, digits: 1) }
+                  zero: T("기본값", "Default")) { L10n.seconds($0, digits: 1) }
     }
 }
 

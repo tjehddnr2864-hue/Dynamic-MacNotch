@@ -65,7 +65,7 @@ NotchHub (1개)
 
 ### 설정 페이지 추가
 
-1. `Settings/SettingsPage.swift`: case, `title`, `symbol`, `top` 또는 `features` 목록
+1. `Settings/SettingsPage.swift`: case, `title`, `symbol`, 그리고 `SettingsGroup.pages`의 한 묶음에 넣기 (사이드바 묶음: 앱·노치·연결·미디어·캡처·시스템·AI·기타). 새 기호는 `SettingsProbe`의 고정 기호 표에도 적는다 — 기존 기호는 바꾸지 않는다
 2. `Settings/Pages/`에 페이지 View
 3. `Settings/SettingsView.swift`의 `content`
 
@@ -103,7 +103,7 @@ NotchHub (1개)
 | 켜기·끄기 | `Toggle` |
 | 종류 2~3개, 글이 짧음 | `SegmentedChoice` |
 | 종류가 많거나 글이 긺 | `MenuChoice` |
-| 시간·개수 같은 정해진 값 | `ValueMenu` (0 값은 `zero`: 끄기, 일반 설정 따름) |
+| 시간·개수 같은 정해진 값 | `ValueMenu` (0 값은 `zero`: 끄기, 기본값) |
 | 연속된 값 | `ValueSlider` |
 | 쉼표 목록 | `ListField` |
 | 폴더 | `FolderSetting` |
