@@ -160,6 +160,25 @@ enum SettingsProbe {
         check(SettingsGroup.allCases.allSatisfy { !$0.pages.isEmpty && !$0.title.isEmpty }, "sidebar groups have pages and titles")
         check(SettingsPage(rawValue: "interaction") == nil, "old Interactions page is gone (its pages are in groups)")
 
+        // 값 목록: 예전 목록의 값과 지금 저장된 값이 모두 메뉴에 있어야 빈칸이 안 된다 (가이드라인 §1.3)
+        for old in [1.0, 1.5, 2.5, 4.0, 6.0] { check(Choices.duration.contains(old), "duration list keeps old value \(old)") }
+        func inList(_ value: Double, _ list: [Double], zero: Bool, _ name: String) {
+            check(list.contains(value) || (zero && value == 0), "saved \(name)=\(value) is in its menu")
+        }
+        inList(settings.transientDuration, Choices.duration, zero: false, "transientDuration")
+        inList(settings.hudDuration, Choices.duration, zero: false, "hudDuration")
+        inList(settings.netDuration, Choices.duration, zero: true, "netDuration")
+        inList(settings.focusDuration, Choices.duration, zero: true, "focusDuration")
+        inList(settings.memoryLimitMB, Choices.memoryLimit, zero: false, "memoryLimitMB")
+        inList(settings.aiRefreshMinutes, Choices.refresh, zero: false, "aiRefreshMinutes")
+        inList(settings.resourceRefreshSeconds, Choices.refresh, zero: false, "resourceRefreshSeconds")
+        inList(settings.mediaHideAfterPause, Choices.mediaHide, zero: true, "mediaHideAfterPause")
+        inList(settings.screenshotAutoClose, Choices.screenshotClose, zero: false, "screenshotAutoClose")
+        inList(settings.calendarAlertMinutes, Choices.calendarAlert, zero: true, "calendarAlertMinutes")
+        inList(settings.trayCleanupMinutes, Choices.trayCleanup, zero: true, "trayCleanupMinutes")
+        check(Format.seconds(1) == T("1초", "1s") && Format.seconds(1.5) == T("1.5초", "1.5s") && Format.seconds(0.35, digits: 2) == T("0.35초", "0.35s"), "seconds format")
+        check(Format.percent(0.355) == "36%" && Format.period(minutes: 10080) == T("7일", "7 days") && Format.period(minutes: 60) == T("1시간", "1 hour"), "percent and period format")
+
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }

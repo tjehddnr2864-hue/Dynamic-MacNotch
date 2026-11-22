@@ -2,12 +2,12 @@ import SwiftUI
 
 // 모든 설정 페이지가 함께 쓰는 부품. 규칙과 용어는 docs/ARCHITECTURE.md의 "설정 화면 규칙"에 있다.
 //
-// 고르는 방법
-// - 종류를 고르는 2~3개 선택지: SegmentedChoice
-// - 그보다 많거나 글이 긴 선택지: MenuChoice
-// - 시간·개수 같은 정해진 값 목록: ValueMenu
-// - 연속된 값: ValueSlider
-// - 켜고 끄기: Toggle
+// 고르는 방법 (페이지에서는 이 부품만 쓴다. scripts/check-settings-ui.sh가 확인)
+// - 켜고 끄기: Toggle. 위 항목에 딸린 항목은 Indented로 들여 쓴다
+// - 종류 고르기: Choice (선택지 3개 이하면 분절 버튼, 4개 이상이면 메뉴. 글이 길면 style: .menu)
+//   - 목록이 실행 중에 정해지는 것(기기·서비스·한도): ListChoice / 구분선·비활성 항목이 필요하면 ChoiceMenu
+// - 시간·개수 같은 정해진 값: ValueMenu + Choices의 이름 붙은 목록 + Format
+// - 연속된 값: ValueSlider + Format
 
 extension View {
     /// 유리 배경이 비치도록 폼 자체 배경을 지운다.
@@ -59,12 +59,52 @@ struct SettingsSection<Content: View>: View {
 }
 
 /// 위 항목에 딸린 항목. 들여 쓰고, 위 항목이 꺼져 있으면 비활성.
+/// grouped 폼은 스위치를 모두 작은 크기(mini)로 그린다 — 더 작게는 안 되고 `.large`만 커진다 (2026-11 실측).
+/// 그래서 딸린 항목은 크기가 아니라 들여쓰기로 구분한다.
 struct Indented<Content: View>: View {
     var enabled: Bool
     @ViewBuilder var content: Content
 
     var body: some View {
         content.padding(.leading, 16).disabled(!enabled)
+    }
+}
+
+// MARK: - 값 목록 · 표시 형식
+
+/// 설정 화면의 정해진 값 목록. 같은 종류의 값은 어디서나 같은 목록을 쓴다.
+/// 목록을 바꿀 때는 저장돼 있을 수 있는 예전 값을 빼지 않는다 (빠지면 메뉴가 빈칸으로 보인다).
+enum Choices {
+    /// 알림·HUD의 표시 시간(초). 예전 목록: HUD 1~4초, 알림 1.5~6초 → 둘을 합침
+    static let duration: [Double] = [1.0, 1.5, 2.5, 4.0, 6.0]
+    /// 메모리 자동 최적화 기준(MB)
+    static let memoryLimit: [Double] = [70, 80, 90, 100, 110, 120, 130, 140, 150]
+    /// 새로고침 간격 (AI 사용량은 분, 시스템 모니터링은 초)
+    static let refresh: [Double] = [1, 2, 5, 10]
+    /// 미디어 일시정지 후 숨김(초)
+    static let mediaHide: [Double] = [10, 30, 60]
+    /// 스크린샷 카드 자동 닫힘(초)
+    static let screenshotClose: [Double] = [5, 10, 30]
+    /// 일정 알림(분 전)
+    static let calendarAlert: [Double] = [5, 10, 15]
+    /// 트레이 자동 정리(분): 5분 ~ 1주
+    static let trayCleanup: [Double] = [5, 10, 30, 60, 1440, 10080]
+}
+
+/// 값의 표시 형식. 페이지마다 따로 만들지 않는다.
+enum Format {
+    static func percent(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
+    static func seconds(_ value: Double) -> String { L10n.seconds(value, digits: value == value.rounded() ? 0 : (value * 10 == (value * 10).rounded() ? 1 : 2)) }
+    static func seconds(_ value: Double, digits: Int) -> String { L10n.seconds(value, digits: digits) }
+    static func minutes(_ value: Double) -> String { T("\(Int(value))분", "\(Int(value)) min") }
+    static func megabytes(_ value: Double) -> String { "\(Int(value)) MB" }
+    static func points(_ value: Double) -> String { "\(Int(value))pt" }
+    /// 분 단위 기간: 60분 이상은 시간, 1440분 이상은 일
+    static func period(minutes value: Double) -> String {
+        let m = Int(value)
+        if m >= 1440, m % 1440 == 0 { return T("\(m / 1440)일", m / 1440 == 1 ? "1 day" : "\(m / 1440) days") }
+        if m >= 60, m % 60 == 0 { return T("\(m / 60)시간", m / 60 == 1 ? "1 hour" : "\(m / 60) hours") }
+        return minutes(value)
     }
 }
 
@@ -96,36 +136,79 @@ extension MonitorContent: SettingOption {}
 extension MonitorExpand: SettingOption {}
 extension MonitorMetric: SettingOption {}
 
-struct SegmentedChoice<Option: SettingOption>: View {
-    var title: String
-    @Binding var selection: Option
+enum ChoiceStyle {
+    /// 선택지 3개 이하면 분절 버튼, 4개 이상이면 메뉴
+    case automatic
+    /// 선택지 글이 길거나 줄 안에 좁게 들어갈 때
+    case menu
+}
 
-    init(_ title: String, selection: Binding<Option>) {
-        self.title = title
-        _selection = selection
-    }
-
-    var body: some View {
-        Picker(title, selection: $selection) {
-            ForEach(Option.allCases) { Text($0.label).tag($0) }
-        }
-        .pickerStyle(.segmented)
+private extension View {
+    @ViewBuilder
+    func choiceStyle(_ style: ChoiceStyle, count: Int) -> some View {
+        if style == .automatic, count <= 3 { pickerStyle(.segmented) } else { pickerStyle(.menu) }
     }
 }
 
-struct MenuChoice<Option: SettingOption>: View {
+/// 종류 고르기. `options`를 주면 그 선택지만 보인다 (지금 켜진 기능만 고를 때).
+struct Choice<Option: SettingOption>: View {
     var title: String
     @Binding var selection: Option
+    var options: [Option]?
+    var style: ChoiceStyle
 
-    init(_ title: String, selection: Binding<Option>) {
+    init(_ title: String, selection: Binding<Option>, options: [Option]? = nil, style: ChoiceStyle = .automatic) {
         self.title = title
         _selection = selection
+        self.options = options
+        self.style = style
+    }
+
+    var body: some View {
+        let items = options ?? Array(Option.allCases)
+        Picker(title, selection: $selection) {
+            ForEach(items) { Text($0.label).tag($0) }
+        }
+        .choiceStyle(style, count: items.count)
+    }
+}
+
+/// 실행 중에 정해지는 목록에서 고르기 (기기, 서비스, 한도 등)
+struct ListChoice<Value: Hashable>: View {
+    var title: String
+    @Binding var selection: Value
+    var items: [(value: Value, label: String)]
+    var style: ChoiceStyle = .automatic
+
+    init(_ title: String, selection: Binding<Value>, items: [(value: Value, label: String)], style: ChoiceStyle = .automatic) {
+        self.title = title
+        _selection = selection
+        self.items = items
+        self.style = style
     }
 
     var body: some View {
         Picker(title, selection: $selection) {
-            ForEach(Option.allCases) { Text($0.label).tag($0) }
+            ForEach(items.indices, id: \.self) { i in Text(items[i].label).tag(items[i].value) }
         }
+        .choiceStyle(style, count: items.count)
+    }
+}
+
+/// 구분선이나 고를 수 없는 항목이 섞인 메뉴 (디스플레이별 상시 표시처럼)
+struct ChoiceMenu<Value: Hashable, Content: View>: View {
+    var title: String
+    @Binding var selection: Value
+    @ViewBuilder var content: Content
+
+    init(_ title: String, selection: Binding<Value>, @ViewBuilder content: () -> Content) {
+        self.title = title
+        _selection = selection
+        self.content = content()
+    }
+
+    var body: some View {
+        Picker(title, selection: $selection) { content }.pickerStyle(.menu)
     }
 }
 
@@ -168,7 +251,7 @@ struct AlertStylePicker: View {
     @Binding var selection: AlertStyle
 
     var body: some View {
-        SegmentedChoice(T("표시 형태", "Style"), selection: $selection)
+        Choice(T("표시 형태", "Style"), selection: $selection)
     }
 }
 
@@ -177,8 +260,8 @@ struct AlertDurationMenu: View {
     @Binding var selection: Double
 
     var body: some View {
-        ValueMenu(title: T("표시 시간", "Duration"), selection: $selection, values: [1.5, 2.5, 4.0, 6.0],
-                  zero: T("기본값", "Default")) { L10n.seconds($0, digits: 1) }
+        ValueMenu(title: T("표시 시간", "Duration"), selection: $selection, values: Choices.duration,
+                  zero: T("기본값", "Default"), label: Format.seconds)
     }
 }
 
@@ -187,7 +270,7 @@ struct ProgressStylePicker: View {
     @Binding var selection: ProgressStyle
 
     var body: some View {
-        SegmentedChoice(T("진행률 표시", "Progress"), selection: $selection)
+        Choice(T("진행률 표시", "Progress"), selection: $selection)
     }
 }
 

@@ -10,7 +10,7 @@ struct GeneralSettingsPage: View {
     var body: some View {
         Form {
             SettingsSection(T("앱", "App"), footer: T("메모리가 최적화 기준을 넘으면 쉬는 동안 조용히 다시 시작합니다.", "Above the cleanup limit, the app quietly restarts while idle.")) {
-                MenuChoice(T("언어", "Language"), selection: $settings.language)
+                Choice(T("언어", "Language"), selection: $settings.language, style: .menu)
                 if settings.language != Self.launchLanguage {
                     HStack {
                         footnote(T("다시 시작하면 적용됩니다.", "Applies after restarting the app."))
@@ -26,18 +26,17 @@ struct GeneralSettingsPage: View {
                 Toggle(T("메모리 자동 최적화", "Automatic memory cleanup"), isOn: $settings.memoryGuard)
                 Indented(enabled: settings.memoryGuard) {
                     ValueMenu(title: T("최적화 기준", "Cleanup limit"), selection: $settings.memoryLimitMB,
-                              values: [70, 80, 90, 100, 110, 120, 130, 140, 150]) { "\(Int($0)) MB" }
+                              values: Choices.memoryLimit, label: Format.megabytes)
                 }
             }
             SettingsSection(T("설정 창 모양", "Settings Window"), footer: T("흐림을 낮추면 뒤 화면이 또렷하게, 투명도를 높이면 더 많이 비쳐 보입니다.", "Lower blur shows the screen behind more sharply; higher transparency lets more of it through.")) {
-                ValueSlider(title: T("배경 흐림", "Background blur"), value: $settings.settingsBlur, range: 0...1, step: 0.05, format: Self.percent)
-                ValueSlider(title: T("투명도", "Transparency"), value: $settings.settingsTransparency, range: 0...0.9, step: 0.05, format: Self.percent)
+                ValueSlider(title: T("배경 흐림", "Background blur"), value: $settings.settingsBlur, range: 0...1, step: 0.05, format: Format.percent)
+                ValueSlider(title: T("투명도", "Transparency"), value: $settings.settingsTransparency, range: 0...0.9, step: 0.05, format: Format.percent)
             }
         }
         .settingsForm()
     }
 
-    private static func percent(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
 }
 
 /// 노치 조작: 누르기·호버·햅틱, 일회성 알림의 기본 표시 시간 (예전에는 일반 페이지에 있었다)
@@ -48,17 +47,15 @@ struct NotchControlsSettingsPage: View {
         Form {
             SettingsSection(T("누르기와 호버", "Press & Hover"), footer: T("마우스는 압력을 알려 주지 않아 길게 누르기만 동작합니다.", "Mice don't report pressure, so only long-press works with a mouse.")) {
                 ValueSlider(title: T("길게 누르기 시간", "Long-press duration"), value: $settings.longPressDuration, range: 0.2...0.8, step: 0.05) {
-                    L10n.seconds($0, digits: 2)
+                    Format.seconds($0, digits: 2)
                 }
                 Toggle(T("깊게 누르기(포스 터치)로 바로 열기", "Open with Force Click"), isOn: $settings.forceTouchEnabled)
-                SegmentedChoice(T("햅틱 강도", "Haptic strength"), selection: $settings.hapticStrength)
+                Choice(T("햅틱 강도", "Haptic strength"), selection: $settings.hapticStrength)
                 Toggle(T("호버하면 살짝 커지기", "Grow slightly on hover"), isOn: $settings.hoverPreview)
                 Toggle(T("호버만으로 열기", "Open on hover"), isOn: $settings.hoverToOpen)
             }
             SettingsSection(T("일회성 알림", "Alerts"), footer: T("기능별 페이지에서 표시 시간을 '기본값'으로 둔 알림에 적용됩니다.", "Applies to alerts whose Duration is set to Default on their feature page.")) {
-                ValueMenu(title: T("기본 표시 시간", "Default duration"), selection: $settings.transientDuration, values: [1.5, 2.5, 4.0, 6.0]) {
-                    L10n.seconds($0, digits: 1)
-                }
+                ValueMenu(title: T("기본 표시 시간", "Default duration"), selection: $settings.transientDuration, values: Choices.duration, label: Format.seconds)
             }
         }
         .settingsForm()

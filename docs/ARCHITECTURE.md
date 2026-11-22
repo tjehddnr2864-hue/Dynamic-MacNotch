@@ -96,17 +96,20 @@ NotchHub (1개)
 
 **기능 페이지 구역 순서:** 표시 → 상시 표시 → 표시 방식 → 세부 설정 → 미리보기. 없는 구역은 뺍니다. 이름은 `SectionTitle`을 씁니다.
 
-**고르는 방법**
+**고르는 방법** — 페이지(`Settings/Pages/`)에서는 아래 부품만 씁니다. `scripts/check-settings-ui.sh`가 빌드할 때마다 확인합니다(직접 쓴 `Picker`·`Slider`·`Stepper`·`.pickerStyle`, 페이지 안의 값 목록 `values: [...]`, 직접 만든 퍼센트 형식이 있으면 빌드가 멈춥니다).
 
 | 값 | 부품 |
 |---|---|
-| 켜기·끄기 | `Toggle` |
-| 종류 2~3개, 글이 짧음 | `SegmentedChoice` |
-| 종류가 많거나 글이 긺 | `MenuChoice` |
-| 시간·개수 같은 정해진 값 | `ValueMenu` (0 값은 `zero`: 끄기, 기본값) |
+| 켜기·끄기 | `Toggle` (grouped 폼이 모두 같은 작은 스위치로 그림. 딸린 항목은 `Indented`로 들여 씀) |
+| 종류 고르기 (`SettingOption` enum) | `Choice` — 선택지 3개 이하면 분절 버튼, 4개 이상이면 메뉴가 저절로 된다. 선택지 글이 길면 `style: .menu`. 일부만 보일 때는 `options:` |
+| 실행 중에 정해지는 목록 (기기·서비스·한도·디스플레이) | `ListChoice` (같은 규칙), 구분선이나 고를 수 없는 항목이 섞이면 `ChoiceMenu` |
+| 시간·개수 같은 정해진 값 | `ValueMenu` + `Choices`의 이름 붙은 목록 (0 값은 `zero`: 끄기, 기본값). 표시 시간은 어디서나 `Choices.duration` |
 | 연속된 값 | `ValueSlider` |
+| 값의 글 | `Format` (`percent`, `seconds`, `minutes`, `megabytes`, `points`, `period(minutes:)`) |
 | 쉼표 목록 | `ListField` |
 | 폴더 | `FolderSetting` |
+
+`Choices`의 목록을 바꿀 때는 예전 값을 빼지 않습니다. 저장된 값이 목록에 없으면 메뉴가 빈칸으로 보입니다 (`--settings-probe`가 지금 저장된 값을 확인).
 
 **꺼졌을 때:** 주 스위치가 꺼지면 거기에 딸린 구역은 `SettingsSection(disabled:)`로 비활성화합니다. 위 항목에 딸린 한 줄은 `Indented`로 들여 씁니다.
 

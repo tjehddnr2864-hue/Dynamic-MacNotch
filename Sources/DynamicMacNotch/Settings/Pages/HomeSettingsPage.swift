@@ -15,18 +15,20 @@ struct HomeSettingsPage: View {
             }
             SettingsSection(T("카메라", "Camera"), disabled: !settings.isHomeFeatureOn("camera")) {
                 Toggle(T("좌우 반전(거울)", "Mirror the camera"), isOn: $settings.cameraMirror)
-                Picker(T("카메라", "Camera"), selection: $settings.cameraDevice) {
-                    Text(T("시스템 기본", "System default")).tag("")
-                    let cameras = Cameras.all()
-                    ForEach(cameras, id: \.uniqueID) { Text($0.localizedName).tag($0.uniqueID) }
-                    // 고른 카메라가 지금 연결돼 있지 않으면 이름 대신 표시 (노치에서는 기본 카메라를 쓴다)
-                    if !settings.cameraDevice.isEmpty, !cameras.contains(where: { $0.uniqueID == settings.cameraDevice }) {
-                        Text(T("연결 안 된 카메라", "Camera not connected")).tag(settings.cameraDevice)
-                    }
-                }
+                ListChoice(T("카메라", "Camera"), selection: $settings.cameraDevice, items: cameraItems, style: .menu)
             }
         }
         .settingsForm()
+    }
+
+    /// 시스템 기본 + 연결된 카메라. 고른 카메라가 지금 없으면 그 자리를 남겨 표시한다 (노치에서는 기본 카메라를 쓴다)
+    private var cameraItems: [(value: String, label: String)] {
+        let cameras = Cameras.all()
+        var items: [(value: String, label: String)] = [("", T("시스템 기본", "System default"))] + cameras.map { ($0.uniqueID, $0.localizedName) }
+        if !settings.cameraDevice.isEmpty, !cameras.contains(where: { $0.uniqueID == settings.cameraDevice }) {
+            items.append((settings.cameraDevice, T("연결 안 된 카메라", "Camera not connected")))
+        }
+        return items
     }
 
     @ViewBuilder
@@ -36,11 +38,10 @@ struct HomeSettingsPage: View {
             .foregroundStyle(settings.isHomeFeatureOn(option.key) ? .primary : .secondary)
         Spacer()
         if option == .tray {
-            Picker("", selection: $settings.trayMode) {
-                ForEach(TrayMode.allCases) { Text($0.label).tag($0) }
-            }
-            .labelsHidden()
-            .fixedSize()
+            // 줄 안이라 이름은 숨기지만 VoiceOver는 읽는다 (인벤토리 §1-⑥)
+            Choice(option.title, selection: $settings.trayMode, style: .menu)
+                .labelsHidden()
+                .fixedSize()
         } else {
             Toggle("", isOn: Binding(get: { settings.isHomeFeatureOn(option.key) }, set: { settings.setHomeFeature(option.key, on: $0) }))
                 .labelsHidden()

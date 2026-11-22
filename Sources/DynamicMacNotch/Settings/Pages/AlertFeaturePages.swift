@@ -46,7 +46,7 @@ struct BluetoothSettingsPage: View {
             SettingsSection(SectionTitle.style, footer: T("배터리 표시는 컴팩트에 적용되고, 상세에서는 항상 백분율로 보입니다.", "Battery display applies to Compact; Detailed always shows a percentage."),
                             disabled: !settings.btEnabled) {
                 AlertStylePicker(selection: $settings.btStyle)
-                SegmentedChoice(T("배터리 표시", "Battery display"), selection: $settings.btBattery)
+                Choice(T("배터리 표시", "Battery display"), selection: $settings.btBattery)
             }
             SettingsSection(SectionTitle.details, disabled: !settings.btEnabled) {
                 ListField(title: T("알림을 끌 기기 이름", "Devices to ignore"), text: $settings.btBlocklist)
@@ -149,24 +149,18 @@ struct HUDSettingsPage: View {
             }
             SettingsSection(SectionTitle.style, disabled: !anyOn) {
                 if #available(macOS 26.0, *) {
-                    SegmentedChoice(T("디자인", "Design"), selection: $settings.hudDesign)
+                    Choice(T("디자인", "Design"), selection: $settings.hudDesign)
                 }
                 if LiquidHUD.isEnabled {
-                    SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudLiquidValue)
-                    ValueSlider(title: T("명도", "Brightness"), value: $settings.hudLiquidBrightness, range: 0...1, step: 0.05) {
-                        "\(Int(($0 * 100).rounded()))%"
-                    }
-                    ValueSlider(title: T("투명도", "Transparency"), value: $settings.hudLiquidClearness, range: 0...1, step: 0.05) {
-                        "\(Int(($0 * 100).rounded()))%"
-                    }
+                    Choice(T("수치 표시", "Value style"), selection: $settings.hudLiquidValue)
+                    ValueSlider(title: T("명도", "Brightness"), value: $settings.hudLiquidBrightness, range: 0...1, step: 0.05, format: Format.percent)
+                    ValueSlider(title: T("투명도", "Transparency"), value: $settings.hudLiquidClearness, range: 0...1, step: 0.05, format: Format.percent)
                 } else {
-                    SegmentedChoice(T("수치 표시", "Value style"), selection: $settings.hudStyle)
+                    Choice(T("수치 표시", "Value style"), selection: $settings.hudStyle)
                 }
-                SegmentedChoice(T("화면 밝기 단위", "Display brightness unit"), selection: $settings.hudBrightnessUnit)
+                Choice(T("화면 밝기 단위", "Display brightness unit"), selection: $settings.hudBrightnessUnit)
                     .disabled(!settings.hudDisplay)
-                ValueMenu(title: T("표시 시간", "Duration"), selection: $settings.hudDuration, values: [1.0, 1.5, 2.5, 4.0]) {
-                    L10n.seconds($0, digits: 1)
-                }
+                ValueMenu(title: T("표시 시간", "Duration"), selection: $settings.hudDuration, values: Choices.duration, label: Format.seconds)
             }
             SettingsSection(SectionTitle.details, footer: T("자동 밝기로 바뀐 값은 표시하지 않습니다. 니트는 내장 디스플레이의 현재 밝기이며, 읽을 수 없는 디스플레이에서는 백분율로 보입니다.",
                                                            "Changes made by automatic brightness are not shown. Nits are the built-in display's current brightness; displays that don't report it show a percentage.")) {

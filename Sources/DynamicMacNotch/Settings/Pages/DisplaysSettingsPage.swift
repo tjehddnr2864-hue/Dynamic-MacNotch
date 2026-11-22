@@ -38,13 +38,10 @@ struct DisplaysSettingsPage: View {
 
     private var placementSection: some View {
         SettingsSection(SectionTitle.show, footer: list.count > 1 ? nil : T("디스플레이를 2개 이상 연결하면 고를 수 있습니다.", "Connect two or more displays to choose.")) {
-            Picker(T("노치를 표시할 디스플레이", "Show the notch on"), selection: Binding(get: { currentSelection }, set: { settings.notchDisplays = $0 })) {
-                ForEach(list) { Text($0.label).tag(Displays.selection(uuid: $0.uuid)) }
-                if list.count > 1 {
-                    Text(T("모든 디스플레이", "All Displays")).tag("all")
-                }
-            }
-            .disabled(list.count < 2)
+            ListChoice(T("노치를 표시할 디스플레이", "Show the notch on"), selection: Binding(get: { currentSelection }, set: { settings.notchDisplays = $0 }),
+                       items: list.map { (Displays.selection(uuid: $0.uuid), $0.label) } + (list.count > 1 ? [("all", T("모든 디스플레이", "All Displays"))] : []),
+                       style: .menu)
+                .disabled(list.count < 2)
         }
     }
 
@@ -79,7 +76,7 @@ struct DisplaysSettingsPage: View {
     private func row(_ display: DisplayInfo) -> some View {
         let uuid = display.uuid
         let isLastNotch = enabled == [uuid]
-        return Picker(display.name + (display.isMain ? T(" (주 디스플레이)", " (Main)") : ""),
+        return ChoiceMenu(display.name + (display.isMain ? T(" (주 디스플레이)", " (Main)") : ""),
                       selection: Binding(
                         get: { settings.displayRules.monitorMapped(settings.displayContent[uuid] ?? (display.isMain ? DisplayChoice.all : DisplayChoice.followMain)) },
                         set: { value in
@@ -118,7 +115,7 @@ struct DisplaysSettingsPage: View {
         SettingsSection(T("디스플레이별 알림", "Alerts by Display"),
                         footer: T("중요한 알림은 일회성 알림 범위와 상시 표시 선택보다 우선합니다. '노치 없음'인 디스플레이에는 뜨지 않습니다.",
                                   "Important alerts take priority over the alert range and Live Activity choice, but never appear on a display set to No Notch.")) {
-            MenuChoice(T("일회성 알림 범위", "Show alerts on"), selection: $settings.alertScope)
+            Choice(T("일회성 알림 범위", "Show alerts on"), selection: $settings.alertScope, style: .menu)
             Toggle(T("중요한 알림은 노치를 켠 모든 디스플레이에 표시", "Show important alerts on all displays with a notch"), isOn: $settings.criticalAlertsEnabled)
             DisclosureGroup(T("중요한 알림 항목", "Important Alerts")) {
                 ForEach(CriticalAlert.all, id: \.self) { id in

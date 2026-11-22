@@ -14,11 +14,11 @@ struct MediaSettingsPage: View {
                 }
             }
             SettingsSection(SectionTitle.style) {
-                ValueMenu(title: T("일시정지 후 숨김", "Hide after pause"), selection: $settings.mediaHideAfterPause, values: [10, 30, 60],
-                          zero: T("숨기지 않음", "Never")) { T("\(Int($0))초", "\(Int($0))s") }
+                ValueMenu(title: T("일시정지 후 숨김", "Hide after pause"), selection: $settings.mediaHideAfterPause, values: Choices.mediaHide,
+                          zero: T("숨기지 않음", "Never"), label: Format.seconds)
             }
             SettingsSection(SectionTitle.details) {
-                SegmentedChoice(T("재생 소스", "Source"), selection: $settings.mediaSource)
+                Choice(T("재생 소스", "Source"), selection: $settings.mediaSource)
             }
             PreviewSection([(.mediaStart, T("재생 테스트 시작", "Start Playback Test")), (.mediaStop, T("테스트 중지", "Stop Test"))])
         }
@@ -63,8 +63,8 @@ struct TraySettingsPage: View {
         Form {
             SettingsSection(SectionTitle.show, footer: T("에어드랍·트레이와 AI 채팅이 모두 켜져 있으면, 파일을 든 채 노치 옆의 세로 막대로 커서를 옮겨 다른 화면으로 바꿀 수 있습니다. 막대의 방향은 홈 페이지 순서를 따릅니다.",
                                                         "When AirDrop & Tray and AI Chat are both on, move the cursor to the vertical bar beside the notch while holding a file to switch screens. The bar's side follows the Home page order.")) {
-                SegmentedChoice(T("에어드랍·트레이", "AirDrop & Tray"), selection: $settings.trayMode)
-                SegmentedChoice(T("파일을 끌어왔을 때 보일 화면", "Screen shown when dragging a file"), selection: dragPage)
+                Choice(T("에어드랍·트레이", "AirDrop & Tray"), selection: $settings.trayMode)
+                Choice(T("파일을 끌어왔을 때 보일 화면", "Screen shown when dragging a file"), selection: dragPage)
                     .disabled(settings.trayMode == .off || !settings.chatEnabled)
             }
             SettingsSection(SectionTitle.style) {
@@ -74,8 +74,8 @@ struct TraySettingsPage: View {
                             disabled: settings.trayMode == .off) {
                 Toggle(T("트레이에 복사본 보관 (원본이 옮겨져도 유지)", "Keep copies in the tray (survive moves)"), isOn: $settings.trayKeepCopies)
                 ValueMenu(title: T("트레이 자동 정리", "Auto-clean tray"), selection: $settings.trayCleanupMinutes,
-                          values: [5, 10, 30, 60, 1440, 10080], zero: T("끄기", "Off"), label: Self.cleanupLabel)
-                ValueSlider(title: T("드래그 감지 높이", "Drag detection height"), value: $settings.dragZoneHeight, range: 60...200, step: 10) { "\(Int($0))pt" }
+                          values: Choices.trayCleanup, zero: T("끄기", "Off")) { Format.period(minutes: $0) }
+                ValueSlider(title: T("드래그 감지 높이", "Drag detection height"), value: $settings.dragZoneHeight, range: 60...200, step: 10, format: Format.points)
             }
             PreviewSection([(.airdropSend, T("에어드랍 보내기", "AirDrop Send")), (.airdropReceive, T("에어드랍 받기", "AirDrop Receive"))])
         }
@@ -83,16 +83,6 @@ struct TraySettingsPage: View {
     }
 }
 
-private extension TraySettingsPage {
-    static func cleanupLabel(_ minutes: Double) -> String {
-        switch Int(minutes) {
-        case 60: return T("1시간", "1 hour")
-        case 1440: return T("1일", "1 day")
-        case 10080: return T("7일", "7 days")
-        default: return T("\(Int(minutes))분", "\(Int(minutes)) min")
-        }
-    }
-}
 
 struct ScreenshotSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
@@ -103,10 +93,10 @@ struct ScreenshotSettingsPage: View {
                 Toggle(T("스크린샷 미리보기", "Screenshot preview"), isOn: $settings.screenshotEnabled)
             }
             SettingsSection(SectionTitle.style, disabled: !settings.screenshotEnabled) {
-                ValueMenu(title: T("자동 닫힘", "Auto-close"), selection: $settings.screenshotAutoClose, values: [5, 10, 30]) { T("\(Int($0))초", "\(Int($0))s") }
+                ValueMenu(title: T("자동 닫힘", "Auto-close"), selection: $settings.screenshotAutoClose, values: Choices.screenshotClose, label: Format.seconds)
             }
             SettingsSection(SectionTitle.details, disabled: !settings.screenshotEnabled) {
-                SegmentedChoice(T("감지 대상", "Detect"), selection: $settings.screenshotSource)
+                Choice(T("감지 대상", "Detect"), selection: $settings.screenshotSource)
                 FolderSetting(title: T("저장 폴더", "Save folder"), path: $settings.screenshotFolder,
                               defaultPath: AppSettings.defaultRecordingFolder)
                 Toggle(T("JPEG로 저장", "Save as JPEG"), isOn: $settings.screenshotJPEG)
@@ -127,7 +117,7 @@ struct RecordingSettingsPage: View {
             }
             SettingsSection(SectionTitle.style, footer: T("계속 표시는 녹화하는 동안 노치에 녹화 시간을 보여 줍니다.", "Keep Showing displays the elapsed time in the notch while recording."),
                             disabled: !settings.recordingEnabled) {
-                SegmentedChoice(T("표시 형태", "Style"), selection: $settings.recordingStyle)
+                Choice(T("표시 형태", "Style"), selection: $settings.recordingStyle)
             }
             SettingsSection(SectionTitle.details, disabled: !settings.recordingEnabled) {
                 FolderSetting(title: T("저장 폴더", "Save folder"), path: $settings.recordingFolder,
@@ -158,13 +148,9 @@ struct LockSettingsPage: View {
                 Indented(enabled: settings.lyricsEnabled) {
                     Toggle(T("실시간(시간 동기) 가사 가져오기", "Fetch live (time-synced) lyrics"), isOn: $settings.lyricsOnline)
                 }
-                Picker(T("가사 글자 크기", "Lyrics size"), selection: $settings.lyricsSize) {
-                    Text(T("작게", "Small")).tag(0)
-                    Text(T("보통", "Medium")).tag(1)
-                    Text(T("크게", "Large")).tag(2)
-                }
-                .pickerStyle(.segmented)
-                .disabled(!settings.lyricsEnabled)
+                ListChoice(T("가사 글자 크기", "Lyrics size"), selection: $settings.lyricsSize,
+                           items: [(0, T("작게", "Small")), (1, T("보통", "Medium")), (2, T("크게", "Large"))])
+                    .disabled(!settings.lyricsEnabled)
             }
             PreviewSection([(.lock, T("자물쇠·위젯 (5초)", "Padlock & Widget (5s)"))])
         }
@@ -181,7 +167,7 @@ struct CalendarSettingsPage: View {
         Form {
             SettingsSection(SectionTitle.show, footer: T("끄면 일정 감시와 알림도 멈춥니다.", "When off, calendar watching and alerts stop too.")) {
                 HomePageToggle(settings: settings, key: "calendar", title: T("홈에 오늘 일정 페이지 표시", "Show Today in Home"))
-                ValueMenu(title: T("일정 알림", "Event alerts"), selection: $settings.calendarAlertMinutes, values: [5, 10, 15], zero: T("끄기", "Off")) {
+                ValueMenu(title: T("일정 알림", "Event alerts"), selection: $settings.calendarAlertMinutes, values: Choices.calendarAlert, zero: T("끄기", "Off")) {
                     T("\(Int($0))분 전", "\(Int($0)) min before")
                 }
                 .disabled(!isOn)

@@ -37,13 +37,11 @@ struct ChatSettingsPage: View {
             SettingsSection(SectionTitle.show, footer: T("입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다.",
                                                         "Your questions, recent messages and files you attach are sent to the company you choose below. The clipboard, screen and files are never sent on their own. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer.")) {
                 HomePageToggle(settings: settings, key: "chat", title: T("홈에 AI 채팅 페이지 표시", "Show AI Chat in Home"))
-                SegmentedChoice(T("다시 열 때 보여 줄 화면", "When reopened, show"), selection: $settings.chatReopen)
+                Choice(T("다시 열 때 보여 줄 화면", "When reopened, show"), selection: $settings.chatReopen)
             }
             Section {
-                Picker(T("서비스", "Service"), selection: $settings.chatService) {
-                    ForEach(ChatService.allCases) { Text($0.name).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                ListChoice(T("서비스", "Service"), selection: $settings.chatService,
+                           items: ChatService.allCases.map { ($0, $0.name) })
             } header: { Text(T("사용할 서비스", "Service to Use")) }
 
             Section {

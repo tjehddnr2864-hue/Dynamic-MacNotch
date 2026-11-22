@@ -33,6 +33,7 @@ SWIFT_FLAGS=(
   -Xswiftc -debug-prefix-map -Xswiftc "$PWD=."
 )
 [ "$DEV" = 1 ] && SWIFT_FLAGS+=(-Xswiftc -DDEV)
+scripts/check-settings-ui.sh   # 설정 화면 규칙 / settings screen rules
 swift build "${SWIFT_FLAGS[@]}"
 BIN="$(swift build "${SWIFT_FLAGS[@]}" --show-bin-path)"
 

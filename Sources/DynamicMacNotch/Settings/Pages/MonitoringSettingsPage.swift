@@ -25,9 +25,8 @@ struct MonitoringSettingsPage: View {
                         slotPicker(T("오른쪽", "Right"), left: false, slots: slots, content: content)
                     }
                     if hasAISlot {
-                        Picker(T("AI 서비스", "AI service"), selection: $settings.aiUsageService) {
-                            ForEach(AIService.allCases) { Text($0.name).tag($0.rawValue) }
-                        }
+                        ListChoice(T("AI 서비스", "AI service"), selection: $settings.aiUsageService,
+                                   items: AIService.allCases.map { ($0.rawValue, $0.name) })
                         let service = AIService(rawValue: settings.aiUsageService) ?? .claude
                         aiSidePicker(content == .ai ? T("왼쪽", "Left") : T("AI 사용량 ①", "AI usage ①"), service: service, left: true)
                         aiSidePicker(content == .ai ? T("오른쪽", "Right") : T("AI 사용량 ②", "AI usage ②"), service: service, left: false)
@@ -36,18 +35,14 @@ struct MonitoringSettingsPage: View {
                 .disabled(!settings.aiUsagePinned)
             }
             SettingsSection(SectionTitle.style, disabled: content == nil) {
-                SegmentedChoice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
+                Choice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
                 expandPicker(aiOn: aiOn, resourceOn: resourceOn)
             }
             SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 시스템 모니터링은 노치에 보이는 동안만 읽습니다.",
                                                            "AI usage is read by signing in to each service's website. Sign-in data stays in this app's own web storage. With the Live Activity off, AI usage refreshes only when you open its Home page. System Monitoring is read only while it's visible in the notch.")) {
-                ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: [1, 2, 5, 10]) {
-                    T("\(Int($0))분", "\(Int($0)) min")
-                }
+                ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: Choices.refresh, label: Format.minutes)
                 .disabled(!aiOn)
-                ValueMenu(title: T("시스템 모니터링 새로고침", "Refresh System Monitoring every"), selection: $settings.resourceRefreshSeconds, values: [1, 2, 5, 10]) {
-                    T("\(Int($0))초", "\(Int($0)) s")
-                }
+                ValueMenu(title: T("시스템 모니터링 새로고침", "Refresh System Monitoring every"), selection: $settings.resourceRefreshSeconds, values: Choices.refresh, label: Format.seconds)
                 .disabled(!resourceOn)
                 accounts.disabled(!aiOn)
             }
@@ -76,10 +71,7 @@ struct MonitoringSettingsPage: View {
     private func contentPicker(aiOn: Bool, resourceOn: Bool, content: MonitorContent?) -> some View {
         let available = MonitorLayout.availableContents(aiOn: aiOn, resourceOn: resourceOn)
         if available.count > 1 {
-            Picker(T("표시할 항목", "Show"), selection: Binding(get: { content ?? .ai }, set: { settings.monitorContent = $0 })) {
-                ForEach(available) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            Choice(T("표시할 항목", "Show"), selection: Binding(get: { content ?? .ai }, set: { settings.monitorContent = $0 }), options: available)
         } else {
             LabeledContent(T("표시할 항목", "Show")) {
                 Text(content?.label ?? "–").foregroundStyle(.secondary)
@@ -90,13 +82,10 @@ struct MonitoringSettingsPage: View {
     /// 칸 하나. 반대편에서 고른 항목은 목록에 없다.
     private func slotPicker(_ title: String, left: Bool, slots: (left: MonitorMetric, right: MonitorMetric), content: MonitorContent) -> some View {
         let other = left ? slots.right : slots.left
-        return Picker(title, selection: Binding(get: { left ? slots.left : slots.right },
-                                                set: { settings.setMonitorSlot($0, left: left) })) {
-            // macOS 메뉴는 흐리게 한 항목도 고를 수 있어 반대쪽에서 고른 항목은 아예 뺀다
-            ForEach(MonitorLayout.choices(for: content).filter { $0 != other }) { metric in
-                Text(metric.label).tag(metric)
-            }
-        }
+        // macOS 메뉴는 흐리게 한 항목도 고를 수 있어 반대쪽에서 고른 항목은 아예 뺀다
+        return Choice(title, selection: Binding(get: { left ? slots.left : slots.right },
+                                                set: { settings.setMonitorSlot($0, left: left) }),
+                      options: MonitorLayout.choices(for: content).filter { $0 != other }, style: .menu)
     }
 
     /// AI 칸 하나: 자동, 서비스 기호, 이 서비스의 한도들. 반대쪽에서 고른 것은 목록에 없다.
@@ -108,11 +97,9 @@ struct MonitoringSettingsPage: View {
         if let current, !choices.contains(where: { $0.id == current }) {
             choices.append((current, T("지금 없는 한도", "Not available now")))
         }
-        return Picker(title, selection: Binding(get: { current ?? "" },
-                                                set: { settings.setAISide($0.isEmpty ? nil : $0, service: service, left: left) })) {
-            Text(T("자동", "Automatic")).tag("")
-            ForEach(choices.filter { $0.id != other }, id: \.id) { Text($0.label).tag($0.id) }
-        }
+        return ListChoice(title, selection: Binding(get: { current ?? "" },
+                                                    set: { settings.setAISide($0.isEmpty ? nil : $0, service: service, left: left) }),
+                          items: [("", T("자동", "Automatic"))] + choices.filter { $0.id != other }.map { ($0.id, $0.label) }, style: .menu)
     }
 
     // MARK: 표시 방식
@@ -121,11 +108,10 @@ struct MonitoringSettingsPage: View {
     private func expandPicker(aiOn: Bool, resourceOn: Bool) -> some View {
         let options = MonitorLayout.availableExpands(aiOn: aiOn, resourceOn: resourceOn)
         if !options.isEmpty {
-        Picker(T("꾹 눌렀을 때 보일 내용", "On long-press, show"),
+        Choice(T("꾹 눌렀을 때 보일 내용", "On long-press, show"),
                selection: Binding(get: { options.contains(settings.monitorExpand) ? settings.monitorExpand : .follow },
-                                  set: { settings.monitorExpand = $0 })) {
-            ForEach(options) { Text($0.label).tag($0) }
-        }
+                                  set: { settings.monitorExpand = $0 }),
+               options: options, style: .menu)
         }
     }
 
