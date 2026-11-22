@@ -120,8 +120,8 @@
 | `netHotspot` | 표시 | 핫스팟 연결·해제 | Toggle |  | true |  |
 | `vpnPinned` | 상시 표시 | VPN 연결 중 (왼쪽 아이콘, 오른쪽 연결 국가) | Toggle |  | false |  |
 | `hotspotPinned` | 상시 표시 | 핫스팟 연결 중 | Toggle |  | false |  |
-| `netStyle` | 표시 방식 |  | AlertStylePicker | 2 | .compact |  |
-| `netDuration` | 표시 방식 |  | AlertDurationMenu |  | 0.0 |  |
+| `netStyle` | 표시 방식 | 표시 형태 (부품 기본) | AlertStylePicker | 2 | .compact |  |
+| `netDuration` | 표시 방식 | 표시 시간 (부품 기본) | AlertDurationMenu |  | 0.0 |  |
 | `hotspotSSIDs` | 세부 설정 | 핫스팟으로 볼 Wi-Fi 이름 | ListField |  | "" |  |
 
 ### 블루투스 (`bluetooth`)
@@ -139,8 +139,8 @@
 |---|---|---|---|---|---|---|
 | `focusEnabled` | 표시 | 집중 모드 켜짐·꺼짐 | Toggle |  | true |  |
 | `focusPinned` | 상시 표시 | 집중 모드가 켜진 동안 | Toggle |  | false |  |
-| `focusStyle` | 표시 방식 |  | AlertStylePicker | 2 | .compact |  |
-| `focusDuration` | 표시 방식 |  | AlertDurationMenu |  | 0.0 |  |
+| `focusStyle` | 표시 방식 | 표시 형태 (부품 기본) | AlertStylePicker | 2 | .compact |  |
+| `focusDuration` | 표시 방식 | 표시 시간 (부품 기본) | AlertDurationMenu |  | 0.0 |  |
 | `focusExcluded` | 세부 설정 | 표시하지 않을 모드 이름 | ListField |  | "" |  |
 
 ### 통화 (`call`)
@@ -163,7 +163,7 @@
 | 키 | 구역 | 줄 이름 | 부품 | 선택지 | 기본값 | 비고 |
 |---|---|---|---|---|---|---|
 | `downloadEnabled` | 표시 | 다운로드 진행 표시 | Toggle |  | true |  |
-| `downloadStyle` | 표시 방식 |  | ProgressStylePicker | 2 | .ring |  |
+| `downloadStyle` | 표시 방식 | 진행률 표시 (부품 기본) | ProgressStylePicker | 2 | .ring |  |
 | `downloadFolder` | 세부 설정 | 다운로드 폴더 | FolderSetting |  | AppSettings.defaultDownloa… |  |
 | `downloadFolders` | 세부 설정 | 추가로 감시할 폴더 경로 | ListField |  | "" |  |
 
@@ -173,7 +173,7 @@
 |---|---|---|---|---|---|---|
 | `fileDragPage` |  |  |  | 2 | .tray |  |
 | `trayMode` | 표시 | 에어드랍·트레이 | SegmentedChoice | 3 | .on | 다른 페이지에서도 바뀜: 홈 기능 |
-| `airdropStyle` | 표시 방식 |  | ProgressStylePicker | 2 | .ring |  |
+| `airdropStyle` | 표시 방식 | 진행률 표시 (부품 기본) | ProgressStylePicker | 2 | .ring |  |
 | `trayKeepCopies` | 세부 설정 | 트레이에 복사본 보관 (원본이 옮겨져도 유지) | Toggle |  | false |  |
 | `trayCleanupMinutes` | 세부 설정 | 트레이 자동 정리 | ValueMenu |  | (read:) |  |
 | `dragZoneHeight` | 세부 설정 | 드래그 감지 높이 | ValueSlider |  | 120.0 |  |
@@ -205,7 +205,7 @@
 | `batteryLowAlert` | 표시 | 배터리 부족 | Toggle |  | true |  |
 | `batteryLowThreshold` | 표시 | 부족 기준 | ValueSlider |  | 20.0 |  |
 | `batteryChargingPinned` | 상시 표시 | 충전 중 (왼쪽 배터리 %, 오른쪽 완충까지 남은 시간) | Toggle |  | true |  |
-| `batteryStyle` | 표시 방식 |  | AlertStylePicker | 2 | .compact |  |
+| `batteryStyle` | 표시 방식 | 표시 형태 (부품 기본) | AlertStylePicker | 2 | .compact |  |
 
 ### HUD (`hud`)
 
@@ -280,7 +280,7 @@
 | 키 | 구역 | 줄 이름 | 부품 | 선택지 | 기본값 | 비고 |
 |---|---|---|---|---|---|---|
 | `agentAlerts` | 표시 | 작업이 끝나면 알림 (누르면 그 앱 열기) | Toggle |  | true |  |
-| `agentStyle` | 표시 방식 |  | AlertStylePicker | 2 | .compact |  |
+| `agentStyle` | 표시 방식 | 표시 형태 (부품 기본) | AlertStylePicker | 2 | .compact |  |
 
 ### (화면 밖) (`(화면 밖)`)
 
