@@ -10,13 +10,13 @@ struct MonitoringSettingsPage: View {
         let content = settings.effectiveMonitorContent
         let slots = settings.monitorSlots
         let hasAISlot = content == .ai || [slots?.left, slots?.right].contains { $0?.isAI == true }
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("홈 기능의 스위치와 같은 설정입니다. 끄면 그 기능은 노치에서 사라지고 백그라운드에서도 멈춥니다.",
                                                         "Same as the switches in Home Features. A feature that's off disappears from the notch and stops running in the background.")) {
                 HomePageToggle(settings: settings, key: "usage", title: T("AI 사용량", "AI Usage"))
-                HomePageToggle(settings: settings, key: "resource", title: T("시스템 모니터링 (CPU · GPU · 메모리 · 네트워크)", "System Monitoring (CPU, GPU, Memory, Network)"))
+                HomePageToggle(settings: settings, key: "resource", title: T("시스템 모니터링", "System Monitoring"), detail: T("CPU · GPU · 메모리 · 네트워크", "CPU, GPU, memory and network"))
             }
-            SettingsSection(SectionTitle.live, footer: liveFooter(aiOn: aiOn, resourceOn: resourceOn), disabled: content == nil) {
+            SettingsSection(SectionTitle.live, footer: liveFooter(aiOn: aiOn, resourceOn: resourceOn), more: Self.liveMore, disabled: content == nil, disabledNote: T("AI 사용량이나 시스템 모니터링을 켜면 바꿀 수 있습니다.", "Turn on AI Usage or System Monitoring to change this.")) {
                 Toggle(T("노치에 상시 표시", "Show in the notch"), isOn: $settings.aiUsagePinned)
                 Group {
                     contentPicker(aiOn: aiOn, resourceOn: resourceOn, content: content)
@@ -25,9 +25,8 @@ struct MonitoringSettingsPage: View {
                         slotPicker(T("오른쪽", "Right"), left: false, slots: slots, content: content)
                     }
                     if hasAISlot {
-                        Picker(T("AI 서비스", "AI service"), selection: $settings.aiUsageService) {
-                            ForEach(AIService.allCases) { Text($0.name).tag($0.rawValue) }
-                        }
+                        ListChoice(T("AI 서비스", "AI service"), selection: $settings.aiUsageService,
+                                   items: AIService.allCases.map { ($0.rawValue, $0.name) })
                         let service = AIService(rawValue: settings.aiUsageService) ?? .claude
                         aiSidePicker(content == .ai ? T("왼쪽", "Left") : T("AI 사용량 ①", "AI usage ①"), service: service, left: true)
                         aiSidePicker(content == .ai ? T("오른쪽", "Right") : T("AI 사용량 ②", "AI usage ②"), service: service, left: false)
@@ -36,39 +35,37 @@ struct MonitoringSettingsPage: View {
                 .disabled(!settings.aiUsagePinned)
             }
             SettingsSection(SectionTitle.style, disabled: content == nil) {
-                SegmentedChoice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
+                Choice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
                 expandPicker(aiOn: aiOn, resourceOn: resourceOn)
             }
-            SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 시스템 모니터링은 노치에 보이는 동안만 읽습니다.",
+            SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다.", "AI usage is read by signing in to each service's website."), more: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 시스템 모니터링은 노치에 보이는 동안만 읽습니다.",
                                                            "AI usage is read by signing in to each service's website. Sign-in data stays in this app's own web storage. With the Live Activity off, AI usage refreshes only when you open its Home page. System Monitoring is read only while it's visible in the notch.")) {
-                ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: [1, 2, 5, 10]) {
-                    T("\(Int($0))분", "\(Int($0)) min")
-                }
+                ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: Choices.refresh, label: Format.minutes)
                 .disabled(!aiOn)
-                ValueMenu(title: T("시스템 모니터링 새로고침", "Refresh System Monitoring every"), selection: $settings.resourceRefreshSeconds, values: [1, 2, 5, 10]) {
-                    T("\(Int($0))초", "\(Int($0)) s")
-                }
+                ValueMenu(title: T("시스템 모니터링 새로고침", "Refresh System Monitoring every"), selection: $settings.resourceRefreshSeconds, values: Choices.refresh, label: Format.seconds)
                 .disabled(!resourceOn)
                 accounts.disabled(!aiOn)
             }
             PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("시스템 모니터링", "System Monitoring")),
                             (.monitorLive, T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring"))])
         }
-        .settingsForm()
     }
 
     // MARK: 상시 표시
 
+    /// 짧은 요약. 꺼진 기능이 있으면 그 사실을 먼저 알린다.
     private func liveFooter(aiOn: Bool, resourceOn: Bool) -> String {
-        var lines = [T("AI 사용량은 서비스마다 양옆에 보일 한도(5시간, 주간, 모델별 한도 등)나 서비스 기호를 고릅니다. 고를 수 있는 한도는 요금제에 따라 다르며, 사용량을 한 번 불러온 뒤에 나타납니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호를 보입니다. 시스템 모니터링은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
-                       "For AI usage, pick what each side shows for each service: a limit (5-hour, weekly, a model's own limit and so on) or the service mark. The limits you can pick depend on your plan and appear after usage has loaded once. Automatic shows the 5-hour limit on the left and the weekly limit on the right; plans with a single limit show the service mark on the left. System Monitoring is read on this Mac and never sent anywhere.")]
         switch (aiOn, resourceOn) {
-        case (true, false): lines.append(T("시스템 모니터링은 홈 기능에서 꺼져 있습니다.", "System Monitoring is off in Home Features."))
-        case (false, true): lines.append(T("AI 사용량은 홈 기능에서 꺼져 있습니다.", "AI Usage is off in Home Features."))
-        case (false, false): lines.append(T("두 기능이 모두 홈 기능에서 꺼져 있습니다.", "Both features are off in Home Features."))
-        default: break
+        case (true, false): return T("시스템 모니터링은 홈 기능에서 꺼져 있습니다.", "System Monitoring is off in Home Features.")
+        case (false, true): return T("AI 사용량은 홈 기능에서 꺼져 있습니다.", "AI Usage is off in Home Features.")
+        case (false, false): return T("두 기능이 모두 홈 기능에서 꺼져 있습니다.", "Both features are off in Home Features.")
+        default: return T("고를 수 있는 한도는 사용량을 한 번 불러온 뒤 나타납니다.", "Limits to choose from appear after usage loads once.")
         }
-        return lines.joined(separator: " ")
+    }
+
+    private static var liveMore: String {
+        T("AI 사용량은 서비스마다 양옆에 보일 한도(5시간, 주간, 모델별 한도 등)나 서비스 기호를 고릅니다. 고를 수 있는 한도는 요금제에 따라 다르며, 사용량을 한 번 불러온 뒤에 나타납니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제는 왼쪽에 서비스 기호를 보입니다. 시스템 모니터링은 이 Mac 안에서만 읽고 어디로도 보내지 않습니다.",
+          "For AI usage, pick what each side shows for each service: a limit (5-hour, weekly, a model's own limit and so on) or the service mark. The limits you can pick depend on your plan and appear after usage has loaded once. Automatic shows the 5-hour limit on the left and the weekly limit on the right; plans with a single limit show the service mark on the left. System Monitoring is read on this Mac and never sent anywhere.")
     }
 
     /// 켜진 기능만 고를 수 있다. 하나만 켜져 있으면 그 하나를 보여 준다.
@@ -76,10 +73,7 @@ struct MonitoringSettingsPage: View {
     private func contentPicker(aiOn: Bool, resourceOn: Bool, content: MonitorContent?) -> some View {
         let available = MonitorLayout.availableContents(aiOn: aiOn, resourceOn: resourceOn)
         if available.count > 1 {
-            Picker(T("표시할 항목", "Show"), selection: Binding(get: { content ?? .ai }, set: { settings.monitorContent = $0 })) {
-                ForEach(available) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            Choice(T("표시할 항목", "Show"), selection: Binding(get: { content ?? .ai }, set: { settings.monitorContent = $0 }), options: available)
         } else {
             LabeledContent(T("표시할 항목", "Show")) {
                 Text(content?.label ?? "–").foregroundStyle(.secondary)
@@ -90,13 +84,10 @@ struct MonitoringSettingsPage: View {
     /// 칸 하나. 반대편에서 고른 항목은 목록에 없다.
     private func slotPicker(_ title: String, left: Bool, slots: (left: MonitorMetric, right: MonitorMetric), content: MonitorContent) -> some View {
         let other = left ? slots.right : slots.left
-        return Picker(title, selection: Binding(get: { left ? slots.left : slots.right },
-                                                set: { settings.setMonitorSlot($0, left: left) })) {
-            // macOS 메뉴는 흐리게 한 항목도 고를 수 있어 반대쪽에서 고른 항목은 아예 뺀다
-            ForEach(MonitorLayout.choices(for: content).filter { $0 != other }) { metric in
-                Text(metric.label).tag(metric)
-            }
-        }
+        // macOS 메뉴는 흐리게 한 항목도 고를 수 있어 반대쪽에서 고른 항목은 아예 뺀다
+        return Choice(title, selection: Binding(get: { left ? slots.left : slots.right },
+                                                set: { settings.setMonitorSlot($0, left: left) }),
+                      options: MonitorLayout.choices(for: content).filter { $0 != other }, style: .menu)
     }
 
     /// AI 칸 하나: 자동, 서비스 기호, 이 서비스의 한도들. 반대쪽에서 고른 것은 목록에 없다.
@@ -108,11 +99,9 @@ struct MonitoringSettingsPage: View {
         if let current, !choices.contains(where: { $0.id == current }) {
             choices.append((current, T("지금 없는 한도", "Not available now")))
         }
-        return Picker(title, selection: Binding(get: { current ?? "" },
-                                                set: { settings.setAISide($0.isEmpty ? nil : $0, service: service, left: left) })) {
-            Text(T("자동", "Automatic")).tag("")
-            ForEach(choices.filter { $0.id != other }, id: \.id) { Text($0.label).tag($0.id) }
-        }
+        return ListChoice(title, selection: Binding(get: { current ?? "" },
+                                                    set: { settings.setAISide($0.isEmpty ? nil : $0, service: service, left: left) }),
+                          items: [("", T("자동", "Automatic"))] + choices.filter { $0.id != other }.map { ($0.id, $0.label) }, style: .menu)
     }
 
     // MARK: 표시 방식
@@ -121,11 +110,10 @@ struct MonitoringSettingsPage: View {
     private func expandPicker(aiOn: Bool, resourceOn: Bool) -> some View {
         let options = MonitorLayout.availableExpands(aiOn: aiOn, resourceOn: resourceOn)
         if !options.isEmpty {
-        Picker(T("꾹 눌렀을 때 보일 내용", "On long-press, show"),
+        Choice(T("꾹 눌렀을 때 보일 내용", "On long-press, show"),
                selection: Binding(get: { options.contains(settings.monitorExpand) ? settings.monitorExpand : .follow },
-                                  set: { settings.monitorExpand = $0 })) {
-            ForEach(options) { Text($0.label).tag($0) }
-        }
+                                  set: { settings.monitorExpand = $0 }),
+               options: options, style: .menu)
         }
     }
 

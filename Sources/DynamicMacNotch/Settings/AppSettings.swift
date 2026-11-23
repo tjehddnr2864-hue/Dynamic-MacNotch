@@ -24,6 +24,10 @@ final class AppSettings: ObservableObject {
     /// 설정 창 유리 배경: 흐림 정도와 투명도
     @Setting("settingsBlur", default: 1.0, sanitize: { min(1, max(0, $0)) }) var settingsBlur: Double
     @Setting("settingsTransparency", default: 0.35, sanitize: { min(0.9, max(0, $0)) }) var settingsTransparency: Double
+    /// 설정 창 사이드바에서 접어 둔 묶음 (`SettingsGroup.rawValue`)
+    @Setting("settingsCollapsedGroups", default: []) var settingsCollapsedGroups: [String]
+    /// 설정 창을 다시 열 때 보일 마지막 페이지 (`SettingsPage.rawValue`)
+    @Setting("settingsLastPage", default: "") var settingsLastPage: String
 
     // MARK: - 노치 조작
 
@@ -142,7 +146,7 @@ final class AppSettings: ObservableObject {
     @Setting("netVPN", default: true) var netVPN: Bool
     @Setting("netHotspot", default: true) var netHotspot: Bool
     @Setting("netStyle", default: AlertStyle.compact) var netStyle: AlertStyle
-    /// 0 = 일반 설정 따름
+    /// 0 = 기본 표시 시간(노치 조작) 따름
     @Setting("netDuration", default: 0.0, sanitize: { max(0, $0) }) var netDuration: Double
     @Setting("hotspotPinned", default: false) var hotspotPinned: Bool
     @Setting("vpnPinned", default: false) var vpnPinned: Bool
@@ -161,7 +165,7 @@ final class AppSettings: ObservableObject {
 
     @Setting("focusEnabled", default: true) var focusEnabled: Bool
     @Setting("focusStyle", default: AlertStyle.compact) var focusStyle: AlertStyle
-    /// 0 = 일반 설정 따름
+    /// 0 = 기본 표시 시간(노치 조작) 따름
     @Setting("focusDuration", default: 0.0, sanitize: { max(0, $0) }) var focusDuration: Double
     @Setting("focusPinned", default: false) var focusPinned: Bool
     /// 표시하지 않을 모드 이름 (쉼표 구분)
@@ -410,7 +414,7 @@ final class AppSettings: ObservableObject {
 
     // MARK: - 도우미
 
-    /// 0이면 nil(일반 설정 따름).
+    /// 0이면 nil(기본 표시 시간 따름).
     static func duration(_ value: Double) -> TimeInterval? { value > 0 ? value : nil }
 
     static func list(_ csv: String) -> [String] {

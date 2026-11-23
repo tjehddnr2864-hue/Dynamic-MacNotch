@@ -13,7 +13,7 @@ struct DisplaysSettingsPage: View {
     }
 
     var body: some View {
-        Form {
+        SettingsForm {
             placementSection
             if list.count > 1 {
                 contentSection
@@ -21,7 +21,6 @@ struct DisplaysSettingsPage: View {
             }
             fullscreenSection
         }
-        .settingsForm()
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             listState.wrappedValue = Displays.all()
         }
@@ -38,13 +37,10 @@ struct DisplaysSettingsPage: View {
 
     private var placementSection: some View {
         SettingsSection(SectionTitle.show, footer: list.count > 1 ? nil : T("디스플레이를 2개 이상 연결하면 고를 수 있습니다.", "Connect two or more displays to choose.")) {
-            Picker(T("노치를 표시할 디스플레이", "Show the notch on"), selection: Binding(get: { currentSelection }, set: { settings.notchDisplays = $0 })) {
-                ForEach(list) { Text($0.label).tag(Displays.selection(uuid: $0.uuid)) }
-                if list.count > 1 {
-                    Text(T("모든 디스플레이", "All Displays")).tag("all")
-                }
-            }
-            .disabled(list.count < 2)
+            ListChoice(T("노치를 표시할 디스플레이", "Show the notch on"), selection: Binding(get: { currentSelection }, set: { settings.notchDisplays = $0 }),
+                       items: list.map { (Displays.selection(uuid: $0.uuid), $0.label) } + (list.count > 1 ? [("all", T("모든 디스플레이", "All Displays"))] : []),
+                       style: .menu)
+                .disabled(list.count < 2)
         }
     }
 
@@ -52,10 +48,10 @@ struct DisplaysSettingsPage: View {
 
     private var contentSection: some View {
         SettingsSection(T("디스플레이별 상시 표시", "Live Activity by Display"),
-                        footer: T("선택한 항목이 비활성일 때 대신 표시하지 않으면 기본 노치만 뜹니다. '노치 없음'인 디스플레이에는 알림과 상호작용을 포함해 아무것도 뜨지 않습니다. 노치를 표시하지 않는 디스플레이는 고를 수 없습니다.",
+                        footer: T("'노치 없음'인 디스플레이에는 알림도 뜨지 않습니다.", "A display set to No Notch shows no alerts either."), more: T("선택한 항목이 비활성일 때 대신 표시하지 않으면 기본 노치만 뜹니다. '노치 없음'인 디스플레이에는 알림과 상호작용을 포함해 아무것도 뜨지 않습니다. 노치를 표시하지 않는 디스플레이는 고를 수 없습니다.",
                                   "If nothing replaces an inactive item, only the plain notch appears. A display set to No Notch shows nothing at all, including alerts and interactions. Displays that don't show the notch can't be changed.")) {
             ForEach(list) { row($0) }
-            Toggle(T("선택한 항목이 비활성이면 주 디스플레이의 상시 표시를 대신 표시", "Show the main display's Live Activity when the selected item is inactive"),
+            Toggle(T("주 디스플레이로 대신 표시", "Fall back to the main display"), detail: T("고른 항목이 비활성이면 주 디스플레이의 상시 표시를 보입니다.", "When the chosen item is inactive, show the main display's Live Activity."),
                    isOn: $settings.displayFallbackToMain)
         }
     }
@@ -79,7 +75,7 @@ struct DisplaysSettingsPage: View {
     private func row(_ display: DisplayInfo) -> some View {
         let uuid = display.uuid
         let isLastNotch = enabled == [uuid]
-        return Picker(display.name + (display.isMain ? T(" (주 디스플레이)", " (Main)") : ""),
+        return ChoiceMenu(display.name + (display.isMain ? T(" (주 디스플레이)", " (Main)") : ""),
                       selection: Binding(
                         get: { settings.displayRules.monitorMapped(settings.displayContent[uuid] ?? (display.isMain ? DisplayChoice.all : DisplayChoice.followMain)) },
                         set: { value in
@@ -108,18 +104,18 @@ struct DisplaysSettingsPage: View {
 
     private var fullscreenSection: some View {
         SettingsSection(T("전체 화면", "Full Screen"),
-                        footer: T("전체 화면 앱이 떠 있는 디스플레이에서만 상세 알림과 HUD(Liquid 포함)를 노치 안 컴팩트로 보입니다. 다른 디스플레이는 원래 설정대로 뜹니다. 전화 수신 카드와 스크린샷 카드는 버튼이 필요해 그대로 보입니다.",
+                        footer: T("수신 전화·스크린샷 카드는 버튼이 있어 그대로 보입니다.", "Incoming-call and screenshot cards keep their buttons."), more: T("전체 화면 앱이 떠 있는 디스플레이에서만 상세 알림과 HUD(Liquid 포함)를 노치 안 컴팩트로 보입니다. 다른 디스플레이는 원래 설정대로 뜹니다. 전화 수신 카드와 스크린샷 카드는 버튼이 필요해 그대로 보입니다.",
                                   "Only on a display with a full-screen app, detailed alerts and the HUD (including Liquid) show as compact in the notch. Other displays keep their settings. Incoming-call and screenshot cards keep their buttons.")) {
-            Toggle(T("전체 화면에서 알림·HUD를 컴팩트로", "Compact alerts and HUD in full screen"), isOn: $settings.fullscreenCompact)
+            Toggle(T("전체 화면에서 컴팩트로", "Compact in full screen"), detail: T("전체 화면 앱이 있는 디스플레이만 알림·HUD를 컴팩트로 보입니다.", "Only displays with a full-screen app show alerts and the HUD as compact."), isOn: $settings.fullscreenCompact)
         }
     }
 
     private var alertSection: some View {
         SettingsSection(T("디스플레이별 알림", "Alerts by Display"),
-                        footer: T("중요한 알림은 일회성 알림 범위와 상시 표시 선택보다 우선합니다. '노치 없음'인 디스플레이에는 뜨지 않습니다.",
+                        footer: T("'노치 없음'인 디스플레이에는 뜨지 않습니다.", "Never shown on a display set to No Notch."), more: T("중요한 알림은 일회성 알림 범위와 상시 표시 선택보다 우선합니다. '노치 없음'인 디스플레이에는 뜨지 않습니다.",
                                   "Important alerts take priority over the alert range and Live Activity choice, but never appear on a display set to No Notch.")) {
-            MenuChoice(T("일회성 알림 범위", "Show alerts on"), selection: $settings.alertScope)
-            Toggle(T("중요한 알림은 노치를 켠 모든 디스플레이에 표시", "Show important alerts on all displays with a notch"), isOn: $settings.criticalAlertsEnabled)
+            Choice(T("일회성 알림 범위", "Show alerts on"), selection: $settings.alertScope, style: .menu)
+            Toggle(T("중요한 알림 모두 표시", "Important alerts everywhere"), detail: T("노치를 켠 모든 디스플레이에 보입니다.", "Shown on every display with a notch."), isOn: $settings.criticalAlertsEnabled)
             DisclosureGroup(T("중요한 알림 항목", "Important Alerts")) {
                 ForEach(CriticalAlert.all, id: \.self) { id in
                     Toggle(CriticalAlert.label(id), isOn: criticalBinding(id))

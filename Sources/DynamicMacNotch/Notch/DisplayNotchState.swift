@@ -35,7 +35,7 @@ final class DisplayNotchState: ObservableObject {
 
     private func saveHomeOption() { shared.saveHomeOption() }
 
-    // MARK: - 홈 페이지 목록 (설정 → 상호작용 → 홈 기능)
+    // MARK: - 홈 페이지 목록 (설정 → 홈 기능)
 
     /// 보이는 홈 페이지 (설정한 순서, 끈 기능·홈에서 가린 트레이는 빠짐)
     var homePages: [HomeOption] {

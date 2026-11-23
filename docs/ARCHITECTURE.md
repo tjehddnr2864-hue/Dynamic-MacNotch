@@ -65,9 +65,13 @@ NotchHub (1개)
 
 ### 설정 페이지 추가
 
-1. `Settings/SettingsPage.swift`: case, `title`, `symbol`, `top` 또는 `features` 목록
-2. `Settings/Pages/`에 페이지 View
+1. `Settings/SettingsPage.swift`: case, `title`, `summary`(머리 카드 한 줄 설명), `symbol`, 그리고 `SettingsGroup.pages`의 한 묶음에 넣기 (사이드바 묶음: 앱·노치·연결·미디어·캡처·시스템·AI·기타). 새 기호는 `SettingsProbe`의 고정 기호 표에도 적는다 — 기존 기호는 바꾸지 않는다
+2. `Settings/Pages/`에 페이지 View — `SettingsForm { … }`으로 감싼다(맨 위 머리 카드가 저절로 들어감)
 3. `Settings/SettingsView.swift`의 `content`
+
+### 설정 검색
+
+색인은 빌드할 때 `scripts/gen-settings-index.py`가 페이지 코드에서 만듭니다(`Settings/SettingsIndex+Generated.swift`, 손으로 고치지 않음). 부품(`Toggle`·`Choice`·`ValueMenu` 등)에 `T("…", "…")`로 이름을 주면 저절로 검색됩니다. 이름이 실행 중에 정해지는 줄은 `SettingsIndex.manual`에 적고, 설정 화면에 없는 내부 값은 `SettingsIndex.internalKeys`에 넣습니다. `--settings-probe`가 모든 설정이 검색으로 닿는지 확인합니다.
 
 ### 상시 표시 항목 추가
 
@@ -96,17 +100,30 @@ NotchHub (1개)
 
 **기능 페이지 구역 순서:** 표시 → 상시 표시 → 표시 방식 → 세부 설정 → 미리보기. 없는 구역은 뺍니다. 이름은 `SectionTitle`을 씁니다.
 
-**고르는 방법**
+**고르는 방법** — 페이지(`Settings/Pages/`)에서는 아래 부품만 씁니다. `scripts/check-settings-ui.sh`가 빌드할 때마다 확인합니다(직접 쓴 `Picker`·`Slider`·`Stepper`·`.pickerStyle`, 페이지 안의 값 목록 `values: [...]`, 직접 만든 퍼센트 형식이 있으면 빌드가 멈춥니다).
 
 | 값 | 부품 |
 |---|---|
-| 켜기·끄기 | `Toggle` |
-| 종류 2~3개, 글이 짧음 | `SegmentedChoice` |
-| 종류가 많거나 글이 긺 | `MenuChoice` |
-| 시간·개수 같은 정해진 값 | `ValueMenu` (0 값은 `zero`: 끄기, 일반 설정 따름) |
+| 켜기·끄기 | `Toggle` (grouped 폼이 모두 같은 작은 스위치로 그림. 딸린 항목은 `Indented`로 들여 씀) |
+| 종류 고르기 (`SettingOption` enum) | `Choice` — 선택지 3개 이하면 분절 버튼, 4개 이상이면 메뉴가 저절로 된다. 선택지 글이 길면 `style: .menu`. 일부만 보일 때는 `options:` |
+| 실행 중에 정해지는 목록 (기기·서비스·한도·디스플레이) | `ListChoice` (같은 규칙), 구분선이나 고를 수 없는 항목이 섞이면 `ChoiceMenu` |
+| 시간·개수 같은 정해진 값 | `ValueMenu` + `Choices`의 이름 붙은 목록 (0 값은 `zero`: 끄기, 기본값). 표시 시간은 어디서나 `Choices.duration` |
 | 연속된 값 | `ValueSlider` |
+| 값의 글 | `Format` (`percent`, `seconds`, `minutes`, `megabytes`, `points`, `period(minutes:)`) |
 | 쉼표 목록 | `ListField` |
 | 폴더 | `FolderSetting` |
+
+`Choices`의 목록을 바꿀 때는 예전 값을 빼지 않습니다. 저장된 값이 목록에 없으면 메뉴가 빈칸으로 보입니다 (`--settings-probe`가 지금 저장된 값을 확인).
+
+**글** — `scripts/check-settings-ui.sh`가 길이를 확인합니다.
+
+| 자리 | 규칙 |
+|---|---|
+| 줄 이름 | 무엇을 켜고 고르는지의 짧은 명사구, 한국어 14자 이내 ("곡 바뀜 알림", "출력 기기 아이콘"). 조건·괄호 설명은 넣지 않음 |
+| 보조 설명 `detail:` | 줄 이름 바로 아래 11pt 한 문장, 60자 이내, "~합니다/~보입니다." (`Toggle(_:detail:isOn:)`, `Choice`·`ListChoice`·`ValueMenu`·`ValueSlider`·`ListField`·`HomePageToggle`의 `detail:`) |
+| 구역 설명 `footer:` | 한두 줄 요약, 60자 이내. 더 긴 설명·개인정보·동작 원리는 `more:`에 두면 '자세히'로 펼침 |
+| 비활성 이유 `disabledNote:` | 구역이 꺼져 있을 때 "…을 켜면 바꿀 수 있습니다." 한 페이지에 한 번만 |
+| 글 크기 | 최소 11pt (`footnote`, `RowLabel`의 보조 설명은 `.subheadline`) |
 
 **꺼졌을 때:** 주 스위치가 꺼지면 거기에 딸린 구역은 `SettingsSection(disabled:)`로 비활성화합니다. 위 항목에 딸린 한 줄은 `Indented`로 들여 씁니다.
 

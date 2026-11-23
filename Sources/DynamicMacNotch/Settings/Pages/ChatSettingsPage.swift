@@ -33,20 +33,24 @@ struct ChatSettingsPage: View {
 
     var body: some View {
         let hasKey = hasKeyState.wrappedValue
-        Form {
-            SettingsSection(SectionTitle.show, footer: T("입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다.",
+        SettingsForm {
+            SettingsSection(SectionTitle.show, footer: T("질문과 첨부한 파일은 고른 회사로만 전송됩니다.", "Questions and attachments go only to the company you choose."), more: T("입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다.",
                                                         "Your questions, recent messages and files you attach are sent to the company you choose below. The clipboard, screen and files are never sent on their own. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer.")) {
-                HomePageToggle(settings: settings, key: "chat", title: T("홈에 AI 채팅 페이지 표시", "Show AI Chat in Home"))
-                SegmentedChoice(T("다시 열 때 보여 줄 화면", "When reopened, show"), selection: $settings.chatReopen)
+                HomePageToggle(settings: settings, key: "chat", title: T("홈에 AI 채팅", "AI Chat in Home"))
+                Choice(T("다시 열 때 보여 줄 화면", "When reopened, show"), selection: $settings.chatReopen)
             }
             Section {
-                Picker(T("서비스", "Service"), selection: $settings.chatService) {
-                    ForEach(ChatService.allCases) { Text($0.name).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                ListChoice(T("서비스", "Service"), selection: $settings.chatService,
+                           items: ChatService.allCases.map { ($0, $0.name) })
             } header: { Text(T("사용할 서비스", "Service to Use")) }
 
-            Section {
+            SettingsSection(T("\(service.name) 모델", "\(service.name) Model"),
+                            footer: T("서비스마다 모델을 따로 기억합니다.", "Each service remembers its own model."),
+                            more: service == .claude
+                                ? T("답변 속도와 요금은 모델마다 다르며, 기본값인 Haiku가 가장 빠르고 저렴합니다.",
+                                    "Speed and price vary by model; the default, Haiku, is the fastest and cheapest.")
+                                : T("저장한 키로 쓸 수 있는 모델을 불러오며, 직접 입력해도 됩니다. 빠름·균형·고성능은 모델 이름과 설명으로 판단한 참고용이고, 판단할 수 없는 모델은 '기타'에 넣습니다.",
+                                    "Models available to your saved key are loaded here, or you can type an ID. Fast, Balanced and Most Capable are estimated from model names and descriptions; models that can't be judged are under Other.")) {
                 LabeledContent(T("모델", "Model")) {
                     HStack(spacing: 6) {
                         TextField("", text: modelBinding, prompt: Text(T("모델 ID", "Model ID")))
@@ -70,15 +74,12 @@ struct ChatSettingsPage: View {
                     }
                     .font(.caption)
                 }
-            } header: { Text(T("\(service.name) 모델", "\(service.name) Model")) } footer: {
-                footnote(service == .claude
-                         ? T("서비스마다 모델을 따로 기억합니다. 답변 속도와 요금은 모델마다 다르며, 기본값인 Haiku가 가장 빠르고 저렴합니다.",
-                             "Each service remembers its own model. Speed and price vary by model; the default, Haiku, is the fastest and cheapest.")
-                         : T("서비스마다 모델을 따로 기억합니다. 저장한 키로 쓸 수 있는 모델을 불러오며, 직접 입력해도 됩니다. 빠름·균형·고성능은 모델 이름과 설명으로 판단한 참고용이고, 판단할 수 없는 모델은 '기타'에 넣습니다.",
-                             "Each service remembers its own model. Models available to your saved key are loaded here, or you can type an ID. Fast, Balanced and Most Capable are estimated from model names and descriptions; models that can't be judged are under Other."))
             }
 
-            Section {
+            SettingsSection(T("\(service.company) API 키", "\(service.company) API Key"),
+                            footer: T("키는 이 Mac의 키체인에만 저장됩니다.", "Your key stays in this Mac's Keychain."),
+                            more: T("키는 질문할 때 \(service.company)에만 전송됩니다. API 사용 요금은 월정액 구독과 별도로 \(service.company)가 키 주인에게 청구합니다. 연결 테스트는 키와 모델만 확인하며 요금이 들지 않습니다.",
+                                    "Your key is sent only to \(service.company) when you ask a question. API usage is billed to the key's owner by \(service.company), separately from any subscription. The connection test only checks the key and model, at no cost.")) {
                 LabeledContent(T("상태", "Status")) {
                     HStack(spacing: 8) {
                         Text(hasKey ? T("저장됨", "Saved") : T("저장된 키 없음", "No key saved"))
@@ -112,13 +113,10 @@ struct ChatSettingsPage: View {
                     }
                 }
                 Link(T("\(service.company) API 키 발급 페이지", "Get an API key from \(service.company)"), destination: service.keysURL)
-            } header: { Text(T("\(service.company) API 키", "\(service.company) API Key")) } footer: {
-                footnote(T("키는 이 Mac의 키체인에만 저장되고, 질문할 때 \(service.company)에만 전송됩니다. API 사용 요금은 월정액 구독과 별도로 \(service.company)가 키 주인에게 청구합니다. 연결 테스트는 키와 모델만 확인하며 요금이 들지 않습니다.",
-                           "Your key is stored only in this Mac's Keychain and is sent only to \(service.company) when you ask a question. API usage is billed to the key's owner by \(service.company), separately from any subscription. The connection test only checks the key and model, at no cost."))
             }
-            SettingsSection(T("답변", "Answers"), footer: T("웹 검색은 각 서비스의 검색 도구를 쓰며 별도 요금이 붙을 수 있습니다. 답변 지침은 모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 최대 \(AppSettings.chatInstructionsLimit)자입니다 (지금 \(settings.chatInstructions.count)자).",
+            SettingsSection(T("답변", "Answers"), footer: T("답변 지침은 질문과 함께 전송됩니다 (지금 \(settings.chatInstructions.count)/\(AppSettings.chatInstructionsLimit)자).", "Instructions are sent with each question (\(settings.chatInstructions.count)/\(AppSettings.chatInstructionsLimit) characters)."), more: T("웹 검색은 각 서비스의 검색 도구를 쓰며 별도 요금이 붙을 수 있습니다. 답변 지침은 모든 서비스의 답변에 적용되며, 질문할 때마다 고른 회사로 함께 전송됩니다. 최대 \(AppSettings.chatInstructionsLimit)자입니다 (지금 \(settings.chatInstructions.count)자).",
                                                            "Web search uses each service's search tool and may cost extra. Answer instructions apply to every service and are sent to the company you choose with each question. Up to \(AppSettings.chatInstructionsLimit) characters (now \(settings.chatInstructions.count)).")) {
-                Toggle(T("필요할 때만 웹 검색 (최근 소식, 확실하지 않은 내용)", "Use web search only when needed (recent or uncertain topics)"), isOn: $settings.chatWebSearch)
+                Toggle(T("필요할 때 웹 검색", "Web search when needed"), detail: T("최근 소식이나 확실하지 않은 내용만 검색합니다.", "Only for recent or uncertain topics."), isOn: $settings.chatWebSearch)
                 ZStack(alignment: .topLeading) {
                     if settings.chatInstructions.isEmpty {
                         Text(T("답변 지침 예: 항상 존댓말로 짧게 답해 줘. 코드는 Swift로 보여 줘.", "Answer instructions, e.g. Keep answers short. Show code in Swift."))
@@ -131,7 +129,7 @@ struct ChatSettingsPage: View {
                         .frame(height: 84)
                 }
             }
-            SettingsSection(T("저장된 대화", "Saved Conversations"), footer: T("대화와 첨부 파일은 메모처럼 이 Mac에 암호화 없이 저장되며, 노치의 채팅 목록에서 하나씩 지울 수도 있습니다. 모두 삭제해도 메모·설정·API 키는 지우지 않습니다.",
+            SettingsSection(T("저장된 대화", "Saved Conversations"), footer: T("대화는 이 Mac에 암호화 없이 저장됩니다.", "Chats are saved unencrypted on this Mac."), more: T("대화와 첨부 파일은 메모처럼 이 Mac에 암호화 없이 저장되며, 노치의 채팅 목록에서 하나씩 지울 수도 있습니다. 모두 삭제해도 메모·설정·API 키는 지우지 않습니다.",
                                                                           "Conversations and attachments are saved unencrypted on this Mac like memos, and you can delete them one by one from the chat list in the notch. Delete All keeps memos, settings and API keys.")) {
                 LabeledContent(T("저장 용량", "Storage")) {
                     HStack(spacing: 8) {
@@ -159,7 +157,6 @@ struct ChatSettingsPage: View {
             }
             PreviewSection([(.chatDone, T("답변 완료 알림", "Answer Ready Alert"))])
         }
-        .settingsForm()
         .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
             Button(T("모두 삭제", "Delete All"), role: .destructive, action: clearStoredChats)
             Button(T("취소", "Cancel"), role: .cancel) {}

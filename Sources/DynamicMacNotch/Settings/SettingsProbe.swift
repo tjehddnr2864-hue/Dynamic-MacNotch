@@ -142,6 +142,71 @@ enum SettingsProbe {
             old.removePersistentDomain(forName: suite)
         }
 
+        // 설정 창 페이지: 아이콘 기호는 바꾸지 않는다 (docs/SETTINGS_REDESIGN_GUIDELINE.md §1.2). 2026-11 개편 전 24개 + 새 페이지
+        let frozenSymbols: [String: String] = [
+            "general": "gearshape", "displays": "display.2", "priority": "list.number", "home": "square.grid.2x2",
+            "network": "wifi", "bluetooth": "airpodspro", "focus": "moon", "call": "phone", "media": "music.note",
+            "download": "arrow.down.circle", "airdrop": "tray.and.arrow.down", "screenshot": "camera.viewfinder",
+            "recording": "record.circle", "battery": "battery.75percent", "hud": "speaker.wave.2", "lock": "lock",
+            "calendar": "calendar", "aiUsage": "gauge.medium", "chat": "bubble.left.and.text.bubble.right", "agent": "terminal",
+            "preview": "play.rectangle", "permissions": "hand.raised", "about": "info.circle",
+            "notchControls": "hand.tap",
+        ]
+        for page in SettingsPage.allCases {
+            check(frozenSymbols[page.rawValue] == page.symbol, "settings page icon unchanged: \(page.rawValue)")
+        }
+        let grouped = SettingsGroup.allCases.flatMap(\.pages)
+        check(grouped.count == SettingsPage.allCases.count && Set(grouped) == Set(SettingsPage.allCases), "every settings page is in exactly one sidebar group")
+        check(SettingsGroup.allCases.allSatisfy { !$0.pages.isEmpty && !$0.title.isEmpty }, "sidebar groups have pages and titles")
+        check(SettingsPage(rawValue: "interaction") == nil, "old Interactions page is gone (its pages are in groups)")
+
+        // 값 목록: 예전 목록의 값과 지금 저장된 값이 모두 메뉴에 있어야 빈칸이 안 된다 (가이드라인 §1.3)
+        for old in [1.0, 1.5, 2.5, 4.0, 6.0] { check(Choices.duration.contains(old), "duration list keeps old value \(old)") }
+        func inList(_ value: Double, _ list: [Double], zero: Bool, _ name: String) {
+            check(list.contains(value) || (zero && value == 0), "saved \(name)=\(value) is in its menu")
+        }
+        inList(settings.transientDuration, Choices.duration, zero: false, "transientDuration")
+        inList(settings.hudDuration, Choices.duration, zero: false, "hudDuration")
+        inList(settings.netDuration, Choices.duration, zero: true, "netDuration")
+        inList(settings.focusDuration, Choices.duration, zero: true, "focusDuration")
+        inList(settings.memoryLimitMB, Choices.memoryLimit, zero: false, "memoryLimitMB")
+        inList(settings.aiRefreshMinutes, Choices.refresh, zero: false, "aiRefreshMinutes")
+        inList(settings.resourceRefreshSeconds, Choices.refresh, zero: false, "resourceRefreshSeconds")
+        inList(settings.mediaHideAfterPause, Choices.mediaHide, zero: true, "mediaHideAfterPause")
+        inList(settings.screenshotAutoClose, Choices.screenshotClose, zero: false, "screenshotAutoClose")
+        inList(settings.calendarAlertMinutes, Choices.calendarAlert, zero: true, "calendarAlertMinutes")
+        inList(settings.trayCleanupMinutes, Choices.trayCleanup, zero: true, "trayCleanupMinutes")
+        check(Format.seconds(1) == T("1초", "1s") && Format.seconds(1.5) == T("1.5초", "1.5s") && Format.seconds(0.35, digits: 2) == T("0.35초", "0.35s"), "seconds format")
+        check(Format.percent(0.355) == "36%" && Format.period(minutes: 10080) == T("7일", "7 days") && Format.period(minutes: 60) == T("1시간", "1 hour"), "percent and period format")
+
+        // 설정 검색 (가이드라인 §10.3)
+        let index = SettingsIndex.all
+        let indexed = Set(index.flatMap(\.keys))
+        let missing = keys.filter { !indexed.contains($0) && !SettingsIndex.internalKeys.contains($0) }
+        check(missing.isEmpty, "every setting is reachable by search (missing: \(missing.joined(separator: ", ")))")
+        check(indexed.isSubset(of: Set(keys)), "search index names only real settings")
+        check(Set(index.map(\.id)).count == index.count, "search ids are unique")
+        check(SettingsPage.allCases.allSatisfy { p in index.contains { $0.isPage && $0.page == p } }, "every page is in the search index")
+        check(index.count > 120, "search index has rows, not just pages (\(index.count))")
+        for e in index {
+            check(SettingsIndex.search(e.title.ko).contains { $0.id == e.id }, "found by Korean name: \(e.id)")
+            check(SettingsIndex.search(e.title.en).contains { $0.id == e.id }, "found by English name: \(e.id)")
+        }
+        func first(_ q: String) -> String? { SettingsIndex.search(q).first?.id }
+        let volume = SettingsIndex.search("음량").first { $0.page == .hud }?.id
+        check(volume != nil && ["volume", "볼륨", "Volume"].allSatisfy { q in SettingsIndex.search(q).contains { $0.id == volume } }, "synonyms: 볼륨·volume find 음량")
+        check(SettingsIndex.search("음량".decomposedStringWithCanonicalMapping).contains { $0.id == volume }, "decomposed Hangul input still matches")
+        check(SettingsIndex.search("ㅇㄹ").contains { $0.id == volume }, "initial consonants: ㅇㄹ finds 음량")
+        check(SettingsIndex.search("").isEmpty && SettingsIndex.search("   ").isEmpty, "empty query finds nothing")
+        check(SettingsIndex.search("zzqqxx").isEmpty, "nonsense finds nothing")
+        check(first("투명도")?.hasPrefix("general.") == true || first("투명도")?.hasPrefix("hud.") == true, "name match ranks first")
+        check(SettingsIndex.initials("음량 HUD") == "ㅇㄹHUD", "initials keep non-Hangul")
+        let start = Date()
+        for q in ["a", "알", "표시", "wi", "ㅂ", "volume"] { _ = SettingsIndex.search(q) }
+        let perQuery = Date().timeIntervalSince(start) / 6
+        print("search: \(index.count) entries, \(String(format: "%.2f", perQuery * 1000)) ms per query")
+        check(perQuery < 0.02, "search answers within 20 ms per keystroke")
+
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }

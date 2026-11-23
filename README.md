@@ -74,16 +74,16 @@ When two compact alerts follow each other, the notch briefly tucks in and comes 
 | **Two-finger swipe up / down** on a compact live activity | Hides / shows live activities |
 | **Two-finger swipe left / right** while music shows | Next / previous track (does nothing if the app or video has no next/previous) |
 | **Right-click** the notch | Menu: Open Home, Hide Content (same as swiping up with two fingers; Show Content brings it back), Settings, Permissions, Preview alerts, Restart, Quit |
-| **Hover** | Optional: grow slightly, or open on hover (Settings → General) |
+| **Hover** | Optional: grow slightly, or open on hover (Settings → Notch Controls) |
 
 ### Home (8 pages)
-Reorder the pages or turn features off in **Settings → Interactions → Home Features**. A feature that's off disappears from the notch and stops running in the background. AirDrop & Tray can also be hidden from Home while dragging files to the notch still works.
+Reorder the pages or turn features off in **Settings → Home Features**. A feature that's off disappears from the notch and stops running in the background. AirDrop & Tray can also be hidden from Home while dragging files to the notch still works.
 
-1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages. Choose the camera (built-in, a connected camera, or a nearby iPhone through Continuity Camera) in Settings → Interactions → Home Features, or with the switch button at the top left of the camera view.
+1. **Camera** — a mirror using your FaceTime camera. It stays off until you click it; when it turns on, the notch grows for a bigger picture, and it shrinks back when you turn it off, close the notch or change pages. Choose the camera (built-in, a connected camera, or a nearby iPhone through Continuity Camera) in Settings → Home Features, or with the switch button at the top left of the camera view.
 2. **Timer** — set hours : minutes : seconds by **clicking a field and typing** (Tab/Enter moves on, Esc cancels; clicking the background confirms, an empty field becomes 00) or by **two-finger scrolling** over a field. While running, a ring shows progress; it pauses/resumes/cancels from the notch and alerts with a sound when done.
-3. **AI Usage** — 5-hour and weekly limits for **Claude, ChatGPT (Codex) and Gemini**, with reset times. Sign in to each website once in Settings → Interactions → Live Monitoring; sign-in data stays in the app's own web storage. For each service, choose what the left and right sides show: any limit your plan has (5-hour, weekly, or a model's own limit such as Claude's Fable weekly limit) or the service mark; an item picked on one side can't be picked on the other. Automatic shows 5-hour on the left and weekly on the right, and plans with a single limit (for example Claude Ultra, weekly only) show the service mark on the left. Optionally **keep it in the notch**: 5-hour on the left, weekly on the right, as text or rings. Services with a single limit (e.g. ChatGPT Free's 30-day limit) show one bar, and the notch shows that limit with the time to reset. If AI usage is the only live activity, long-pressing it opens Home on this page (swipe or use the dots for the other Home pages); with other live activities it opens in the live-activity popup. Choose how often it refreshes (1, 2, 5 or 10 min). When it isn't kept in the notch, nothing runs in the background: it refreshes only when you open the page. While a higher-priority live activity covers it, refreshing pauses and resumes once it's visible again. It also pauses once you've hidden the live activities (two-finger swipe up) for a full refresh interval, and resumes when you bring them back. Each refresh runs in a short-lived helper process, so the web memory is released right after.
+3. **AI Usage** — 5-hour and weekly limits for **Claude, ChatGPT (Codex) and Gemini**, with reset times. Sign in to each website once in Settings → Live Monitoring; sign-in data stays in the app's own web storage. For each service, choose what the left and right sides show: any limit your plan has (5-hour, weekly, or a model's own limit such as Claude's Fable weekly limit) or the service mark; an item picked on one side can't be picked on the other. Automatic shows 5-hour on the left and weekly on the right, and plans with a single limit (for example Claude Ultra, weekly only) show the service mark on the left. Optionally **keep it in the notch**: 5-hour on the left, weekly on the right, as text or rings. Services with a single limit (e.g. ChatGPT Free's 30-day limit) show one bar, and the notch shows that limit with the time to reset. If AI usage is the only live activity, long-pressing it opens Home on this page (swipe or use the dots for the other Home pages); with other live activities it opens in the live-activity popup. Choose how often it refreshes (1, 2, 5 or 10 min). When it isn't kept in the notch, nothing runs in the background: it refreshes only when you open the page. While a higher-priority live activity covers it, refreshing pauses and resumes once it's visible again. It also pauses once you've hidden the live activities (two-finger swipe up) for a full refresh interval, and resumes when you bring them back. Each refresh runs in a short-lived helper process, so the web memory is released right after.
 4. **System Monitoring** — CPU, GPU, memory and network, read on this Mac and sent nowhere. Its Home page and long-press popup show graphs for CPU, GPU and network, and memory split into app, compressed and wired, with swap. Values are read only while they are visible.
-   - **Live Monitoring** (Settings → Interactions): keep AI usage, System Monitoring or both in the notch. For System Monitoring, pick what the left and right sides show; with Both, each side can show an AI limit or a resource. Each display can show a different one, and choosing Both combines them. Resource refresh: 1, 2, 5 or 10 seconds.
+   - **Live Monitoring** (Settings → Live Monitoring): keep AI usage, System Monitoring or both in the notch. For System Monitoring, pick what the left and right sides show; with Both, each side can show an AI limit or a resource. Each display can show a different one, and choosing Both combines them. Resource refresh: 1, 2, 5 or 10 seconds.
 5. **Memo** — a simple text memo: a fixed title on top and a scrolling body below. Click the title or body to type (it continues where you clicked); ⌘A, ⌘C, ⌘V, ⌘X and ⌘Z work. It saves automatically as you type and when you leave, and reopens where you left off. The list icon (top right) slides the memo over and shows your memos on the right third; click one to open it, right-click to delete. Memos are kept on disk, not in memory: a few seconds after the notch closes they're unloaded, and they're read again only when you open the memo page.
 6. **Today** — your remaining events today; click one to open it in Calendar. Optional alert N minutes before an event starts. Optionally keep the next event in the notch (its start time, or its end time while it's on).
 7. **AirDrop · Tray**
@@ -91,10 +91,10 @@ Reorder the pages or turn features off in **Settings → Interactions → Home F
    - Dragging a file toward the top of the screen opens the notch *before* you reach the edge, so Mission Control doesn't trigger.
    - Tray files: click / ⌘-click / ⇧-click to select, drag across empty space to select with a rectangle, or use the arrow keys (⇧ extends, ⌘ adds the next file, ⇧⌘ extends to the end, ⌘A selects all), double-click to open, **drag them out** to attach anywhere (they leave the tray), right-click for Open / Show in Finder / AirDrop / Remove. `+` adds more, the trash button clears.
    - Options: keep copies in the tray, auto-clean after 5, 10 or 30 minutes, 1 hour, 1 day or 7 days.
-8. **AI Chat** (off by default; turn it on in Settings → Interactions → AI Chat) — ask **Claude, GPT or Gemini** from the notch with **your own API key**. Meant for quick, light questions, not as a replacement for a full chat app. Usage is billed to your key by each company, separately from any subscription. Answers support Markdown, clickable links and LaTeX; you can copy them. Web search is used only when a question needs it. Chats are named and saved like memos, and you can write your own answer instructions. Attach **images (up to 4), a PDF (10 MB, 30 pages), text files (200 KB) or Word files** with the paperclip, ⌘V or drag and drop. Attachments are saved with the chat; on a follow-up a file is sent again only when your question points at it or the AI asks to read it, and each send uses tokens. Word files keep only their text. Answers are shaped for the notch: the conclusion comes first, tables are used only when you ask (up to 3 columns), and wider ones appear as lists. Dragging a file to the notch opens the screen chosen in Settings → General; with both AirDrop · Tray and AI Chat on, move the cursor to the vertical bar beside the notch while holding the file to switch between them.
+8. **AI Chat** (off by default; turn it on in Settings → AI Chat) — ask **Claude, GPT or Gemini** from the notch with **your own API key**. Meant for quick, light questions, not as a replacement for a full chat app. Usage is billed to your key by each company, separately from any subscription. Answers support Markdown, clickable links and LaTeX; you can copy them. Web search is used only when a question needs it. Chats are named and saved like memos, and you can write your own answer instructions. Attach **images (up to 4), a PDF (10 MB, 30 pages), text files (200 KB) or Word files** with the paperclip, ⌘V or drag and drop. Attachments are saved with the chat; on a follow-up a file is sent again only when your question points at it or the AI asks to read it, and each send uses tokens. Word files keep only their text. Answers are shaped for the notch: the conclusion comes first, tables are used only when you ask (up to 3 columns), and wider ones appear as lists. Dragging a file to the notch opens the screen chosen in Settings → General; with both AirDrop · Tray and AI Chat on, move the cursor to the vertical bar beside the notch while holding the file to switch between them.
 
 ### Music
-- Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Interactions → Media).
+- Works with **all apps** (Safari/YouTube, Chrome, Spotify, Apple Music, …) or only Apple Music / Spotify (Settings → Media).
 - **Compact**: album art on the left, an animated waveform tinted by the artwork on the right.
 - **Song change**: a short card with the new song (optional; by default only for Apple Music and Spotify).
 - **Player** (long-press while music shows):
@@ -111,7 +111,7 @@ Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch
 - **Incoming** — the notch expands with the caller (saved contact name, otherwise the number; long numbers scroll) and red **Decline** / green **Accept** buttons. **Swipe up with two fingers** to tuck the card away without declining — a small ringing indicator stays; click it to bring the card back.
 - **On a call** — call time on the left, a voice waveform on the right.
 - **Long-press** — the caller's avatar and name, **Mute** and **End** buttons. While muted the waveform stops, like paused music.
-- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Interactions → Calls.
+- Uses Accessibility to read macOS's call banner and press its buttons (the system call service is reserved for Apple apps). Turn it off in Settings → Calls.
 
 ### System HUD replacement
 Volume, display brightness and keyboard brightness keys show a notch HUD instead of the macOS one: icon on the left, value on the right as a number, bar or ring. Display brightness can instead show nits (a small "nit" above the number) on the built-in display. On macOS 26 and later, the **Liquid** design shows volume and brightness in a Liquid Glass pill below the notch instead: the notch tucks its content in, a drop hangs from the notch and falls into the pill, and it flows back in reverse while the notch content returns; it shows a 16-segment bar or a number, with adjustable brightness (black to white) and transparency (from a fully blurred inside to a clear one, keeping the Liquid Glass rim). The volume HUD can show the output device icon. Changes made in Control Center can be shown too.
@@ -121,10 +121,10 @@ Volume, display brightness and keyboard brightness keys show a notch HUD instead
 - **Bluetooth** — accessory connected with a device-specific icon (AirPods models, headphones, mice, keyboards, game controllers) and battery (AirPods: L/R/case). Battery shown as percent, ring or both; under 15% turns red. iPhone/iPad are ignored.
 - **Focus** — the mode's own icon and color when it turns on; the same icon, translucent, when it turns off. Can stay pinned while on.
 - **Battery** — charger connected (level + ⚡ and time to full), fully charged, low battery warning (threshold configurable). While actually charging, the notch can keep showing the battery % on the left and the time to full (from macOS) on the right. It isn't shown when fully charged, or when charging is paused and the Mac runs on the adapter (charge limit / Optimized Battery Charging).
-- **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Interactions → Downloads, plus extra folders); a **Show in Finder** button when done.
+- **Downloads** — progress for Safari, Chrome and Firefox downloads in your downloads folder (Downloads by default; change it in Settings → Downloads, plus extra folders); a **Show in Finder** button when done.
 - **AirDrop** — sending progress and result; an alert when files arrive.
 - **Screenshots** — after ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (to clipboard or file) a preview card appears: **Copy**, **Save** (as `Screenshot_YYYY_MM_DD_HH_MM_SS`, PNG or JPEG, Desktop or a folder you choose), **Delete**, **AirDrop**, or drag the thumbnail into another app.
-- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Interactions → Screen Recording: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in the same page to match where macOS saves your recordings.
+- **Screen recording** (⌘⇧5, QuickTime) — choose in Settings → Screen Recording: a **brief alert** when recording starts, or **keep showing** a red dot on the left and the recording time on the right. **Click the red dot** (left side) to stop and save (macOS saves the file as usual); long-press opens the recording page, where the stop icon does the same and then shows **Recording Saved** with a **Show in Finder** button. Set the folder it opens (Desktop by default) in the same page to match where macOS saves your recordings.
 
 Every alert can be **compact or detailed**, and durations are configurable. **Long-press a compact alert** to see its detailed card; detailed alerts only respond to a click.
 
@@ -132,7 +132,7 @@ Every alert can be **compact or detailed**, and durations are configurable. **Lo
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → Priority** is shown. Reorder with the arrows. Long-press it to open its popup, then use the dots or a two-finger swipe to page through the other live activities (on the music player, the swipe skips songs; use the dots instead). When it closes, the notch again shows the highest-priority one.
 
 ### Claude Code · Codex
-When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Interactions → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
+When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
 ### Multiple displays
 The notch stays on one display until you choose otherwise. **Settings → Displays** lists every connected display plus **All Displays**. Once two displays are connected, the same page gains per-display options:
@@ -156,7 +156,12 @@ The notch shrinks away while Mission Control is open so it doesn't cover the Spa
 - **Stop All Previews** ends everything at once. Each preview fully cleans up after itself (timers, fake items), so nothing keeps running.
 
 ### Settings window
-A sidebar with **General**, **Displays**, **Priority**, **Interactions**, **Preview**, **Permissions** and **About**. Click the arrow next to Interactions to expand one page per feature (Home Features, Network, Bluetooth, Focus, Calls, Media, Downloads, AirDrop & Tray, Screenshots, Screen Recording, Battery, HUD, Lock Screen, Calendar, Live Monitoring, AI Chat, Claude Code · Codex). Every feature page uses the same order: Show → Live Activity → Appearance → Details → Preview. The sidebar uses Liquid Glass on macOS 26 and later, and you can set the window's blur and transparency in Settings → General.
+The sidebar groups the pages by what you want to do: **App** (General, Displays, Permissions), **Notch** (Notch Controls, Home Features, Priority), **Connections** (Network, Bluetooth, Calls, AirDrop & Tray), **Media & Capture** (Media, Screenshots, Screen Recording, Downloads), **System** (Battery, Focus, HUD, Lock Screen, Calendar), **AI** (Live Monitoring, AI Chat, Claude Code · Codex) and **More** (Preview, About). Click a group name to fold it.
+
+- **Search** at the top of the sidebar finds any setting in Korean or English, including similar words (volume finds 음량) and Korean initials (ㅇㄹ). Click a result, or press Return for the first one, to jump to that row; it's highlighted for a moment.
+- Each page starts with a header card, and each row has a short name with a one-line description below. Longer explanations open with **Details**, and a section you can't change yet says what to turn on.
+- Feature pages use the same order: Show → Live Activity → Appearance → Details → Preview.
+- The window follows Light and Dark mode and reopens on the page you last viewed. Its blur and transparency are set in Settings → General; with Reduce Transparency turned on in macOS, it stays opaque.
 
 ### Language
 Korean and English. Settings → General → Language (System default / 한국어 / English), then **Restart Now**.
@@ -173,7 +178,7 @@ Korean and English. Settings → General → Language (System default / 한국�
   - **System Monitoring** is read from macOS on this Mac and never sent anywhere.
   - **AI Chat** (off by default, only when you ask something): your question, recent messages from that chat, your answer instructions and any files you attach go to the company you chose (Anthropic, OpenAI or Google), which handles them under its own policies. The clipboard, screen and files are never sent on their own, only what you attach yourself. Photos are reduced to 1568 pixels and lose location data first. Web search, used only when needed, runs through that company's search tool. Links open only when you click them.
 - Data is stored in `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/` (tray) and `~/Library/Application Support/DynamicMacNotch/` (memos, chats). Delete all three to reset.
-- **AI Chat data:** API keys are stored in the macOS Keychain. Conversations and attachments are saved **unencrypted** in `~/Library/Application Support/DynamicMacNotch/Chats/`, readable only by your macOS account. Answer instructions are stored with the settings. Settings → Interactions → AI Chat → **Clear Cache** deletes every saved conversation and attachment at once. While a file is being sent, its request body sits briefly in the app's temporary folder and is deleted right after.
+- **AI Chat data:** API keys are stored in the macOS Keychain. Conversations and attachments are saved **unencrypted** in `~/Library/Application Support/DynamicMacNotch/Chats/`, readable only by your macOS account. Answer instructions are stored with the settings. Settings → AI Chat → **Clear Cache** deletes every saved conversation and attachment at once. While a file is being sent, its request body sits briefly in the app's temporary folder and is deleted right after.
 - **Keychain limit:** the app has an ad-hoc signature, so another app signed with the same bundle ID could read a saved key. Use a key with a spending limit, and delete it if you stop using AI Chat.
 
 ## Memory
@@ -277,16 +282,16 @@ scripts/build.sh --install --run  # install to /Applications
 | 컴팩트 라이브 활동 위에서 **두 손가락 위 / 아래** | 라이브 활동 숨기기 / 다시 보이기 |
 | 음악이 떠 있을 때 **두 손가락 좌 / 우** | 다음 / 이전 곡 (앱·영상에 다음·이전이 없으면 아무 동작 안 함) |
 | 노치 **우클릭** | 메뉴: 홈 열기, 콘텐츠 가리기(두 손가락 위로 쓸기와 같음, 콘텐츠 보이기로 되돌림), 설정, 권한 관리, 알림 미리보기, 다시 시작, 종료 |
-| **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 일반) |
+| **호버** | 선택: 살짝 커지기, 호버만으로 열기 (설정 → 노치 조작) |
 
 ### 홈 (8페이지)
-**설정 → 상호작용 → 홈 기능**에서 페이지 순서를 바꾸거나 기능을 끌 수 있습니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다. 에어드랍·트레이는 홈에서만 가리고 파일을 노치로 끌어오면 동작하게 할 수도 있습니다.
+**설정 → 홈 기능**에서 페이지 순서를 바꾸거나 기능을 끌 수 있습니다. 끈 기능은 노치에서 사라지고 백그라운드에서도 동작하지 않습니다. 에어드랍·트레이는 홈에서만 가리고 파일을 노치로 끌어오면 동작하게 할 수도 있습니다.
 
-1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다. 쓸 카메라(내장, 연결된 카메라, 연속성 카메라로 근처 iPhone)는 설정 → 상호작용 → 홈 기능에서, 또는 카메라 화면 왼쪽 위 전환 버튼으로 고릅니다.
+1. **카메라** — FaceTime 카메라로 보는 거울. 누르기 전까지 꺼져 있고, 켜면 노치가 더 커져 화면을 크게 보여 줍니다. 끄거나 노치를 닫거나 다른 페이지로 넘기면 다시 작아집니다. 쓸 카메라(내장, 연결된 카메라, 연속성 카메라로 근처 iPhone)는 설정 → 홈 기능에서, 또는 카메라 화면 왼쪽 위 전환 버튼으로 고릅니다.
 2. **타이머** — 시 : 분 : 초를 **칸을 눌러 키보드로 입력**(Tab/Enter 다음 칸, Esc 취소, 배경을 누르면 확정, 빈칸은 00)하거나 칸 위에서 **두 손가락 스크롤**로 맞춥니다. 진행 중에는 원형 게이지로 표시되고, 노치에서 일시정지·재개·취소할 수 있으며 끝나면 소리와 함께 알립니다.
-3. **AI 사용량** — **Claude, ChatGPT(Codex), Gemini**의 5시간·주간 한도와 초기화 시각. 설정 → 상호작용 → 실시간 모니터링에서 각 웹사이트에 한 번 로그인합니다. 서비스마다 노치 왼쪽·오른쪽에 보일 것을 고릅니다: 요금제에 있는 한도(5시간, 주간, Claude Fable 주간 한도 같은 모델별 한도) 또는 서비스 기호. 한쪽에서 고른 것은 반대쪽에서 고를 수 없습니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제(예: 주간 한도만 있는 Claude Ultra)는 왼쪽에 서비스 기호를 보입니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다. **노치에 상시 표시**(왼쪽 5시간, 오른쪽 주간 · 텍스트 또는 원형)를 켤 수 있고, 한도가 하나뿐인 서비스(예: ChatGPT 무료 30일 한도)는 바 하나로, 노치에는 그 한도와 초기화까지 남은 시간이 나옵니다. 상시 항목이 AI 사용량뿐이면 길게 눌렀을 때 홈의 이 페이지가 열리고(점·스와이프로 다른 홈 기능), 다른 상시 항목과 함께면 상시 항목 팝업에서 열립니다. 새로고침 빈도(1·2·5·10분)를 고릅니다. 상시 표시를 끄면 백그라운드에서는 아무것도 하지 않고 이 페이지를 열 때만 새로고침합니다. 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다. 두 손가락으로 상시 항목을 숨긴 지 새로고침 주기 한 번이 지나도 쉬고, 다시 보이면 이어서 합니다. 새로고침은 잠깐 뜨는 도우미 프로세스가 하므로 끝나면 웹 메모리가 바로 반환됩니다.
+3. **AI 사용량** — **Claude, ChatGPT(Codex), Gemini**의 5시간·주간 한도와 초기화 시각. 설정 → 실시간 모니터링에서 각 웹사이트에 한 번 로그인합니다. 서비스마다 노치 왼쪽·오른쪽에 보일 것을 고릅니다: 요금제에 있는 한도(5시간, 주간, Claude Fable 주간 한도 같은 모델별 한도) 또는 서비스 기호. 한쪽에서 고른 것은 반대쪽에서 고를 수 없습니다. 자동은 왼쪽 5시간, 오른쪽 주간이고, 한도가 하나뿐인 요금제(예: 주간 한도만 있는 Claude Ultra)는 왼쪽에 서비스 기호를 보입니다. 로그인 정보는 앱 전용 웹 저장소에만 남습니다. **노치에 상시 표시**(왼쪽 5시간, 오른쪽 주간 · 텍스트 또는 원형)를 켤 수 있고, 한도가 하나뿐인 서비스(예: ChatGPT 무료 30일 한도)는 바 하나로, 노치에는 그 한도와 초기화까지 남은 시간이 나옵니다. 상시 항목이 AI 사용량뿐이면 길게 눌렀을 때 홈의 이 페이지가 열리고(점·스와이프로 다른 홈 기능), 다른 상시 항목과 함께면 상시 항목 팝업에서 열립니다. 새로고침 빈도(1·2·5·10분)를 고릅니다. 상시 표시를 끄면 백그라운드에서는 아무것도 하지 않고 이 페이지를 열 때만 새로고침합니다. 우선순위가 더 높은 상시 항목에 가려진 동안에는 쉬었다가 다시 보이면 이어서 합니다. 두 손가락으로 상시 항목을 숨긴 지 새로고침 주기 한 번이 지나도 쉬고, 다시 보이면 이어서 합니다. 새로고침은 잠깐 뜨는 도우미 프로세스가 하므로 끝나면 웹 메모리가 바로 반환됩니다.
 4. **시스템 모니터링** — CPU, GPU, 메모리, 네트워크. 이 Mac에서만 읽고 어디로도 보내지 않습니다. 홈 페이지와 꾹 눌러 여는 화면에서 CPU·GPU·네트워크 그래프, 앱·압축·와이어드로 나눈 메모리와 스왑을 보입니다. 보이는 동안만 읽습니다.
-   - **실시간 모니터링**(설정 → 상호작용): 노치에 AI 사용량, 시스템 모니터링, 둘 다를 상시 표시합니다. 시스템 모니터링은 왼쪽·오른쪽에 보일 항목을 고르고, 둘 다는 양쪽에 AI 한도나 자원을 섞어 고릅니다. 디스플레이마다 다르게 둘 수 있고, 둘 다를 고르면 합쳐서 보입니다. 자원 새로고침은 1·2·5·10초.
+   - **실시간 모니터링**(설정 → 실시간 모니터링): 노치에 AI 사용량, 시스템 모니터링, 둘 다를 상시 표시합니다. 시스템 모니터링은 왼쪽·오른쪽에 보일 항목을 고르고, 둘 다는 양쪽에 AI 한도나 자원을 섞어 고릅니다. 디스플레이마다 다르게 둘 수 있고, 둘 다를 고르면 합쳐서 보입니다. 자원 새로고침은 1·2·5·10초.
 5. **메모** — 텍스트만 쓰는 간단한 메모. 위에 고정된 제목, 아래에 스크롤되는 본문. 제목이나 본문을 누르면 그 자리부터 이어서 씁니다. ⌘A·⌘C·⌘V·⌘X·⌘Z를 쓸 수 있습니다. 쓰는 동안과 나갈 때 자동 저장되고, 다시 열면 마지막으로 쓰던 메모가 그대로 열립니다. 오른쪽 위 목록 아이콘을 누르면 메모가 밀리며 오른쪽 1/3에 메모 목록이 나오고, 눌러서 불러오거나 우클릭으로 지웁니다. 메모는 메모리가 아니라 디스크에 두며, 노치가 닫히고 몇 초 뒤 메모리에서 내리고 메모 페이지를 열 때만 다시 읽습니다.
 6. **오늘 일정** — 오늘 남은 일정. 누르면 캘린더에서 열립니다. 일정 시작 N분 전 알림(선택). 다음 일정을 노치에 상시 표시할 수 있습니다(시작 시각, 진행 중이면 끝나는 시각).
 7. **에어드랍 · 트레이**
@@ -294,10 +299,10 @@ scripts/build.sh --install --run  # install to /Applications
    - 파일을 들고 화면 위쪽으로 가면 가장자리에 닿기 전에 노치가 먼저 열려 미션 컨트롤이 뜨지 않습니다.
    - 트레이 파일: 클릭·⌘클릭·⇧클릭으로 선택, 빈 곳을 끌어 사각형으로 선택, 화살표 키로 선택(⇧ 범위, ⌘ 옆 파일 추가, ⇧⌘ 끝까지, ⌘A 전체), 더블클릭으로 열기, **끌어내서** 다른 앱에 첨부(트레이에서 빠짐), 우클릭으로 열기 / Finder에서 보기 / 에어드랍 / 빼기. `+`로 추가, 휴지통으로 비우기.
    - 옵션: 트레이에 복사본 보관, 5분·10분·30분·1시간·1일·7일 뒤 자동 정리.
-8. **AI 채팅**(기본 꺼짐, 설정 → 상호작용 → AI 채팅에서 켭니다) — **내 API 키**로 노치에서 **Claude, GPT, Gemini**에게 묻습니다. **간단한 질문을 가볍게 쓰는 기능이며, 전용 채팅 앱을 대신하지는 않습니다.** 요금은 구독과 별도로 각 회사가 키 주인에게 청구합니다. 답변은 Markdown, 누를 수 있는 링크, LaTeX 수식을 지원하고 복사할 수 있습니다. 웹 검색은 필요한 질문에만 씁니다. 채팅은 메모처럼 이름을 붙여 저장되며, 답변 지침을 직접 적을 수 있습니다. 클립 버튼, ⌘V, 끌어놓기로 **이미지(4장), PDF(10MB·30쪽), 텍스트 파일(200KB), 워드 파일**을 첨부할 수 있습니다. 첨부 파일은 대화와 함께 저장되며, 후속 질문에서는 질문이 파일을 가리키거나 AI가 읽어야 한다고 판단할 때만 다시 보내며, 보낼 때마다 토큰을 씁니다. 워드 파일은 글자만 저장합니다. 답변은 노치에 맞게 결론부터 쓰고, 표는 요청할 때만(3열 이하) 쓰며 더 넓은 표는 목록으로 보여 줍니다. 파일을 노치로 끌어오면 설정 → 일반에서 고른 화면이 열리고, 에어드랍·트레이와 AI 채팅이 모두 켜져 있으면 파일을 든 채 노치 옆 세로 막대로 커서를 옮겨 두 화면을 오갈 수 있습니다.
+8. **AI 채팅**(기본 꺼짐, 설정 → AI 채팅에서 켭니다) — **내 API 키**로 노치에서 **Claude, GPT, Gemini**에게 묻습니다. **간단한 질문을 가볍게 쓰는 기능이며, 전용 채팅 앱을 대신하지는 않습니다.** 요금은 구독과 별도로 각 회사가 키 주인에게 청구합니다. 답변은 Markdown, 누를 수 있는 링크, LaTeX 수식을 지원하고 복사할 수 있습니다. 웹 검색은 필요한 질문에만 씁니다. 채팅은 메모처럼 이름을 붙여 저장되며, 답변 지침을 직접 적을 수 있습니다. 클립 버튼, ⌘V, 끌어놓기로 **이미지(4장), PDF(10MB·30쪽), 텍스트 파일(200KB), 워드 파일**을 첨부할 수 있습니다. 첨부 파일은 대화와 함께 저장되며, 후속 질문에서는 질문이 파일을 가리키거나 AI가 읽어야 한다고 판단할 때만 다시 보내며, 보낼 때마다 토큰을 씁니다. 워드 파일은 글자만 저장합니다. 답변은 노치에 맞게 결론부터 쓰고, 표는 요청할 때만(3열 이하) 쓰며 더 넓은 표는 목록으로 보여 줍니다. 파일을 노치로 끌어오면 설정 → 일반에서 고른 화면이 열리고, 에어드랍·트레이와 AI 채팅이 모두 켜져 있으면 파일을 든 채 노치 옆 세로 막대로 커서를 옮겨 두 화면을 오갈 수 있습니다.
 
 ### 음악
-- **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 상호작용 → 미디어).
+- **모든 앱**(Safari·유튜브, Chrome, Spotify, Apple Music 등) 또는 Apple Music / Spotify만 (설정 → 미디어).
 - **컴팩트**: 왼쪽 앨범아트, 오른쪽에 앨범아트 색의 파형.
 - **곡 변경**: 새 곡을 잠깐 크게 보여 줍니다 (선택, 기본은 Apple Music·Spotify에서만).
 - **플레이어** (음악 표시 중 길게 누르기):
@@ -314,7 +319,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **수신** — 노치가 확장되며 상대(저장된 연락처면 이름, 아니면 번호. 긴 번호는 흐름)와 빨간 **거절** / 초록 **받기** 버튼이 뜹니다. **두 손가락으로 위로 올리면** 거절하지 않고 카드만 접히고 작은 수신 표시가 남습니다. 누르면 다시 펼쳐집니다.
 - **통화 중** — 왼쪽에 통화 시간, 오른쪽에 음성 파형.
 - **길게 누르기** — 상대 아이콘과 이름, **음소거**·**끊기** 버튼. 음소거하면 파형이 일시정지한 음악처럼 멈춥니다.
-- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 상호작용 → 통화에서 끌 수 있습니다.
+- macOS 통화 배너를 손쉬운 사용으로 읽고 그 버튼을 눌러 동작합니다(시스템 통화 서비스는 Apple 앱 전용). 설정 → 통화에서 끌 수 있습니다.
 
 ### 시스템 HUD 대체
 음량·화면 밝기·키보드 밝기 키를 누르면 macOS HUD 대신 노치 HUD가 뜹니다. 왼쪽 아이콘, 오른쪽 숫자·가로 바·원형 중 선택. 화면 밝기는 내장 디스플레이에서 니트(숫자 위에 작은 "nit")로 보이게 할 수 있습니다. macOS 26 이상에서는 **Liquid** 디자인을 고르면 음량·밝기를 노치 아래 Liquid Glass 알약으로 보입니다: 노치의 내용이 들어가고, 노치 끝에 물방울이 매달렸다가 떨어지며 알약으로 커지고, 사라질 때는 거꾸로 들어가며 노치의 내용이 이어서 돌아옵니다. 16칸 가로 바 또는 숫자로 표시하고, 명도(검정~흰색)와 투명도(안쪽이 완전히 흐린 상태부터 배경이 선명한 상태까지, 테두리는 Liquid Glass 유지)를 조절할 수 있습니다. 음량 HUD에 출력 기기 아이콘을 표시할 수 있고, 제어 센터에서 바꾼 값도 표시할 수 있습니다.
@@ -324,10 +329,10 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 - **블루투스** — 기기별 아이콘(AirPods 모델, 헤드폰, 마우스, 키보드, 게임패드)과 배터리(AirPods: L/R/케이스). 백분율·원형·둘 다 중 선택, 15% 미만은 빨간색. iPhone·iPad는 제외.
 - **집중 모드** — 켜지면 모드 고유 아이콘·색, 꺼지면 같은 아이콘을 반투명하게. 켜진 동안 상시 표시 가능.
 - **배터리** — 충전기 연결(잔량 + ⚡, 완충까지 남은 시간), 완충, 배터리 부족 경고(기준 조절 가능). 실제로 충전 중일 때는 왼쪽에 배터리 %, 오른쪽에 완충까지 남은 시간(macOS 계산값)을 상시 표시할 수 있습니다. 완충됐거나, 충전 한도·배터리 최적화로 충전이 멈춰 어댑터로만 동작할 때는 표시하지 않습니다.
-- **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 상호작용 → 다운로드에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
+- **다운로드** — 다운로드 폴더(기본은 다운로드, 설정 → 다운로드에서 바꿀 수 있고 추가 폴더도 지정 가능)의 Safari·Chrome·Firefox 다운로드 진행률, 끝나면 **Finder에서 보기** 버튼.
 - **에어드랍** — 보내기 진행률과 결과, 받으면 알림.
 - **스크린샷** — ⌘⇧3 / ⌘⇧4 / ⌘⇧5(클립보드·파일 모두) 후 미리보기 카드: **복사**, **저장**(`스크린샷_년_월_일_시_분_초`, PNG·JPEG, 데스크탑 또는 지정 폴더), **삭제**, **에어드랍**, 썸네일을 끌어 다른 앱에 첨부.
-- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 상호작용 → 화면 녹화에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 같은 페이지에서 바꿀 수 있습니다.
+- **화면 녹화**(⌘⇧5, QuickTime) — 설정 → 화면 녹화에서 녹화 시작 시 **잠깐 알림**만 띄울지, 노치에 **계속 표시**(왼쪽 빨간 점, 오른쪽 녹화 시간)할지 고릅니다. **왼쪽 빨간 점을 누르면 녹화가 멈추고 저장**됩니다(파일은 macOS가 평소처럼 저장). 길게 눌러 연 녹화 화면의 정지 아이콘도 같고, 누르면 **녹화 완료**와 **Finder에서 보기** 버튼이 나옵니다. 이 버튼이 여는 폴더(기본은 데스크탑)는 macOS 녹화 저장 위치에 맞춰 같은 페이지에서 바꿀 수 있습니다.
 
 모든 알림은 **컴팩트·상세** 중 고를 수 있고 표시 시간도 바꿀 수 있습니다. **컴팩트 알림을 길게 누르면** 상세 카드로 바뀌고, 상세 알림은 클릭에만 반응합니다.
 
@@ -335,7 +340,7 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 우선순위**에서 위에 있는 것이 표시됩니다. 화살표로 순서를 바꿉니다. 길게 눌러 팝업을 열면 아래 점이나 두 손가락 좌우로 다른 상시 항목을 넘겨 볼 수 있습니다(음악 팝업에서는 좌우가 곡 넘기기라 점을 누르세요). 닫으면 다시 우선순위가 가장 높은 항목이 표시됩니다.
 
 ### Claude Code · Codex
-Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 상호작용 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
 
 ### 여러 디스플레이
 따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 디스플레이**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 같은 페이지에 디스플레이별 옵션이 나타납니다.
@@ -359,7 +364,12 @@ Mission Control이 열려 있는 동안 노치가 Spaces 막대를 가리지 않
 - **모든 미리보기 중지**로 한 번에 끝낼 수 있습니다. 미리보기는 끝나면 타이머·가짜 항목을 모두 정리해 계속 실행되는 것이 남지 않습니다.
 
 ### 설정 창
-왼쪽 사이드바에 **일반**, **디스플레이**, **우선순위**, **상호작용**, **미리보기**, **권한 관리**, **정보**가 있습니다. 상호작용 옆 화살표를 누르면 기능별 페이지(홈 기능, 네트워크, 블루투스, 집중 모드, 통화, 미디어, 다운로드, 에어드랍·트레이, 스크린샷, 화면 녹화, 배터리, HUD, 잠금화면, 일정, 실시간 모니터링, AI 채팅, Claude Code · Codex)가 펼쳐집니다. 모든 기능 페이지는 표시 → 상시 표시 → 표시 방식 → 세부 설정 → 미리보기 순서로 같습니다. 사이드바는 macOS 26 이상에서 Liquid Glass로 그려지고, 창의 흐림과 투명도는 설정 → 일반에서 조절합니다.
+사이드바는 하고 싶은 일에 따라 묶여 있습니다: **앱**(일반, 디스플레이, 권한 관리), **노치**(노치 조작, 홈 기능, 우선순위), **연결**(네트워크, 블루투스, 통화, 에어드랍·트레이), **미디어·캡처**(미디어, 스크린샷, 화면 녹화, 다운로드), **시스템**(배터리, 집중 모드, HUD, 잠금화면, 일정), **AI**(실시간 모니터링, AI 채팅, Claude Code · Codex), **기타**(미리보기, 정보). 묶음 이름을 누르면 접힙니다.
+
+- 사이드바 맨 위 **검색**으로 모든 설정을 한국어·영어로 찾습니다. 비슷한 말(볼륨 → 음량)과 초성(ㅇㄹ)으로도 찾을 수 있습니다. 결과를 누르거나 Return을 누르면 그 줄로 가서 잠깐 강조합니다.
+- 페이지 맨 위에는 머리 카드가 있고, 각 줄은 짧은 이름과 그 아래 한 줄 설명으로 되어 있습니다. 긴 설명은 **자세히**로 펼치고, 지금 바꿀 수 없는 구역에는 무엇을 켜야 하는지 보여 줍니다.
+- 기능 페이지는 표시 → 상시 표시 → 표시 방식 → 세부 설정 → 미리보기 순서로 같습니다.
+- 창은 라이트·다크 모드를 따르고, 다시 열면 마지막에 본 페이지로 열립니다. 흐림과 투명도는 설정 → 일반에서 조절하며, macOS의 '투명도 줄이기'를 켜면 불투명하게 보입니다.
 
 ### 언어
 한국어와 영어. 설정 → 일반 → 언어(시스템 설정 따름 / 한국어 / English) 선택 후 **지금 다시 시작**.
@@ -376,7 +386,7 @@ Mission Control이 열려 있는 동안 노치가 Spaces 막대를 가리지 않
   - **시스템 모니터링**은 이 Mac의 macOS에서 읽으며 어디로도 보내지 않습니다.
   - **AI 채팅**(기본 꺼짐, 질문할 때만): 질문, 그 채팅의 최근 대화, 답변 지침, 내가 첨부한 파일을 내가 고른 회사(Anthropic, OpenAI, Google)로 보내며, 전송된 내용은 각 회사의 정책을 따릅니다. 클립보드·화면·파일을 앱이 알아서 보내지 않고, 직접 첨부한 것만 보냅니다. 사진은 긴 변 1568픽셀로 줄이고 위치 정보를 지운 뒤 보냅니다. 웹 검색은 필요할 때만 그 회사의 검색 도구로 합니다. 링크는 누를 때만 열립니다.
 - 저장 위치: `~/Library/Preferences/com.dynamicmacnotch.app.plist`, `~/Library/Application Support/Dynamic MacNotch/`(트레이), `~/Library/Application Support/DynamicMacNotch/`(메모, 채팅). 셋 다 지우면 초기화됩니다.
-- **AI 채팅 데이터:** API 키는 macOS 키체인에 저장합니다. 대화 내용과 첨부 파일은 `~/Library/Application Support/DynamicMacNotch/Chats/`에 **암호화 없이** 저장되며 내 macOS 계정만 읽을 수 있습니다. 답변 지침은 설정과 함께 저장됩니다. 설정 → 상호작용 → AI 채팅 → **캐시 비우기**로 저장된 대화와 첨부 파일을 한 번에 지울 수 있습니다. 파일을 보내는 동안에는 요청 본문이 앱의 임시 폴더에 잠깐 있었다가 바로 지워집니다.
+- **AI 채팅 데이터:** API 키는 macOS 키체인에 저장합니다. 대화 내용과 첨부 파일은 `~/Library/Application Support/DynamicMacNotch/Chats/`에 **암호화 없이** 저장되며 내 macOS 계정만 읽을 수 있습니다. 답변 지침은 설정과 함께 저장됩니다. 설정 → AI 채팅 → **캐시 비우기**로 저장된 대화와 첨부 파일을 한 번에 지울 수 있습니다. 파일을 보내는 동안에는 요청 본문이 앱의 임시 폴더에 잠깐 있었다가 바로 지워집니다.
 - **키체인 한계:** 앱이 임시(ad-hoc) 서명이라, 같은 번들 ID로 서명한 다른 앱이 저장된 키를 읽을 수 있습니다. 사용 한도를 정한 키를 쓰고, AI 채팅을 그만 쓰면 키를 지워 주세요.
 
 ## 메모리
