@@ -98,6 +98,10 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func runWindowTests(_ window: NSWindow) {
+        // 개발용: DMN_APPEARANCE=dark|light로 시스템 설정을 바꾸지 않고 모양을 확인한다
+        if let look = ProcessInfo.processInfo.environment["DMN_APPEARANCE"] {
+            window.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
+        }
         // 개발용: DMN_SETTINGS_HEIGHT=<높이>면 창을 키워 화면 밖에 둔다 (페이지 전체를 캡처해 확인)
         if let height = ProcessInfo.processInfo.environment["DMN_SETTINGS_HEIGHT"].flatMap(Double.init) {
             window.setContentSize(CGSize(width: SettingsView.windowSize.width, height: height))
@@ -183,7 +187,6 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
             window.isOpaque = false
             window.backgroundColor = .clear
             window.isMovableByWindowBackground = true
-            window.appearance = NSAppearance(named: .aqua)   // 흰 배경에 맞춰 밝은 모양으로
             // 빈 도구 막대를 두면 제목 막대가 높아져 창 버튼이 사이드바 위쪽 안으로 내려온다
             let toolbar = NSToolbar(identifier: "settings")
             window.toolbar = toolbar
@@ -212,7 +215,7 @@ final class HelperDelegate: NSObject, NSApplicationDelegate {
     private func makeWindow<V: View>(title: String, content: V) -> NSWindow {
         let window = NSWindow(contentViewController: NSHostingController(rootView: content))
         window.title = title
-        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.styleMask = [.titled, .closable]   // HIG: 설정 창은 최소화·확대 버튼을 흐리게
         window.isReleasedWhenClosed = false
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window,
                                                queue: .main) { [weak self, weak window] _ in

@@ -8,7 +8,7 @@ struct NetworkSettingsPage: View {
     private var anyAlertOn: Bool { settings.netWifiPower || settings.netWifiConnection || settings.netVPN || settings.netHotspot }
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("Wi-Fi 켜짐·꺼짐", "Wi-Fi on and off"), isOn: $settings.netWifiPower)
                 Toggle(T("Wi-Fi 연결·해제", "Wi-Fi connected and disconnected"), isOn: $settings.netWifiConnection)
@@ -31,7 +31,6 @@ struct NetworkSettingsPage: View {
             PreviewSection([(.wifiConnected, T("Wi-Fi 연결", "Wi-Fi Connected")), (.vpnOn, T("VPN 연결", "VPN Connected")),
                             (.hotspot, T("핫스팟", "Hotspot")), (.offline, T("네트워크 끊김", "Network Lost"))])
         }
-        .settingsForm()
     }
 }
 
@@ -39,7 +38,7 @@ struct BluetoothSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("액세서리가 연결되면 표시", "Show when an accessory connects"), isOn: $settings.btEnabled)
             }
@@ -54,7 +53,6 @@ struct BluetoothSettingsPage: View {
             PreviewSection([(.airpods, "AirPods"), (.btLow, T("배터리 낮은 마우스", "Low-Battery Mouse")),
                             (.btNoBattery, T("배터리 정보 없음", "No Battery Info"))])
         }
-        .settingsForm()
     }
 }
 
@@ -62,7 +60,7 @@ struct FocusSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("집중 모드 켜짐·꺼짐", "Focus on and off"), isOn: $settings.focusEnabled)
             }
@@ -78,7 +76,6 @@ struct FocusSettingsPage: View {
             }
             PreviewSection([(.focusOn, T("켜짐", "On")), (.focusOff, T("꺼짐", "Off"))])
         }
-        .settingsForm()
     }
 }
 
@@ -86,13 +83,12 @@ struct CallSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("손쉬운 사용 권한이 필요합니다.", "Requires Accessibility permission."), more: T("수신 전화는 상세 카드(받기·거절), 통화 중에는 노치 양옆에 경과 시간을 표시합니다. 손쉬운 사용 권한이 필요합니다.", "Incoming calls show a detailed card (Accept, Decline); during a call the notch shows the elapsed time. Requires Accessibility permission.")) {
                 Toggle(T("수신 전화와 통화", "Incoming and active calls"), detail: T("iPhone 연속성과 FaceTime 오디오 통화를 보입니다.", "From iPhone (Continuity) and FaceTime audio."), isOn: $settings.callEnabled)
             }
             PreviewSection([(.callIncoming, T("수신 전화", "Incoming Call")), (.callActive, T("통화 중", "On a Call"))])
         }
-        .settingsForm()
     }
 }
 
@@ -102,7 +98,7 @@ struct BatterySettingsPage: View {
     private var anyAlertOn: Bool { settings.batteryChargerAlert || settings.batteryFullAlert || settings.batteryLowAlert }
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("충전기 연결", "Charger connected"), isOn: $settings.batteryChargerAlert)
                 Toggle(T("완충", "Fully charged"), isOn: $settings.batteryFullAlert)
@@ -120,7 +116,6 @@ struct BatterySettingsPage: View {
             }
             PreviewSection([(.charger, T("충전기 연결", "Charger Connected")), (.low, T("배터리 부족", "Low Battery")), (.full, T("완충", "Fully Charged"))])
         }
-        .settingsForm()
     }
 }
 
@@ -132,7 +127,7 @@ struct HUDSettingsPage: View {
     private var anyOn: Bool { settings.hudVolume || settings.hudDisplay || settings.hudKeyboard }
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 LabeledContent(T("상태", "Status")) {
                     HStack {
@@ -174,6 +169,5 @@ struct HUDSettingsPage: View {
             PreviewSection([(.hudVolume, T("음량", "Volume")), (.hudBrightness, T("화면 밝기", "Display Brightness")),
                             (.hudKeyboard, T("키보드 밝기", "Keyboard Brightness"))])
         }
-        .settingsForm()
     }
 }

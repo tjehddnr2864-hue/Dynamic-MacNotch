@@ -5,7 +5,7 @@ struct PreviewSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             Section {
                 HStack {
                     footnote(T("각 버튼을 누르면 노치에 해당 기능이 미리 표시됩니다. 실제 설정·파일·통화에는 영향이 없습니다.",
@@ -54,7 +54,6 @@ struct PreviewSettingsPage: View {
                          note: T("수신 전화: 가짜 전화로 받기·거절을 눌러 볼 수 있고 30초 동안 조작이 없으면 끝납니다.",
                                  "Incoming Call: a fake call where you can try Accept and Decline; it ends after 30 seconds without interaction."))
         }
-        .settingsForm()
     }
 
     private func fixedSection(_ title: String, _ items: [(id: PreviewID, label: String)], note: String) -> some View {

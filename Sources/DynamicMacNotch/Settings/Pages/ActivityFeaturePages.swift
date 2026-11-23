@@ -6,7 +6,7 @@ struct MediaSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("곡 바뀜 알림", "New song alert"), detail: T("곡이 바뀌면 잠깐 크게 보여 줍니다.", "Briefly shows the new song."), isOn: $settings.mediaShowTrackChange)
                 Indented(enabled: settings.mediaShowTrackChange) {
@@ -22,7 +22,6 @@ struct MediaSettingsPage: View {
             }
             PreviewSection([(.mediaStart, T("재생 테스트 시작", "Start Playback Test")), (.mediaStop, T("테스트 중지", "Stop Test"))])
         }
-        .settingsForm()
     }
 }
 
@@ -30,7 +29,7 @@ struct DownloadSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("다운로드 진행 표시", "Show download progress"), isOn: $settings.downloadEnabled)
             }
@@ -44,7 +43,6 @@ struct DownloadSettingsPage: View {
             }
             PreviewSection([(.download, T("다운로드", "Download"))])
         }
-        .settingsForm()
     }
 }
 
@@ -60,7 +58,7 @@ struct TraySettingsPage: View {
     }
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("파일을 든 채 노치 옆 막대로 가면 다른 화면으로 바뀝니다.", "Hold a file over the bar beside the notch to switch screens."), more: T("에어드랍·트레이와 AI 채팅이 모두 켜져 있으면, 파일을 든 채 노치 옆의 세로 막대로 커서를 옮겨 다른 화면으로 바꿀 수 있습니다. 막대의 방향은 홈 페이지 순서를 따릅니다.",
                                                         "When AirDrop & Tray and AI Chat are both on, move the cursor to the vertical bar beside the notch while holding a file to switch screens. The bar's side follows the Home page order.")) {
                 Choice(T("에어드랍·트레이", "AirDrop & Tray"), selection: $settings.trayMode)
@@ -79,7 +77,6 @@ struct TraySettingsPage: View {
             }
             PreviewSection([(.airdropSend, T("에어드랍 보내기", "AirDrop Send")), (.airdropReceive, T("에어드랍 받기", "AirDrop Receive"))])
         }
-        .settingsForm()
     }
 }
 
@@ -88,7 +85,7 @@ struct ScreenshotSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("스크린샷 미리보기", "Screenshot preview"), isOn: $settings.screenshotEnabled)
             }
@@ -103,7 +100,6 @@ struct ScreenshotSettingsPage: View {
             }
             PreviewSection([(.screenshot, T("스크린샷", "Screenshot"))])
         }
-        .settingsForm()
     }
 }
 
@@ -111,7 +107,7 @@ struct RecordingSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("화면 녹화 표시", "Show screen recording"), isOn: $settings.recordingEnabled)
             }
@@ -125,7 +121,6 @@ struct RecordingSettingsPage: View {
             }
             PreviewSection([(.recording, T("화면 녹화", "Screen Recording"))])
         }
-        .settingsForm()
     }
 }
 
@@ -133,7 +128,7 @@ struct LockSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("잠금 애니메이션", "Lock animation"), detail: T("잠기면 자물쇠를, 풀리면 열리는 모습을 보입니다.", "Shows a padlock when locked and opens it on unlock."), isOn: $settings.lockNotchEnabled)
                 Toggle(T("잠금화면 미디어 위젯", "Lock screen media widget"), detail: T("음악을 재생하는 동안 잠금화면에 보입니다.", "Shown on the lock screen while music plays."), isOn: $settings.lockMediaWidget)
@@ -154,7 +149,6 @@ struct LockSettingsPage: View {
             }
             PreviewSection([(.lock, T("자물쇠·위젯 (5초)", "Padlock & Widget (5s)"))])
         }
-        .settingsForm()
     }
 }
 
@@ -164,7 +158,7 @@ struct CalendarSettingsPage: View {
     private var isOn: Bool { settings.isHomeFeatureOn("calendar") }
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("끄면 일정 감시와 알림도 멈춥니다.", "When off, calendar watching and alerts stop too.")) {
                 HomePageToggle(settings: settings, key: "calendar", title: T("홈에 오늘 일정", "Today in Home"))
                 ValueMenu(title: T("일정 알림", "Event alerts"), selection: $settings.calendarAlertMinutes, values: Choices.calendarAlert, zero: T("끄기", "Off")) {
@@ -177,6 +171,5 @@ struct CalendarSettingsPage: View {
             }
             PreviewSection([(.calendar, T("일정 알림", "Event Alert")), (.calendarPinned, T("다음 일정", "Next Event"))])
         }
-        .settingsForm()
     }
 }

@@ -8,7 +8,7 @@ struct GeneralSettingsPage: View {
     private static let launchLanguage = AppSettings.shared.language
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(T("앱", "App")) {
                 Choice(T("언어", "Language"), selection: $settings.language, style: .menu)
                 if settings.language != Self.launchLanguage {
@@ -34,7 +34,6 @@ struct GeneralSettingsPage: View {
                 ValueSlider(title: T("투명도", "Transparency"), value: $settings.settingsTransparency, range: 0...0.9, step: 0.05, format: Format.percent)
             }
         }
-        .settingsForm()
     }
 
 }
@@ -44,7 +43,7 @@ struct NotchControlsSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
+        SettingsForm {
             SettingsSection(T("누르기와 호버", "Press & Hover"), footer: T("마우스는 압력을 알려 주지 않아 길게 누르기만 동작합니다.", "Mice don't report pressure, so only long-press works with a mouse.")) {
                 ValueSlider(title: T("길게 누르기 시간", "Long-press duration"), value: $settings.longPressDuration, range: 0.2...0.8, step: 0.05) {
                     Format.seconds($0, digits: 2)
@@ -58,7 +57,6 @@ struct NotchControlsSettingsPage: View {
                 ValueMenu(title: T("기본 표시 시간", "Default duration"), selection: $settings.transientDuration, values: Choices.duration, label: Format.seconds)
             }
         }
-        .settingsForm()
     }
 }
 

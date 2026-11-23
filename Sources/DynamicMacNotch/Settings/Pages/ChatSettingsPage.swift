@@ -33,7 +33,7 @@ struct ChatSettingsPage: View {
 
     var body: some View {
         let hasKey = hasKeyState.wrappedValue
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("질문과 첨부한 파일은 고른 회사로만 전송됩니다.", "Questions and attachments go only to the company you choose."), more: T("입력한 질문, 최근 대화, 직접 첨부한 파일이 아래에서 고른 회사로 전송됩니다. 클립보드·화면·파일을 앱이 알아서 보내지는 않습니다. '처음 화면'을 골라도 지난 채팅은 목록에 남고, 답변 완료 알림을 누르면 그 답변이 열립니다.",
                                                         "Your questions, recent messages and files you attach are sent to the company you choose below. The clipboard, screen and files are never sent on their own. With New Chat Screen, past chats stay in the list, and clicking an Answer Ready alert still opens that answer.")) {
                 HomePageToggle(settings: settings, key: "chat", title: T("홈에 AI 채팅", "AI Chat in Home"))
@@ -157,7 +157,6 @@ struct ChatSettingsPage: View {
             }
             PreviewSection([(.chatDone, T("답변 완료 알림", "Answer Ready Alert"))])
         }
-        .settingsForm()
         .alert(T("저장된 대화를 모두 삭제할까요?", "Delete all saved conversations?"), isPresented: confirmClearState.projectedValue) {
             Button(T("모두 삭제", "Delete All"), role: .destructive, action: clearStoredChats)
             Button(T("취소", "Cancel"), role: .cancel) {}

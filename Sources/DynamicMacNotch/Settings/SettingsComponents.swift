@@ -16,6 +16,57 @@ extension View {
     }
 }
 
+private struct SettingsPageKey: EnvironmentKey {
+    static let defaultValue: SettingsPage? = nil
+}
+
+extension EnvironmentValues {
+    /// 지금 보이는 설정 페이지 (머리 카드가 읽는다)
+    var settingsPage: SettingsPage? {
+        get { self[SettingsPageKey.self] }
+        set { self[SettingsPageKey.self] = newValue }
+    }
+}
+
+/// 설정 페이지의 폼: 맨 위에 머리 카드(같은 아이콘을 크게 + 제목 + 한 줄 설명)를 두고 함께 스크롤한다.
+struct SettingsForm<Content: View>: View {
+    @Environment(\.settingsPage) private var page
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Form {
+            if let page {
+                // 카드 배경 없는 줄로 둔다 (빈 구역의 머리글로 두면 다음 구역 제목이 작게 그려진다)
+                Section { PageHeader(page: page).listRowBackground(Color.clear).listRowSeparator(.hidden) }
+            }
+            content
+        }
+        .settingsForm()
+    }
+}
+
+/// 페이지 머리 카드. 아이콘은 사이드바와 같은 기호·강조색이며 크기만 크다 (타일 배경 없음).
+struct PageHeader: View {
+    var page: SettingsPage
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            SettingsIcon(page: page, size: 28)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(page.title).font(.title.bold()).foregroundStyle(.primary)
+                Text(page.summary).font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .textCase(nil)
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// 구역 아래의 설명. 구역 제목과 같은 왼쪽 줄에 맞춘다. 11pt (macOS subheadline) — 설정 화면 글의 최소 크기.
 func footnote(_ text: String) -> some View {
     Text(text).font(.subheadline).foregroundStyle(.secondary)
@@ -43,6 +94,7 @@ struct SettingsSection<Content: View>: View {
     var disabledNote: String?
     private let content: Content
     private let expandedState = State(initialValue: false)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(_ title: String? = nil, footer: String? = nil, more: String? = nil, disabled: Bool = false, disabledNote: String? = nil,
          @ViewBuilder content: () -> Content) {
@@ -71,7 +123,7 @@ struct SettingsSection<Content: View>: View {
                             if let footer { footnote(footer).fixedSize(horizontal: false, vertical: true) }
                             if more != nil {
                                 Button(expandedState.wrappedValue ? T("접기", "Less") : T("자세히", "Details")) {
-                                    withAnimation(.snappy(duration: 0.2)) { expandedState.wrappedValue.toggle() }
+                                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { expandedState.wrappedValue.toggle() }
                                 }
                                 .buttonStyle(.link)
                                 .font(.subheadline)

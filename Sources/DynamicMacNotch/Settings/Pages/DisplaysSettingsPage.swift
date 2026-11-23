@@ -13,7 +13,7 @@ struct DisplaysSettingsPage: View {
     }
 
     var body: some View {
-        Form {
+        SettingsForm {
             placementSection
             if list.count > 1 {
                 contentSection
@@ -21,7 +21,6 @@ struct DisplaysSettingsPage: View {
             }
             fullscreenSection
         }
-        .settingsForm()
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             listState.wrappedValue = Displays.all()
         }

@@ -8,7 +8,7 @@ struct AgentSettingsPage: View {
 
     var body: some View {
         let _ = refresh.wrappedValue   // 연결·해제 뒤 상태를 다시 읽는다
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("작업 완료 알림", "Task finished alert"), detail: T("누르면 그 작업이 돌던 앱이 열립니다.", "Click it to open the app the task ran in."), isOn: $settings.agentAlerts)
             }
@@ -36,7 +36,6 @@ struct AgentSettingsPage: View {
             }
             PreviewSection([(.agentDone, T("작업 완료", "Task Finished"))])
         }
-        .settingsForm()
     }
 
     private func toggle(_ source: AgentSource, installed: Bool) {

@@ -26,6 +26,8 @@ final class AppSettings: ObservableObject {
     @Setting("settingsTransparency", default: 0.35, sanitize: { min(0.9, max(0, $0)) }) var settingsTransparency: Double
     /// 설정 창 사이드바에서 접어 둔 묶음 (`SettingsGroup.rawValue`)
     @Setting("settingsCollapsedGroups", default: []) var settingsCollapsedGroups: [String]
+    /// 설정 창을 다시 열 때 보일 마지막 페이지 (`SettingsPage.rawValue`)
+    @Setting("settingsLastPage", default: "") var settingsLastPage: String
 
     // MARK: - 노치 조작
 

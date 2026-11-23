@@ -8,13 +8,15 @@ struct SettingsView: View {
 
     #if DEV
     // 개발용: DMN_SETTINGS_PAGE=<페이지>로 특정 페이지를 열어 화면을 확인한다
-    private static let startPage = ProcessInfo.processInfo.environment["DMN_SETTINGS_PAGE"].flatMap(SettingsPage.init) ?? .general
+    private static let startPage = ProcessInfo.processInfo.environment["DMN_SETTINGS_PAGE"].flatMap(SettingsPage.init) ?? lastPage
     // 개발용: DMN_SETTINGS_QUERY=<검색어>로 검색 칸을 채워 연다
     private static let startQuery = ProcessInfo.processInfo.environment["DMN_SETTINGS_QUERY"] ?? ""
     #else
-    private static let startPage = SettingsPage.general
+    private static let startPage = lastPage
     private static let startQuery = ""
     #endif
+    /// 다시 열면 마지막에 본 페이지로 (HIG: Settings)
+    private static var lastPage: SettingsPage { SettingsPage(rawValue: AppSettings.shared.settingsLastPage) ?? .general }
     private let selectionState = State<SettingsPage?>(initialValue: SettingsView.startPage)
     private let queryState = State(initialValue: SettingsView.startQuery)
     private var page: SettingsPage { selectionState.wrappedValue ?? .general }
@@ -30,22 +32,23 @@ struct SettingsView: View {
                 .navigationSplitViewColumnWidth(Self.sidebarWidth)
         } detail: {
             VStack(alignment: .leading, spacing: 0) {
-                Text(page.title)
-                    .font(.title2.bold())
-                    .padding(.horizontal, 20)
-                    .padding(.top, 18)
-                    .padding(.bottom, 8)
+                // 폼이 아닌 페이지: 권한 관리는 머리 카드를 위에 고정, 정보는 자체 화면
+                if page == .permissions {
+                    PageHeader(page: page).padding(.horizontal, 20).padding(.top, 14)
+                }
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    // 스크롤한 내용이 제목 줄 위로 올라와 겹치지 않게 이 경계에서 자른다
                     .clipped()
             }
+            .environment(\.settingsPage, page)
+            .navigationTitle(page.title)   // 창 제목(숨김)은 VoiceOver·창 메뉴가 읽는다
             .id(page)
             // 창 버튼 줄의 빈 도구 막대 자리를 쓰지 않고 제목을 위에 붙인다 (창 버튼은 사이드바 위에 있다)
             .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar(removing: .sidebarToggle)
+        .onChange(of: page) { _, new in settings.settingsLastPage = new.rawValue }
         .frame(minWidth: Self.windowSize.width, maxWidth: .infinity, minHeight: Self.windowSize.height, maxHeight: .infinity)
         .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency))
         // 창 배경이 투명하므로 모서리 둥글림을 직접 잘라 준다
@@ -127,16 +130,23 @@ struct SettingsView: View {
 
 // MARK: - 유리 배경
 
-/// 설정 창 전체 배경: 뒤 화면을 흐리게 비추는 층 + 흰색 층.
+/// 설정 창 전체 배경: 뒤 화면을 흐리게 비추는 층 + 창 색 층(라이트는 흰색, 다크는 어두운 색).
 /// 흐림(blur)은 흐린 층의 불투명도, 투명도(transparency)는 창 색 층을 얼마나 비울지로 조절한다.
+/// 시스템의 '투명도 줄이기'가 켜져 있으면 두 값을 무시하고 불투명하게 그린다.
 private struct GlassBackdrop: View {
     var blur: Double
     var transparency: Double
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack {
-            BehindWindowBlur().opacity(blur)
-            Color.white.opacity(1 - transparency)
+        let window = Color(nsColor: .windowBackgroundColor)
+        if reduceTransparency {
+            window
+        } else {
+            ZStack {
+                BehindWindowBlur().opacity(blur)
+                window.opacity(1 - transparency)
+            }
         }
     }
 }

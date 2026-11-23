@@ -65,8 +65,8 @@ NotchHub (1개)
 
 ### 설정 페이지 추가
 
-1. `Settings/SettingsPage.swift`: case, `title`, `symbol`, 그리고 `SettingsGroup.pages`의 한 묶음에 넣기 (사이드바 묶음: 앱·노치·연결·미디어·캡처·시스템·AI·기타). 새 기호는 `SettingsProbe`의 고정 기호 표에도 적는다 — 기존 기호는 바꾸지 않는다
-2. `Settings/Pages/`에 페이지 View
+1. `Settings/SettingsPage.swift`: case, `title`, `summary`(머리 카드 한 줄 설명), `symbol`, 그리고 `SettingsGroup.pages`의 한 묶음에 넣기 (사이드바 묶음: 앱·노치·연결·미디어·캡처·시스템·AI·기타). 새 기호는 `SettingsProbe`의 고정 기호 표에도 적는다 — 기존 기호는 바꾸지 않는다
+2. `Settings/Pages/`에 페이지 View — `SettingsForm { … }`으로 감싼다(맨 위 머리 카드가 저절로 들어감)
 3. `Settings/SettingsView.swift`의 `content`
 
 ### 상시 표시 항목 추가

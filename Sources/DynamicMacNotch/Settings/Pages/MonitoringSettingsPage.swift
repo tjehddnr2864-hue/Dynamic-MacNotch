@@ -10,7 +10,7 @@ struct MonitoringSettingsPage: View {
         let content = settings.effectiveMonitorContent
         let slots = settings.monitorSlots
         let hasAISlot = content == .ai || [slots?.left, slots?.right].contains { $0?.isAI == true }
-        Form {
+        SettingsForm {
             SettingsSection(SectionTitle.show, footer: T("홈 기능의 스위치와 같은 설정입니다. 끄면 그 기능은 노치에서 사라지고 백그라운드에서도 멈춥니다.",
                                                         "Same as the switches in Home Features. A feature that's off disappears from the notch and stops running in the background.")) {
                 HomePageToggle(settings: settings, key: "usage", title: T("AI 사용량", "AI Usage"))
@@ -49,7 +49,6 @@ struct MonitoringSettingsPage: View {
             PreviewSection([(.aiUsage, T("AI 사용량", "AI Usage")), (.resourceLive, T("시스템 모니터링", "System Monitoring")),
                             (.monitorLive, T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring"))])
         }
-        .settingsForm()
     }
 
     // MARK: 상시 표시
