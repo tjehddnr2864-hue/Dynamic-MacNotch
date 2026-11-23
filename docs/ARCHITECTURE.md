@@ -69,6 +69,10 @@ NotchHub (1개)
 2. `Settings/Pages/`에 페이지 View — `SettingsForm { … }`으로 감싼다(맨 위 머리 카드가 저절로 들어감)
 3. `Settings/SettingsView.swift`의 `content`
 
+### 설정 검색
+
+색인은 빌드할 때 `scripts/gen-settings-index.py`가 페이지 코드에서 만듭니다(`Settings/SettingsIndex+Generated.swift`, 손으로 고치지 않음). 부품(`Toggle`·`Choice`·`ValueMenu` 등)에 `T("…", "…")`로 이름을 주면 저절로 검색됩니다. 이름이 실행 중에 정해지는 줄은 `SettingsIndex.manual`에 적고, 설정 화면에 없는 내부 값은 `SettingsIndex.internalKeys`에 넣습니다. `--settings-probe`가 모든 설정이 검색으로 닿는지 확인합니다.
+
 ### 상시 표시 항목 추가
 
 1. `ActivityKind`에 case

@@ -19,7 +19,11 @@ struct SettingsView: View {
     private static var lastPage: SettingsPage { SettingsPage(rawValue: AppSettings.shared.settingsLastPage) ?? .general }
     private let selectionState = State<SettingsPage?>(initialValue: SettingsView.startPage)
     private let queryState = State(initialValue: SettingsView.startQuery)
+    private let highlightState = State<String?>(initialValue: nil)
     private var page: SettingsPage { selectionState.wrappedValue ?? .general }
+    private var query: String { queryState.wrappedValue.trimmingCharacters(in: .whitespaces) }
+    /// 검색 중이면 결과 (설정 창이 열린 동안 키를 칠 때마다 다시 거른다. 색인 약 140개라 바로 끝난다)
+    private var results: [SettingsEntry] { query.isEmpty ? [] : SettingsIndex.search(query) }
 
     static let windowSize = CGSize(width: 860, height: 620)
     /// 창 모서리. macOS 26의 사이드바 유리와 같은 중심이 되는 값
@@ -31,24 +35,40 @@ struct SettingsView: View {
             sidebar
                 .navigationSplitViewColumnWidth(Self.sidebarWidth)
         } detail: {
-            VStack(alignment: .leading, spacing: 0) {
-                // 폼이 아닌 페이지: 권한 관리는 머리 카드를 위에 고정, 정보는 자체 화면
-                if page == .permissions {
-                    PageHeader(page: page).padding(.horizontal, 20).padding(.top, 14)
+            Group {
+                if !query.isEmpty {
+                    SettingsSearchResults(query: query, results: results, open: open)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // 폼이 아닌 페이지: 권한 관리는 머리 카드를 위에 고정, 정보는 자체 화면
+                        if page == .permissions {
+                            PageHeader(page: page).padding(.horizontal, 20).padding(.top, 14)
+                        }
+                        content
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                    }
+                    .environment(\.settingsPage, page)
+                    .environment(\.settingsHighlight, highlightState.wrappedValue)
+                    .id(page)
                 }
-                content
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
             }
-            .environment(\.settingsPage, page)
-            .navigationTitle(page.title)   // 창 제목(숨김)은 VoiceOver·창 메뉴가 읽는다
-            .id(page)
+            // 창 제목(화면에는 숨김)은 VoiceOver·창 메뉴가 읽는다. navigationTitle은 도구 막대에 글을 그려 쓰지 않는다
+            .background(WindowTitle(title: query.isEmpty ? page.title : T("설정 검색", "Search Settings")))
             // 창 버튼 줄의 빈 도구 막대 자리를 쓰지 않고 제목을 위에 붙인다 (창 버튼은 사이드바 위에 있다)
             .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar(removing: .sidebarToggle)
         .onChange(of: page) { _, new in settings.settingsLastPage = new.rawValue }
+        #if DEV
+        // 개발용: DMN_SETTINGS_OPEN=<검색 항목 id>면 열린 뒤 그 결과를 연다 (스크롤·강조 시험)
+        .onAppear {
+            guard let id = ProcessInfo.processInfo.environment["DMN_SETTINGS_OPEN"],
+                  let entry = SettingsIndex.all.first(where: { $0.id == id }) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { open(entry) }
+        }
+        #endif
         .frame(minWidth: Self.windowSize.width, maxWidth: .infinity, minHeight: Self.windowSize.height, maxHeight: .infinity)
         .background(GlassBackdrop(blur: settings.settingsBlur, transparency: settings.settingsTransparency))
         // 창 배경이 투명하므로 모서리 둥글림을 직접 잘라 준다
@@ -88,11 +108,23 @@ struct SettingsView: View {
 
     // MARK: - 사이드바 (시스템 사이드바: macOS 26 이상은 Liquid Glass를 저절로 입는다)
 
-    /// 검색어가 있으면 이름이 맞는 페이지만 (전체 설정 검색은 단계 6)
+    /// 검색 중이면 결과가 있는 페이지만
     private func visible(_ group: SettingsGroup) -> [SettingsPage] {
-        let q = queryState.wrappedValue.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return group.pages }
-        return group.pages.filter { $0.title.localizedStandardContains(q) }
+        guard !query.isEmpty else { return group.pages }
+        let pages = Set(results.map(\.page))
+        return group.pages.filter(pages.contains)
+    }
+
+    /// 검색 결과 열기: 그 페이지로 가서 줄까지 스크롤하고 잠깐 강조한다
+    private func open(_ entry: SettingsEntry) {
+        queryState.wrappedValue = ""
+        selectionState.wrappedValue = entry.page
+        guard !entry.isPage else { return }
+        let title = entry.shownTitle
+        highlightState.wrappedValue = title
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            if highlightState.wrappedValue == title { highlightState.wrappedValue = nil }
+        }
     }
 
     private func expanded(_ group: SettingsGroup) -> Binding<Bool> {
@@ -124,7 +156,8 @@ struct SettingsView: View {
             }
         }
         .listStyle(.sidebar)
-        .searchable(text: queryState.projectedValue, placement: .sidebar, prompt: T("검색", "Search"))
+        .searchable(text: queryState.projectedValue, placement: .sidebar, prompt: T("설정 검색", "Search Settings"))
+        .onSubmit(of: .search) { if let first = results.first { open(first) } }   // Return: 첫 결과 열기
     }
 }
 
@@ -193,5 +226,77 @@ private struct BluetoothGlyph: Shape {
         path.addLine(to: p(1, 0.28))
         path.addLine(to: p(0, 0.72))
         return path
+    }
+}
+
+// MARK: - 검색 결과
+
+/// 검색 결과 목록: 페이지별로 묶어 줄 이름, 설명, 위치(구역)를 보인다. 누르면 그 줄로 간다.
+private struct SettingsSearchResults: View {
+    var query: String
+    var results: [SettingsEntry]
+    var open: (SettingsEntry) -> Void
+
+    private var byPage: [(page: SettingsPage, entries: [SettingsEntry])] {
+        var order: [SettingsPage] = []
+        var groups: [SettingsPage: [SettingsEntry]] = [:]
+        for e in results {
+            if groups[e.page] == nil { order.append(e.page) }
+            groups[e.page, default: []].append(e)
+        }
+        return order.map { ($0, groups[$0] ?? []) }
+    }
+
+    var body: some View {
+        if results.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 28)).foregroundStyle(.tertiary)
+                Text(T("'\(query)'에 맞는 설정이 없습니다", "No settings match '\(query)'")).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            Form {
+                Section {
+                    Text(T("결과 \(results.count)개 · Return을 누르면 첫 결과로 갑니다", "\(results.count) results · Press Return for the first one"))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(byPage, id: \.page) { group in
+                    Section {
+                        ForEach(group.entries) { entry in
+                            Button { open(entry) } label: {
+                                HStack {
+                                    RowLabel(title: entry.isPage ? T("페이지 열기", "Open Page") : entry.shownTitle,
+                                             detail: entry.isPage ? entry.page.summary : location(entry))
+                                    Spacer()
+                                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Label { Text(group.page.title) } icon: { SettingsIcon(page: group.page, size: 12).imageScale(.medium) }
+                    }
+                }
+            }
+            .settingsForm()
+        }
+    }
+
+    /// 설명이 있으면 설명, 없으면 위치 (구역 이름)
+    private func location(_ e: SettingsEntry) -> String? {
+        e.shownDetail ?? e.shownSection
+    }
+}
+
+/// 창 제목만 바꾼다 (화면에 그리지 않음)
+private struct WindowTitle: NSViewRepresentable {
+    var title: String
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async { view.window?.title = title }
     }
 }

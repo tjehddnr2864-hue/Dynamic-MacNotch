@@ -179,6 +179,34 @@ enum SettingsProbe {
         check(Format.seconds(1) == T("1초", "1s") && Format.seconds(1.5) == T("1.5초", "1.5s") && Format.seconds(0.35, digits: 2) == T("0.35초", "0.35s"), "seconds format")
         check(Format.percent(0.355) == "36%" && Format.period(minutes: 10080) == T("7일", "7 days") && Format.period(minutes: 60) == T("1시간", "1 hour"), "percent and period format")
 
+        // 설정 검색 (가이드라인 §10.3)
+        let index = SettingsIndex.all
+        let indexed = Set(index.flatMap(\.keys))
+        let missing = keys.filter { !indexed.contains($0) && !SettingsIndex.internalKeys.contains($0) }
+        check(missing.isEmpty, "every setting is reachable by search (missing: \(missing.joined(separator: ", ")))")
+        check(indexed.isSubset(of: Set(keys)), "search index names only real settings")
+        check(Set(index.map(\.id)).count == index.count, "search ids are unique")
+        check(SettingsPage.allCases.allSatisfy { p in index.contains { $0.isPage && $0.page == p } }, "every page is in the search index")
+        check(index.count > 120, "search index has rows, not just pages (\(index.count))")
+        for e in index {
+            check(SettingsIndex.search(e.title.ko).contains { $0.id == e.id }, "found by Korean name: \(e.id)")
+            check(SettingsIndex.search(e.title.en).contains { $0.id == e.id }, "found by English name: \(e.id)")
+        }
+        func first(_ q: String) -> String? { SettingsIndex.search(q).first?.id }
+        let volume = SettingsIndex.search("음량").first { $0.page == .hud }?.id
+        check(volume != nil && ["volume", "볼륨", "Volume"].allSatisfy { q in SettingsIndex.search(q).contains { $0.id == volume } }, "synonyms: 볼륨·volume find 음량")
+        check(SettingsIndex.search("음량".decomposedStringWithCanonicalMapping).contains { $0.id == volume }, "decomposed Hangul input still matches")
+        check(SettingsIndex.search("ㅇㄹ").contains { $0.id == volume }, "initial consonants: ㅇㄹ finds 음량")
+        check(SettingsIndex.search("").isEmpty && SettingsIndex.search("   ").isEmpty, "empty query finds nothing")
+        check(SettingsIndex.search("zzqqxx").isEmpty, "nonsense finds nothing")
+        check(first("투명도")?.hasPrefix("general.") == true || first("투명도")?.hasPrefix("hud.") == true, "name match ranks first")
+        check(SettingsIndex.initials("음량 HUD") == "ㅇㄹHUD", "initials keep non-Hangul")
+        let start = Date()
+        for q in ["a", "알", "표시", "wi", "ㅂ", "volume"] { _ = SettingsIndex.search(q) }
+        let perQuery = Date().timeIntervalSince(start) / 6
+        print("search: \(index.count) entries, \(String(format: "%.2f", perQuery * 1000)) ms per query")
+        check(perQuery < 0.02, "search answers within 20 ms per keystroke")
+
         withExtendedLifetime(bag) {}
         print("settings checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }

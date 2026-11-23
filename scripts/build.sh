@@ -34,6 +34,7 @@ SWIFT_FLAGS=(
 )
 [ "$DEV" = 1 ] && SWIFT_FLAGS+=(-Xswiftc -DDEV)
 scripts/check-settings-ui.sh   # 설정 화면 규칙 / settings screen rules
+/usr/bin/python3 -I scripts/gen-settings-index.py   # 설정 검색 색인 / settings search index
 swift build "${SWIFT_FLAGS[@]}"
 BIN="$(swift build "${SWIFT_FLAGS[@]}" --show-bin-path)"
 

@@ -20,28 +20,52 @@ private struct SettingsPageKey: EnvironmentKey {
     static let defaultValue: SettingsPage? = nil
 }
 
+private struct SettingsHighlightKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
 extension EnvironmentValues {
     /// 지금 보이는 설정 페이지 (머리 카드가 읽는다)
     var settingsPage: SettingsPage? {
         get { self[SettingsPageKey.self] }
         set { self[SettingsPageKey.self] = newValue }
     }
+
+    /// 검색 결과로 찾아온 줄의 이름 (그 줄로 스크롤하고 잠깐 강조한다)
+    var settingsHighlight: String? {
+        get { self[SettingsHighlightKey.self] }
+        set { self[SettingsHighlightKey.self] = newValue }
+    }
 }
 
 /// 설정 페이지의 폼: 맨 위에 머리 카드(같은 아이콘을 크게 + 제목 + 한 줄 설명)를 두고 함께 스크롤한다.
 struct SettingsForm<Content: View>: View {
     @Environment(\.settingsPage) private var page
+    @Environment(\.settingsHighlight) private var highlight
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewBuilder var content: Content
 
     var body: some View {
-        Form {
-            if let page {
-                // 카드 배경 없는 줄로 둔다 (빈 구역의 머리글로 두면 다음 구역 제목이 작게 그려진다)
-                Section { PageHeader(page: page).listRowBackground(Color.clear).listRowSeparator(.hidden) }
+        ScrollViewReader { proxy in
+            Form {
+                if let page {
+                    // 카드 배경 없는 줄로 둔다 (빈 구역의 머리글로 두면 다음 구역 제목이 작게 그려진다)
+                    Section { PageHeader(page: page).listRowBackground(Color.clear).listRowSeparator(.hidden) }
+                }
+                content
             }
-            content
+            .settingsForm()
+            .onAppear { scroll(proxy) }
+            .onChange(of: highlight) { _, _ in scroll(proxy) }
         }
-        .settingsForm()
+    }
+
+    /// 검색으로 찾아온 줄까지 스크롤 (페이지가 그려진 뒤에)
+    private func scroll(_ proxy: ScrollViewProxy) {
+        guard let highlight else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(highlight, anchor: .center) }
+        }
     }
 }
 
@@ -144,6 +168,7 @@ struct SettingsSection<Content: View>: View {
 struct RowLabel: View {
     var title: String
     var detail: String?
+    @Environment(\.settingsHighlight) private var highlight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -152,6 +177,13 @@ struct RowLabel: View {
                 Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.accentColor.opacity(highlight == title ? 0.2 : 0))
+                .padding(.horizontal, -6).padding(.vertical, -3)
+                .animation(.easeOut(duration: 0.6), value: highlight)
+        )
+        .id(title)   // 검색 결과에서 이 줄로 스크롤한다
     }
 }
 
