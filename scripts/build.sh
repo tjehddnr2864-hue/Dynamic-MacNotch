@@ -84,5 +84,9 @@ fi
 if [ "$RUN" = 1 ]; then
   pkill -x "$EXE" 2>/dev/null || true
   sleep 0.5
-  open "$APP" --args --dev-run   # 개발 빌드는 이 인자가 없으면 설치된 앱을 대신 연다 / without it a dev build opens the installed app instead
+  if [ "$INSTALL" = 1 ]; then
+    open "$APP"
+  else
+    open "$APP" --args --dev-run   # 개발 빌드는 이 인자가 없으면 설치된 앱을 대신 연다 / without it a dev build opens the installed app instead
+  fi
 fi
