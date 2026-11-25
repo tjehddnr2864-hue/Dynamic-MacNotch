@@ -21,6 +21,7 @@ extension AppDelegate {
                 }
             case let c where c.hasPrefix("shotfile:"): self.screenshot.debugPresentFile(URL(fileURLWithPath: String(c.dropFirst(9))))
             case "shotdelete": self.screenshot.delete()
+            case "shottray": self.screenshot.sendToTray()   // 개발용: 카드의 트레이 버튼
             case "memtest":   // 개발용: 기준을 1MB로 낮춰 지킴이 동작(캐시 비우기 → 쉬는 동안 재시작)을 시험
                 MemoryGuard.testLimitMB = 1
                 MemoryGuard.shared.debugCheckNow()

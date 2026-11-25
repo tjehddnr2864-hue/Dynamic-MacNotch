@@ -156,9 +156,92 @@ enum TrayProbe {
         s.selectAll(ids); check(s, Array(0..<8), 7, "select all")
         s.retain(Array(ids[0..<3])); check(s, [0, 1, 2], nil, "removed files leave the selection")
         s.clear(); s.move(.right, order: [], columns: 3, shift: false, command: false); check(s, [], nil, "empty tray")
+        checkCopies { ok, what in
+            checks += 1
+            if !ok { failures.append(what) }
+        }
         print("tray checks=\(checks) failures=\(failures.count)")
         failures.forEach { print("  FAIL", $0) }
         exit(failures.isEmpty ? 0 : 1)
+    }
+
+    /// 트레이 복사본: 임시 폴더·시험용 저장소만 쓰고 실제 트레이와 휴지통은 건드리지 않는다
+    private static func checkCopies(_ check: (Bool, String) -> Void) {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("dmn-tray-probe-" + UUID().uuidString, isDirectory: true)
+        let copies = root.appendingPathComponent("Tray", isDirectory: true), desk = root.appendingPathComponent("Desk", isDirectory: true)
+        try? fm.createDirectory(at: desk, withIntermediateDirectories: true)
+        let suite = "dmn-tray-probe", defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? fm.removeItem(at: root)
+        }
+        var trashed: [String] = [], trashWorks = true
+        func store() -> TrayStore {
+            TrayStore(center: ActivityCenter(), defaults: defaults, copyFolder: copies) { url in
+                guard trashWorks else { return false }
+                trashed.append(url.lastPathComponent)
+                return (try? fm.removeItem(at: url)) != nil   // 시험에서는 휴지통 대신 지운다 (임시 파일)
+            }
+        }
+        func folders() -> Int { ((try? fm.contentsOfDirectory(atPath: copies.path)) ?? []).count }
+        let png = Data([0x89, 0x50, 0x4E, 0x47])
+
+        let tray = store()
+        check(tray.addData(png, name: "a.png") && tray.items.count == 1, "clipboard capture is added")
+        let a = tray.items[0]
+        check(a.isCopy && a.isOnlyCopy == true && (try? Data(contentsOf: a.url)) == png, "kept as a file by the tray")
+        check(a.path.hasPrefix(copies.path), "kept in the tray folder, not a temporary folder")
+        check(store().items.first?.isOnlyCopy == true, "still there after relaunch")
+        tray.remove(a)
+        check(trashed == ["a.png"] && folders() == 0 && tray.items.isEmpty, "leaving the tray sends it to the Trash")
+
+        _ = tray.addData(png, name: "b.png")
+        trashWorks = false
+        tray.clear()
+        check(folders() == 1, "kept when it can't go to the Trash")
+        trashWorks = true
+        for f in (try? fm.contentsOfDirectory(at: copies, includingPropertiesForKeys: nil)) ?? [] { try? fm.removeItem(at: f) }
+
+        // 사용자가 복사본을 다른 폴더로 옮긴 뒤 트레이에서 빼도, 옮긴 폴더는 그대로여야 한다
+        _ = tray.addData(png, name: "c.png")
+        let moved = desk.appendingPathComponent("c.png"), other = desk.appendingPathComponent("other.txt")
+        try? Data("keep".utf8).write(to: other)
+        try? fm.moveItem(atPath: tray.items[0].path, toPath: moved.path)
+        tray.clear()
+        check(fm.fileExists(atPath: other.path) && fm.fileExists(atPath: moved.path), "a copy moved elsewhere leaves that folder alone")
+        check(folders() == 0, "its empty tray folder is cleaned up")
+
+        // 끌어낸 뒤에는 받는 앱이 읽을 수 있게 남아 있고, 다음 실행 때 치운다
+        _ = tray.addData(png, name: "d.png")
+        let d = tray.items[0]
+        tray.delivered(ids: [d.id])
+        check(tray.items.isEmpty && fm.fileExists(atPath: d.path), "a dragged-out copy stays readable")
+        _ = store()
+        check(!fm.fileExists(atPath: d.path) && trashed.last == "d.png" && folders() == 0, "and is cleaned up on the next launch")
+
+        // 저장 파일로 된 스크린샷은 그 파일을 참조만 한다
+        let file = desk.appendingPathComponent("e.png")
+        try? png.write(to: file)
+        tray.add([file])
+        let e = tray.items.first
+        if e?.isCopy == false {
+            tray.clear()
+            check(fm.fileExists(atPath: file.path), "a referenced file is never removed")
+        } else {
+            tray.clear()
+            check(fm.fileExists(atPath: file.path), "the original stays when copies are kept")
+        }
+        // 복사본 폴더 밖을 가리키는 저장값은 치우지 않는다
+        let stray = [["path": other.path, "trash": false] as [String: Any]]
+        defaults.set(try? JSONSerialization.data(withJSONObject: stray), forKey: "trayDelivered")
+        _ = store()
+        check(fm.fileExists(atPath: other.path), "never cleans outside the tray folder")
+        // 예전 버전이 저장한 항목(isOnlyCopy 없음)도 읽는다
+        let old = [["id": UUID().uuidString, "bookmark": Data().base64EncodedString(), "path": file.path, "added": Date().timeIntervalSinceReferenceDate, "isCopy": false] as [String: Any]]
+        defaults.set(try? JSONSerialization.data(withJSONObject: old), forKey: "trayItems")
+        check(store().items.count == 1, "items saved by older versions load")
     }
 }
 #endif

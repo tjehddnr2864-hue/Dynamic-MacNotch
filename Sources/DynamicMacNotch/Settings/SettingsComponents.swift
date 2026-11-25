@@ -260,6 +260,7 @@ extension HUDDesign: SettingOption {}
 extension LiquidHUDValue: SettingOption {}
 extension ProgressStyle: SettingOption {}
 extension ScreenshotSource: SettingOption {}
+extension ScreenshotSend: SettingOption {}
 extension RecordingStyle: SettingOption {}
 extension TrayMode: SettingOption {}
 extension FileDragPage: SettingOption {}

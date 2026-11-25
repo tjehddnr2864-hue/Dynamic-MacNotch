@@ -19,6 +19,8 @@ final class ScreenshotMonitor: ObservableObject {
 
     @Published private(set) var shot: Shot?
     @Published private(set) var status: String?
+    /// 상태가 실패를 알리는 글인지 (아이콘·색)
+    private(set) var statusFailed = false
 
     private let center: ActivityCenter
     private let settings = AppSettings.shared
@@ -32,6 +34,10 @@ final class ScreenshotMonitor: ObservableObject {
     var onCapture: (() -> Void)?
     /// 에어드랍으로 보낸다 (AppDelegate가 트레이의 에어드랍에 연결: 진행률·결과 알림을 같이 쓴다)
     var onAirDrop: (([URL]) -> Void)?
+    /// 파일로 저장된 스크린샷을 파일 트레이에 넣는다
+    var onTrayFile: ((URL) -> Void)?
+    /// 클립보드 스크린샷을 파일 트레이에 보관한다 (PNG, 파일 이름). 실패하면 false
+    var onTrayData: ((Data, String) -> Bool)?
 
     init(center: ActivityCenter) {
         self.center = center
@@ -153,6 +159,7 @@ final class ScreenshotMonitor: ObservableObject {
             self.shot?.thumb = autoreleasepool { ImageScaler.decode(png) }
         }
         status = nil
+        statusFailed = false
         observeCardEnd()
         center.post(NotchActivity(
             kind: .screenshot, priority: ActivityPriority.screenshot, presentation: .detail,
@@ -261,6 +268,7 @@ final class ScreenshotMonitor: ObservableObject {
                 self.status = T("저장됨", "Saved")
                 self.dismiss()
             } else {
+                self.statusFailed = true
                 self.status = T("저장 실패", "Save Failed")
             }
         }
@@ -291,6 +299,29 @@ final class ScreenshotMonitor: ObservableObject {
         withPNG(s) { png in
             let url = Self.tempURL(for: s.date)
             if (try? png.write(to: url)) != nil { send(url) }
+        }
+    }
+
+    /// 파일 트레이: 파일로 저장된 스크린샷은 그 파일을, 클립보드 스크린샷은 트레이가 보관하는 PNG를 넣는다.
+    func sendToTray() {
+        let done = T("트레이에 넣음", "Added to Tray")
+        if previewOnly(done) { return }
+        guard let s = shot else { return }
+        if let url = s.fileURL {
+            onTrayFile?(url)
+            status = done
+            dismiss()
+            return
+        }
+        withPNG(s) { [weak self] png in
+            guard let self else { return }
+            if self.onTrayData?(png, Self.fileName(for: s.date) + ".png") == true {
+                self.status = done
+                self.dismiss()
+            } else {
+                self.statusFailed = true
+                self.status = T("넣지 못함", "Couldn't Add")
+            }
         }
     }
 
@@ -345,7 +376,13 @@ struct ScreenshotCard: View {
                                                space: CGColorSpaceCreateDeviceRGB(),
                                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!.makeImage()!
     @ObservedObject var monitor: ScreenshotMonitor
+    @ObservedObject private var settings = AppSettings.shared
     var notchSize: CGSize
+
+    init(monitor: ScreenshotMonitor, notchSize: CGSize) {
+        self.monitor = monitor
+        self.notchSize = notchSize
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -368,9 +405,9 @@ struct ScreenshotCard: View {
                 }
                 Group {
                     if let status = monitor.status {
-                        Label(status, systemImage: "checkmark.circle.fill")
+                        Label(status, systemImage: monitor.statusFailed ? "xmark.circle.fill" : "checkmark.circle.fill")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(monitor.statusFailed ? .red : .green)
                             .transition(.scale.combined(with: .opacity))
                     } else {
                         Grid(horizontalSpacing: Self.buttonGap, verticalSpacing: Self.buttonGap) {
@@ -379,7 +416,11 @@ struct ScreenshotCard: View {
                                 action("square.and.arrow.down", T("저장", "Save")) { monitor.save() }
                             }
                             GridRow {
-                                action("dot.radiowaves.left.and.right", T("에어드랍", "AirDrop")) { monitor.airDrop() }
+                                if settings.effectiveScreenshotSend == .tray {
+                                    action("tray.and.arrow.down", T("트레이", "Tray")) { monitor.sendToTray() }
+                                } else {
+                                    action("dot.radiowaves.left.and.right", T("에어드랍", "AirDrop")) { monitor.airDrop() }
+                                }
                                 action("trash", T("삭제", "Delete"), tint: .red) { monitor.delete() }
                             }
                         }

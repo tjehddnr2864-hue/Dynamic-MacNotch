@@ -99,6 +99,13 @@ enum ScreenshotSource: String, CaseIterable, Identifiable {
     }
 }
 
+/// 스크린샷 카드의 보내기 버튼
+enum ScreenshotSend: String, CaseIterable, Identifiable {
+    case airdrop, tray
+    var id: String { rawValue }
+    var label: String { self == .airdrop ? T("에어드랍", "AirDrop") : T("파일 트레이", "File Tray") }
+}
+
 /// 화면 녹화 표시: 잠깐 알림 후 들어감 / 녹화 내내 노치에 표시(왼쪽 녹화 시간)
 enum RecordingStyle: String, CaseIterable, Identifiable {
     case brief, persistent

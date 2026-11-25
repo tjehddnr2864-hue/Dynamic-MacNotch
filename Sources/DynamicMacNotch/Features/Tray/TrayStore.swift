@@ -12,6 +12,9 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
         var path: String
         var added = Date()
         var isCopy = false
+        /// 원본이 따로 없는 파일 (트레이로 보낸 클립보드 스크린샷). 없앨 때 지우지 않고 휴지통으로 보낸다.
+        /// 예전에 저장된 항목에는 없으므로 옵셔널
+        var isOnlyCopy: Bool?
 
         var url: URL {
             var stale = false
@@ -45,18 +48,29 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
     private let center: ActivityCenter
     private let settings = AppSettings.shared
     private let storeKey = "trayItems"
+    private let deliveredKey = "trayDelivered"
     private var airdropSubscriber: Any?
     private var airdropFiles: [URL] = []
 
-    private static let copyFolder: URL = {
+    static let copyFolder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("Dynamic MacNotch/Tray", isDirectory: true)
     }()
 
-    init(center: ActivityCenter) {
+    private let defaults: UserDefaults
+    private let copyFolder: URL
+    private let trash: (URL) -> Bool
+
+    /// 저장소·복사본 폴더·휴지통은 시험(`--tray-probe`)에서만 바꿔 넣는다
+    init(center: ActivityCenter, defaults: UserDefaults = .standard, copyFolder: URL = TrayStore.copyFolder,
+         trash: @escaping (URL) -> Bool = { (try? FileManager.default.trashItem(at: $0, resultingItemURL: nil)) != nil }) {
         self.center = center
+        self.defaults = defaults
+        self.copyFolder = copyFolder
+        self.trash = trash
         super.init()
         load()
+        disposeDelivered()   // 지난 실행에서 끌어내고 남은 복사본
         cleanup()
         settings.$trayCleanupMinutes
             .dropFirst()
@@ -67,12 +81,30 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
 
     // MARK: - 트레이
 
+    /// 원본이 없는 이미지(클립보드 스크린샷)를 트레이가 파일로 보관한다.
+    /// 임시 폴더에 두면 macOS가 치워서 사라지므로 트레이의 복사본 폴더에 쓴다.
+    func addData(_ data: Data, name: String) -> Bool {
+        let folder = copyFolder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let dest = folder.appendingPathComponent(name)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: dest, options: .atomic)
+            let bookmark = try dest.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+            items.append(Item(bookmark: bookmark, path: dest.path, isCopy: true, isOnlyCopy: true))
+        } catch {
+            try? FileManager.default.removeItem(at: folder)   // 방금 만든 폴더
+            return false
+        }
+        itemsChanged()
+        return true
+    }
+
     func add(_ urls: [URL]) {
         for url in urls where !items.contains(where: { $0.path == url.path }) {
             var target = url
             var isCopy = false
             if settings.trayKeepCopies {
-                let folder = Self.copyFolder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                let folder = copyFolder.appendingPathComponent(UUID().uuidString, isDirectory: true)
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let dest = folder.appendingPathComponent(url.lastPathComponent)
                 if (try? FileManager.default.copyItem(at: url, to: dest)) != nil {
@@ -115,24 +147,71 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
 
     func clearSelection() { picked.clear() }
 
-    /// 끌어낸 파일(들)을 트레이에서 뺀다
     func remove(ids: Set<UUID>) {
         discard(items.filter { ids.contains($0.id) })
+    }
+
+    /// 다른 앱으로 끌어낸 파일(들)을 트레이에서 뺀다. 받는 앱이 나중에 읽을 수 있어 복사본은 잠시 뒤에 치운다.
+    func delivered(ids: Set<UUID>) {
+        discard(items.filter { ids.contains($0.id) }, delivered: true)
     }
 
     func remove(_ item: Item) { discard([item]) }
 
     func clear() { discard(items) }
 
-    /// 목록에서 뺀다. 원본 파일은 건드리지 않고, 트레이가 만든 복사본만 지운다.
-    private func discard(_ gone: [Item]) {
+    /// 목록에서 뺀다. 원본 파일은 건드리지 않고, 트레이가 만든 복사본만 치운다.
+    private func discard(_ gone: [Item], delivered: Bool = false) {
         guard !gone.isEmpty else { return }
         let ids = Set(gone.map(\.id))
-        for item in gone where item.isCopy {
-            try? FileManager.default.removeItem(at: item.url.deletingLastPathComponent())
-        }
         items.removeAll { ids.contains($0.id) }
         itemsChanged()
+        let copies = gone.filter(\.isCopy).map { Copy(path: $0.path, trash: $0.isOnlyCopy == true) }
+        guard !copies.isEmpty else { return }
+        if delivered {
+            deliveredCopies += copies
+            DispatchQueue.main.asyncAfter(wallDeadline: .now() + Self.deliveredKeep) { [weak self] in
+                self?.disposeDelivered(copies)
+            }
+        } else {
+            copies.forEach(dispose)
+        }
+    }
+
+    /// 트레이가 만든 복사본 (넣을 때의 경로)
+    private struct Copy: Codable, Equatable {
+        var path: String
+        var trash: Bool
+    }
+
+    /// 끌어낸 복사본을 남겨 두는 시간(초)
+    private static let deliveredKeep: TimeInterval = 600
+
+    /// 끌어냈고 아직 치우지 않은 복사본. 앱이 먼저 끝나면 다음 실행 때 치운다.
+    private var deliveredCopies: [Copy] {
+        get { defaults.data(forKey: deliveredKey).flatMap { try? JSONDecoder().decode([Copy].self, from: $0) } ?? [] }
+        set {
+            if newValue.isEmpty { defaults.removeObject(forKey: deliveredKey) } else { defaults.set(try? JSONEncoder().encode(newValue), forKey: deliveredKey) }
+        }
+    }
+
+    private func disposeDelivered(_ copies: [Copy]? = nil) {
+        let all = deliveredCopies, due = copies ?? all
+        guard !due.isEmpty else { return }
+        deliveredCopies = all.filter { !due.contains($0) }
+        due.forEach(dispose)
+    }
+
+    /// 복사본을 치운다. 반드시 넣을 때 만든 폴더(복사본 폴더/UUID) 안에서만 한다:
+    /// 북마크는 사용자가 옮긴 파일을 따라가므로, 그 위치를 기준으로 지우면 옮긴 곳의 폴더(데스크탑 등)를 통째로 지울 수 있다.
+    private func dispose(_ copy: Copy) {
+        let file = URL(fileURLWithPath: copy.path).standardizedFileURL
+        let folder = file.deletingLastPathComponent()
+        guard UUID(uuidString: folder.lastPathComponent) != nil,
+              folder.deletingLastPathComponent().path == copyFolder.standardizedFileURL.path else { return }
+        let fm = FileManager.default
+        if fm.fileExists(atPath: file.path), copy.trash, !trash(file) { return }   // 휴지통으로 못 보내면 남겨 둔다
+        try? fm.removeItem(at: folder)
     }
 
     private func itemsChanged() {
@@ -171,13 +250,13 @@ final class TrayStore: NSObject, ObservableObject, NSSharingServiceDelegate {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
+        guard let data = defaults.data(forKey: storeKey),
               let list = try? JSONDecoder().decode([Item].self, from: data) else { return }
         items = list
     }
 
     private func save() {
-        if let data = try? JSONEncoder().encode(items) { UserDefaults.standard.set(data, forKey: storeKey) }
+        if let data = try? JSONEncoder().encode(items) { defaults.set(data, forKey: storeKey) }
     }
 
     // MARK: - 드롭 처리

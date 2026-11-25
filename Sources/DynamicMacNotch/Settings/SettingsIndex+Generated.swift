@@ -86,6 +86,7 @@ extension SettingsIndex {
         SettingsEntry(page: .airdrop, section: ("표시 방식", "Appearance"), title: ("진행률 표시", "Progress"), detail: nil, keys: ["airdropStyle"]),
         SettingsEntry(page: .screenshot, section: ("표시", "Show"), title: ("스크린샷 미리보기", "Screenshot preview"), detail: nil, keys: ["screenshotEnabled"]),
         SettingsEntry(page: .screenshot, section: ("표시 방식", "Appearance"), title: ("자동 닫힘", "Auto-close"), detail: nil, keys: ["screenshotAutoClose"]),
+        SettingsEntry(page: .screenshot, section: ("표시 방식", "Appearance"), title: ("보내기 버튼", "Send button"), detail: ("에어드랍·트레이를 끄면 에어드랍으로 보입니다.", "Shows AirDrop when AirDrop & Tray is off."), keys: ["screenshotSend"]),
         SettingsEntry(page: .screenshot, section: ("세부 설정", "Details"), title: ("감지 대상", "Detect"), detail: nil, keys: ["screenshotSource"]),
         SettingsEntry(page: .screenshot, section: ("세부 설정", "Details"), title: ("저장 폴더", "Save folder"), detail: nil, keys: ["screenshotFolder"]),
         SettingsEntry(page: .screenshot, section: ("세부 설정", "Details"), title: ("JPEG로 저장", "Save as JPEG"), detail: nil, keys: ["screenshotJPEG"]),
