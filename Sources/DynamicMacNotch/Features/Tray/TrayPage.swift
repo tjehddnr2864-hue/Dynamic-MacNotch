@@ -415,7 +415,7 @@ final class TrayItemNSView: NSView, NSDraggingSource {
         #if DEV
         TrayDragLog.write("ended op=\(operation.rawValue) point=\(screenPoint) notch=\(isOnNotch(screenPoint))")
         #endif
-        if operation != [], !isOnNotch(screenPoint), let store { store.remove(ids: draggedIDs) }
+        if operation != [], !isOnNotch(screenPoint), let store { store.delivered(ids: draggedIDs) }
         draggedIDs.removeAll()
         store?.isDraggingItems = false
         vm?.shared.trayItemDragActive = false

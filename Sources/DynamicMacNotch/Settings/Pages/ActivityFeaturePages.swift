@@ -89,8 +89,14 @@ struct ScreenshotSettingsPage: View {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("스크린샷 미리보기", "Screenshot preview"), isOn: $settings.screenshotEnabled)
             }
-            SettingsSection(SectionTitle.style, disabled: !settings.screenshotEnabled, disabledNote: T("스크린샷 미리보기를 켜면 바꿀 수 있습니다.", "Turn on Screenshot preview to change this.")) {
+            SettingsSection(SectionTitle.style,
+                            footer: T("클립보드 스크린샷은 트레이에서 빠질 때 휴지통으로 갑니다.", "Clipboard screenshots go to the Trash when they leave the tray."),
+                            more: T("파일 트레이를 고르면 카드의 에어드랍 버튼 자리에 트레이 버튼이 나옵니다. 파일로 저장된 스크린샷은 그 파일을 트레이에 넣고, 클립보드 스크린샷은 원본이 따로 없어 트레이가 PNG 파일로 보관합니다. 트레이 자동 정리 시간이 지나거나 직접 빼면 그 파일은 지우지 않고 휴지통으로 보냅니다.",
+                                    "With File Tray, the Tray button takes the place of AirDrop on the card. A screenshot saved as a file is added as that file; a clipboard screenshot has no original, so the tray keeps it as a PNG. When auto-clean removes it or you take it out, the file goes to the Trash instead of being deleted."),
+                            disabled: !settings.screenshotEnabled, disabledNote: T("스크린샷 미리보기를 켜면 바꿀 수 있습니다.", "Turn on Screenshot preview to change this.")) {
                 ValueMenu(title: T("자동 닫힘", "Auto-close"), selection: $settings.screenshotAutoClose, values: Choices.screenshotClose, label: Format.seconds)
+                Choice(T("보내기 버튼", "Send button"), detail: T("에어드랍·트레이를 끄면 에어드랍으로 보입니다.", "Shows AirDrop when AirDrop & Tray is off."), selection: $settings.screenshotSend)
+                    .disabled(settings.trayMode == .off)
             }
             SettingsSection(SectionTitle.details, disabled: !settings.screenshotEnabled) {
                 Choice(T("감지 대상", "Detect"), selection: $settings.screenshotSource)

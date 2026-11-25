@@ -225,6 +225,10 @@ final class AppSettings: ObservableObject {
     @Setting("screenshotFolder", default: "") var screenshotFolder: String
     @Setting("screenshotJPEG", default: false) var screenshotJPEG: Bool
     @Setting("screenshotAutoClose", default: 10.0, sanitize: { max(0, $0) }) var screenshotAutoClose: Double
+    /// 카드의 보내기 버튼 (에어드랍 / 파일 트레이)
+    @Setting("screenshotSend", default: ScreenshotSend.airdrop) var screenshotSend: ScreenshotSend
+    /// 실제로 쓰이는 보내기 버튼: 에어드랍·트레이가 꺼져 있으면 트레이에 넣을 수 없어 에어드랍
+    var effectiveScreenshotSend: ScreenshotSend { trayMode == .off ? .airdrop : screenshotSend }
 
     // MARK: - 화면 녹화
 
