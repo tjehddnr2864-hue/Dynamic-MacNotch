@@ -143,6 +143,7 @@ NotchHub (1개)
 | 에어드랍·트레이 | AirDrop & Tray | 에어드랍 및 파일 트레이 |
 | 일정 | Calendar | Events |
 | 홈 / 홈 기능 | Home / Home Features | 기본, 기본 노치 |
+| 코딩 에이전트 | Coding Agents | Claude Code · Codex (예전 페이지 이름. Claude Code·Codex·Antigravity를 함께 이르는 말) |
 | 주 디스플레이 | Main Display | |
 | 길게 누르기, 깊게 누르기 | Long-press, Force Click | 길게누르기 |
 | 끄기 | Off | |

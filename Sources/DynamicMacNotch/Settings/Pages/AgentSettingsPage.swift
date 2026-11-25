@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Claude Code · Codex 작업 완료 알림. '연결'을 눌러야만 각 설정 파일에 훅을 넣는다.
+/// 코딩 에이전트(Claude Code · Codex · Antigravity) 작업 완료 알림. '연결'을 눌러야만 각 설정 파일에 훅을 넣는다.
 struct AgentSettingsPage: View {
     @ObservedObject private var settings = AppSettings.shared
     private let refresh = State(initialValue: 0)
@@ -17,8 +17,8 @@ struct AgentSettingsPage: View {
                             disabled: !settings.agentAlerts, disabledNote: T("작업 완료 알림을 켜면 바꿀 수 있습니다.", "Turn on Task finished alert to change this.")) {
                 AlertStylePicker(selection: $settings.agentStyle)
             }
-            SettingsSection(T("연결", "Connection"), footer: T("각 도구의 설정 파일에 알림을 넣습니다. 원본은 백업합니다.", "Adds a notification to each tool's settings file. The original is backed up."), more: T("연결하면 Claude Code는 ~/.claude/settings.json에 '작업 완료(Stop)' 훅을, Codex는 ~/.codex/config.toml의 notify에 이 앱을 넣습니다. Codex에 이미 notify가 있으면 그 명령도 그대로 이어서 실행되고, 연결 해제 시 원래대로 돌려놓습니다. 처음 바꾸기 전 원본은 .dynamicmacnotch.bak으로 남깁니다. 새로 시작한 Claude Code·Codex 세션부터 적용됩니다.",
-                                                           "Connecting adds a Stop hook to ~/.claude/settings.json for Claude Code, and sets notify in ~/.codex/config.toml for Codex. If Codex already has a notify command, it still runs, and disconnecting restores it. The original file is kept as .dynamicmacnotch.bak before the first change. Applies to new Claude Code and Codex sessions.")) {
+            SettingsSection(T("연결", "Connection"), footer: T("각 도구의 설정 파일에 알림을 넣습니다. 원본은 백업합니다.", "Adds a notification to each tool's settings file. The original is backed up."), more: T("연결하면 Claude Code는 ~/.claude/settings.json에 '작업 완료(Stop)' 훅을, Codex는 ~/.codex/config.toml의 notify에, Antigravity는 ~/.gemini/config/hooks.json의 Stop 훅에 이 앱을 넣습니다. Codex에 이미 notify가 있으면 그 명령도 그대로 이어서 실행되고, 연결 해제 시 원래대로 돌려놓습니다. 처음 바꾸기 전 원본은 .dynamicmacnotch.bak으로 남깁니다. Antigravity의 다른 훅은 그대로 둡니다. 새로 시작한 세션부터 적용됩니다.",
+                                                           "Connecting adds a Stop hook to ~/.claude/settings.json for Claude Code, sets notify in ~/.codex/config.toml for Codex, and adds a Stop hook to ~/.gemini/config/hooks.json for Antigravity. If Codex already has a notify command, it still runs, and disconnecting restores it. The original file is kept as .dynamicmacnotch.bak before the first change. Your other Antigravity hooks stay as they are. Applies to new sessions.")) {
                 ForEach(AgentSource.allCases) { source in
                     let installed = AgentHooks.isInstalled(source)
                     LabeledContent {

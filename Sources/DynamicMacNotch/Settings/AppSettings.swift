@@ -358,6 +358,8 @@ final class AppSettings: ObservableObject {
     @Setting("aiRefreshMinutes", default: 5.0, sanitize: { [1, 2, 5, 10].contains($0) ? $0 : 10 }) var aiRefreshMinutes: Double
     /// 로그인해 연결한 서비스 (쉼표 구분 rawValue, 로그인 창이 기록)
     @Setting("aiConnected", default: "") var aiConnected: String
+    /// 확장 노치(홈의 AI 사용량)에 보일 서비스 (쉼표 구분 rawValue). 비어 있으면 자동: 연결된 앞 3개
+    @Setting("aiUsageShown", default: "") var aiUsageShown: String
     /// 서비스별 노치 양옆 칸: "claude.left" → "mark" 또는 한도 id (UsageWindow.id). 없으면 자동.
     @Setting("aiUsageSides", default: [:]) var aiUsageSides: [String: String]
 
@@ -409,7 +411,7 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    // MARK: - Claude Code · Codex
+    // MARK: - 코딩 에이전트 (Claude Code · Codex · Antigravity)
 
     /// 작업 완료 알림
     @Setting("agentAlerts", default: true) var agentAlerts: Bool

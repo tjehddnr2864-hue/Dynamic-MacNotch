@@ -23,7 +23,7 @@ extension SettingsIndex {
         SettingsEntry(page: .calendar, section: nil, title: ("일정", "Calendar"), detail: ("오늘 일정과 다가오는 일정 알림", "Today's events and upcoming event alerts"), keys: [], isPage: true),
         SettingsEntry(page: .aiUsage, section: nil, title: ("실시간 모니터링", "Live Monitoring"), detail: ("AI 사용량 한도와 이 Mac의 자원", "AI usage limits and this Mac's resources"), keys: [], isPage: true),
         SettingsEntry(page: .chat, section: nil, title: ("AI 채팅", "AI Chat"), detail: ("노치에서 바로 묻는 AI 채팅", "Ask AI right from the notch"), keys: [], isPage: true),
-        SettingsEntry(page: .agent, section: nil, title: ("Claude Code · Codex", "Claude Code · Codex"), detail: ("Claude Code·Codex 작업 완료 알림", "Task finished alerts from Claude Code and Codex"), keys: [], isPage: true),
+        SettingsEntry(page: .agent, section: nil, title: ("코딩 에이전트", "Coding Agents"), detail: ("Claude Code·Codex·Antigravity 작업 완료 알림", "Task finished alerts from Claude Code, Codex and Antigravity"), keys: [], isPage: true),
         SettingsEntry(page: .preview, section: nil, title: ("미리보기", "Preview"), detail: ("모든 알림을 노치에 띄워 보기", "Try every alert in the notch"), keys: [], isPage: true),
         SettingsEntry(page: .permissions, section: nil, title: ("권한 관리", "Permissions"), detail: ("기능에 필요한 macOS 권한", "macOS permissions the features need"), keys: [], isPage: true),
         SettingsEntry(page: .about, section: nil, title: ("정보", "About"), detail: ("버전과 정보", "Version and info"), keys: [], isPage: true),

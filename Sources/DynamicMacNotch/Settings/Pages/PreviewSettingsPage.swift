@@ -34,7 +34,7 @@ struct PreviewSettingsPage: View {
                                 items: [(.focusOn, T("집중 모드 켜짐", "Focus On")), (.focusOff, T("집중 모드 꺼짐", "Focus Off"))])
             StylePreviewSection(title: T("배터리", "Battery"), initial: settings.batteryStyle,
                                 items: [(.charger, T("충전기 연결", "Charger Connected")), (.low, T("배터리 부족", "Low Battery")), (.full, T("완충", "Fully Charged"))])
-            StylePreviewSection(title: "Claude Code · Codex", initial: settings.agentStyle,
+            StylePreviewSection(title: T("코딩 에이전트", "Coding Agents"), initial: settings.agentStyle,
                                 items: [(.agentDone, T("작업 완료", "Task Finished"))])
             // 형태가 정해진 알림
             fixedSection(T("컴팩트로만 표시", "Compact Only"),
