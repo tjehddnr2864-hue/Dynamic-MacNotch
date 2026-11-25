@@ -105,7 +105,9 @@ enum AgentNotify {
     /// Antigravity의 Stop 훅 입력. 백그라운드 작업이 남아 있으면(fullyIdle == false) 아직 끝난 것이 아니므로 nil.
     static func antigravityStop(_ data: Data) -> (folder: String?, task: String, failed: Bool)? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], obj["fullyIdle"] as? Bool != false else { return nil }
-        return ((obj["workspacePaths"] as? [String])?.first, obj["lastUserInput"] as? String ?? "", obj["terminationReason"] as? String == "error")
+        // 실제 값은 NO_TOOL_CALL처럼 대문자이고 문서는 소문자다 (agy 1.5.17). 정상이면 error는 빈 글자.
+        let failed = (obj["terminationReason"] as? String ?? "").lowercased().contains("error") || !(obj["error"] as? String ?? "").isEmpty
+        return ((obj["workspacePaths"] as? [String])?.first ?? obj["cwd"] as? String, obj["lastUserInput"] as? String ?? "", failed)
     }
 
     /// 대화 기록(JSONL)에서 사용자가 마지막으로 보낸 요청. 파일 끝 512KB만 읽는다.
@@ -485,6 +487,9 @@ enum AgentProbe {
         check(stop(#"{"fullyIdle":false,"terminationReason":"model_stop"}"#) == nil, "not finished while background work runs")
         check(stop(#"{"fullyIdle":true,"terminationReason":"error","error":"x"}"#)?.failed == true, "error is told apart")
         check(stop(#"{"fullyIdle":true,"workspacePaths":[]}"#)?.folder == nil, "no workspace")
+        let actual = stop(#"{"fullyIdle":true,"workspacePaths":[],"cwd":"/c","terminationReason":"NO_TOOL_CALL","error":"","lastUserInput":"q"}"#)
+        check(actual?.failed == false && actual?.folder == "/c", "real agy 1.5.17 input")
+        check(stop(#"{"fullyIdle":true,"terminationReason":"ERROR"}"#)?.failed == true, "upper-case error")
         check(stop("garbage") == nil, "unreadable input is ignored")
 
         AgentHooks.testHome = nil
