@@ -27,6 +27,9 @@ AgentProbe.runIfRequested()
 MonitorProbe.runIfRequested()
 #endif
 
+// 이 빌드에 없는 점검 명령이면 앱을 켜지 않고 끝낸다 (설치된 앱과 겹쳐 개발 빌드가 노치 앱으로 떠 있게 되는 일을 막음)
+if CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") && $0.contains("-probe") }) { exit(2) }
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
