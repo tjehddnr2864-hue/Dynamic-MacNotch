@@ -22,8 +22,9 @@ extension DisplayNotchState {
         case .expanded:
             switch expandedPage {
             case .home:
-                if homeOption == .usage || homeOption == .memo { return usageSize }
-                if homeOption == .resource { return resourceSize }   // 메모도 AI 사용량과 같은 크기
+                if homeOption == .usage { return usageSize }
+                if homeOption == .memo { return usageFullSize }   // 메모는 서비스 세 줄일 때의 크기
+                if homeOption == .resource { return resourceSize }
                 if homeOption == .chat { return shared.chatLarge ? chatSize : chatCompactSize }
                 return homeOption == .camera && cameraOn ? cameraSize : expandedBaseSize
             case .activity(let kind):
@@ -56,7 +57,7 @@ extension DisplayNotchState {
             return resourceSize
         case .update:
             // 업데이트 내용: AI 사용량과 같은 폭, 글이 들어가도록 더 높게
-            return CGSize(width: usageSize.width, height: n.height + 6 + 190 + 22)
+            return CGSize(width: usageFullSize.width, height: n.height + 6 + 190 + 22)
         default:
             return CGSize(width: max(n.width + 60, 240) + 2 * topRadius, height: n.height + 84)
         }
@@ -73,11 +74,19 @@ extension DisplayNotchState {
 
     /// 자원 사용량: 그래프 두 칸 + 네트워크 + 메모리 막대
     var resourceSize: CGSize {
-        CGSize(width: usageSize.width, height: notchSize.height + 6 + 150 + 22)
+        CGSize(width: usageFullSize.width, height: notchSize.height + 6 + 150 + 22)
     }
 
-    /// AI 사용량: 서비스 세 줄(이름 · 5시간 · 주간)이 들어가도록 좌우·아래로 조금 더 넓게
+    /// AI 사용량: 보이는 서비스 수(1~3줄)에 맞춘 높이. 폭은 같다.
     var usageSize: CGSize {
+        var size = usageFullSize
+        size.height -= AIService.unusedRowsHeight(shown: settings.isHomeFeatureOn("usage")
+            ? AIService.shown(settings.aiUsageShown, connected: AIService.connected(settings.aiConnected)).count : 0)
+        return size
+    }
+
+    /// AI 사용량의 가장 큰 크기: 서비스 세 줄(이름 · 5시간 · 주간)이 들어가도록 좌우·아래로 조금 더 넓게
+    var usageFullSize: CGSize {
         CGSize(width: 300 + 2 * (topRadius + 22), height: notchSize.height + 6 + 124 + 22)
     }
 

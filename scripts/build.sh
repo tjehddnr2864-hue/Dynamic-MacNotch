@@ -66,13 +66,15 @@ if [ "$ZIP" = 1 ]; then
   (cd build && shasum -a 256 "$(basename "$OUT")" | tee "$(basename "$OUT").sha256")
 fi
 
+# 빌드 폴더의 앱이 설치된 앱 대신 열리지 않게 등록을 지운다 / keep macOS from launching the build copy instead of the installed app
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -u "$PWD/$APP" 2>/dev/null || true
+
 if [ "$INSTALL" = 1 ]; then
   pkill -x "$EXE" 2>/dev/null || true
   rm -rf "/Applications/$NAME.app"
   cp -R "$APP" /Applications/
   # 같은 번들 ID의 복사본이 남아 있으면 macOS가 그쪽을 실행할 수 있다 / a leftover copy with the same bundle ID may get launched instead
-  LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-  "$LSREGISTER" -u "$PWD/$APP" 2>/dev/null || true
   rm -rf "$APP"
   APP="/Applications/$NAME.app"
   "$LSREGISTER" -f "$APP" 2>/dev/null || true
@@ -82,5 +84,5 @@ fi
 if [ "$RUN" = 1 ]; then
   pkill -x "$EXE" 2>/dev/null || true
   sleep 0.5
-  open "$APP"
+  open "$APP" --args --dev-run   # 개발 빌드는 이 인자가 없으면 설치된 앱을 대신 연다 / without it a dev build opens the installed app instead
 fi

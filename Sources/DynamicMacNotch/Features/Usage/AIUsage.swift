@@ -71,6 +71,13 @@ enum AIService: String, CaseIterable, Identifiable, Codable {
     /// 확장 노치에 한 번에 보이는 서비스 수
     static let maxShown = 3
 
+    /// 확장 노치의 한 줄 높이와 줄 간격
+    static let rowHeight: CGFloat = 30, rowSpacing: CGFloat = 6
+    /// 세 줄보다 적게 보일 때 줄어드는 높이 (로그인 안내만 보일 때는 줄이지 않는다)
+    static func unusedRowsHeight(shown: Int) -> CGFloat {
+        shown == 0 ? 0 : CGFloat(maxShown - min(shown, maxShown)) * (rowHeight + rowSpacing)
+    }
+
     /// 확장 노치에 보일 서비스: 고른 것 중 연결된 것(최대 3개), 없으면 연결된 앞 3개
     static func shown(_ csv: String, connected: [AIService]) -> [AIService] {
         let set = Set(AppSettings.list(csv))
@@ -442,7 +449,7 @@ struct UsagePage: View {
 
     var body: some View {
         let services = store.shown
-        VStack(spacing: 6) {
+        VStack(spacing: AIService.rowSpacing) {
             HStack {
                 Text(T("AI 사용량", "AI Usage"))
                     .font(.system(size: 12, weight: .semibold))
@@ -520,7 +527,7 @@ struct UsagePage: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(height: 30)
+        .frame(height: AIService.rowHeight)
     }
 
     private func meter(_ label: String, _ w: UsageWindow?, tint: Color) -> some View {

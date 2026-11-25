@@ -191,6 +191,8 @@ enum SettingsProbe {
         check(AIService.toggled(.chatgpt, on: true, shown: [.claude]) == [.claude, .chatgpt], "services: turning one on")
         check(AIService.refreshTargets(shown: [.claude], pinned: .gemini, connected: all) == [.claude, .gemini], "services: refresh what shows and what's pinned")
         check(AIService.refreshTargets(shown: [.claude], pinned: nil, connected: all) == [.claude], "services: hidden ones aren't read")
+        let shorter = (0...4).map { AIService.unusedRowsHeight(shown: $0) }
+        check(shorter == [0, 72, 36, 0, 0], "services: one or two rows make the expanded notch shorter: \(shorter)")
         check(SettingsIndex.search("Claude Code").contains { $0.page == .agent } && SettingsIndex.search("Codex").contains { $0.page == .agent }
               && SettingsIndex.search("antigravity").contains { $0.page == .agent }, "search: old name still finds Coding Agents")
 

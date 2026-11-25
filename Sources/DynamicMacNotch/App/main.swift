@@ -53,6 +53,19 @@ if let services = UsageWeb.services(from: CommandLine.arguments) {
     app.delegate = helper
     app.run()
 } else {
+    #if DEV
+    // 개발 빌드는 이름과 번들 ID가 설치된 앱과 같아, Spotlight 등에서 잘못 열릴 수 있다.
+    // scripts/build.sh --dev --run으로 켠 것이 아니면 설치된 앱을 대신 열고 끝낸다.
+    let installed = URL(fileURLWithPath: "/Applications/Dynamic MacNotch.app")
+    if !CommandLine.arguments.contains("--dev-run"), Bundle.main.bundleURL.path != installed.path, FileManager.default.fileExists(atPath: installed.path) {
+        let opener = Process()
+        opener.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        opener.arguments = [installed.path]
+        try? opener.run()
+        opener.waitUntilExit()
+        exit(0)
+    }
+    #endif
     let delegate = AppDelegate()
     app.delegate = delegate
     app.run()
