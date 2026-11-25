@@ -8,7 +8,7 @@ ChatProbe.runIfRequested()
 #endif
 
 if let agent = AgentNotify.source(from: CommandLine.arguments) {
-    AgentNotify.runHook(agent, arguments: CommandLine.arguments)   // Claude Code·Codex 작업 완료 훅: 알리고 바로 종료
+    AgentNotify.runHook(agent, arguments: CommandLine.arguments)   // 코딩 에이전트 작업 완료 훅: 알리고 바로 종료
 }
 
 if let op = ChatAttachTool.op(from: CommandLine.arguments) {
@@ -23,6 +23,7 @@ if let op = ImageTool.op(from: CommandLine.arguments) {
 DisplayProbe.runIfRequested()
 SettingsProbe.runIfRequested()
 TrayProbe.runIfRequested()
+AgentProbe.runIfRequested()
 MonitorProbe.runIfRequested()
 #endif
 

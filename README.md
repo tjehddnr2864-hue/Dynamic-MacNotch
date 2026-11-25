@@ -131,8 +131,8 @@ Every alert can be **compact or detailed**, and durations are configurable. **Lo
 ### Live activity priority
 When several activities run at once (screen recording, timer, AirDrop, download, music, hotspot, Focus), the one highest in **Settings → Priority** is shown. Reorder with the arrows. Long-press it to open its popup, then use the dots or a two-finger swipe to page through the other live activities (on the music player, the swipe skips songs; use the dots instead). When it closes, the notch again shows the highest-priority one.
 
-### Claude Code · Codex
-When a Claude Code or Codex task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Claude Code · Codex with **Connect**: this adds a Stop hook to `~/.claude/settings.json`, and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
+### Coding agents (Claude Code · Codex · Antigravity)
+When a Claude Code, Codex or Antigravity task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Coding Agents with **Connect**: this adds a Stop hook to `~/.claude/settings.json` (Claude Code) or `~/.gemini/config/hooks.json` (Antigravity, keeping your other hooks), and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
 ### Multiple displays
 The notch stays on one display until you choose otherwise. **Settings → Displays** lists every connected display plus **All Displays**. Once two displays are connected, the same page gains per-display options:
@@ -156,7 +156,7 @@ The notch shrinks away while Mission Control is open so it doesn't cover the Spa
 - **Stop All Previews** ends everything at once. Each preview fully cleans up after itself (timers, fake items), so nothing keeps running.
 
 ### Settings window
-The sidebar groups the pages by what you want to do: **App** (General, Displays, Permissions), **Notch** (Notch Controls, Home Features, Priority), **Connections** (Network, Bluetooth, Calls, AirDrop & Tray), **Media & Capture** (Media, Screenshots, Screen Recording, Downloads), **System** (Battery, Focus, HUD, Lock Screen, Calendar), **AI** (Live Monitoring, AI Chat, Claude Code · Codex) and **More** (Preview, About). Click a group name to fold it.
+The sidebar groups the pages by what you want to do: **App** (General, Displays, Permissions), **Notch** (Notch Controls, Home Features, Priority), **Connections** (Network, Bluetooth, Calls, AirDrop & Tray), **Media & Capture** (Media, Screenshots, Screen Recording, Downloads), **System** (Battery, Focus, HUD, Lock Screen, Calendar), **AI** (Live Monitoring, AI Chat, Coding Agents) and **More** (Preview, About). Click a group name to fold it.
 
 - **Search** at the top of the sidebar finds any setting in Korean or English, including similar words (volume finds 음량) and Korean initials (ㅇㄹ). Click a result, or press Return for the first one, to jump to that row; it's highlighted for a moment.
 - Each page starts with a header card, and each row has a short name with a one-line description below. Longer explanations open with **Details**, and a section you can't change yet says what to turn on.
@@ -339,8 +339,8 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 ### 라이브 활동 우선순위
 여러 활동(화면 녹화, 타이머, 에어드랍, 다운로드, 음악, 핫스팟, 집중 모드)이 동시에 진행되면 **설정 → 우선순위**에서 위에 있는 것이 표시됩니다. 화살표로 순서를 바꿉니다. 길게 눌러 팝업을 열면 아래 점이나 두 손가락 좌우로 다른 상시 항목을 넘겨 볼 수 있습니다(음악 팝업에서는 좌우가 곡 넘기기라 점을 누르세요). 닫으면 다시 우선순위가 가장 높은 항목이 표시됩니다.
 
-### Claude Code · Codex
-Claude Code·Codex 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → Claude Code · Codex에서 **연결**을 누르면 `~/.claude/settings.json`에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+### 코딩 에이전트 (Claude Code · Codex · Antigravity)
+Claude Code·Codex·Antigravity 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 코딩 에이전트에서 **연결**을 누르면 `~/.claude/settings.json`(Claude Code)이나 `~/.gemini/config/hooks.json`(Antigravity, 다른 훅은 그대로)에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
 
 ### 여러 디스플레이
 따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 디스플레이**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 같은 페이지에 디스플레이별 옵션이 나타납니다.
@@ -364,7 +364,7 @@ Mission Control이 열려 있는 동안 노치가 Spaces 막대를 가리지 않
 - **모든 미리보기 중지**로 한 번에 끝낼 수 있습니다. 미리보기는 끝나면 타이머·가짜 항목을 모두 정리해 계속 실행되는 것이 남지 않습니다.
 
 ### 설정 창
-사이드바는 하고 싶은 일에 따라 묶여 있습니다: **앱**(일반, 디스플레이, 권한 관리), **노치**(노치 조작, 홈 기능, 우선순위), **연결**(네트워크, 블루투스, 통화, 에어드랍·트레이), **미디어·캡처**(미디어, 스크린샷, 화면 녹화, 다운로드), **시스템**(배터리, 집중 모드, HUD, 잠금화면, 일정), **AI**(실시간 모니터링, AI 채팅, Claude Code · Codex), **기타**(미리보기, 정보). 묶음 이름을 누르면 접힙니다.
+사이드바는 하고 싶은 일에 따라 묶여 있습니다: **앱**(일반, 디스플레이, 권한 관리), **노치**(노치 조작, 홈 기능, 우선순위), **연결**(네트워크, 블루투스, 통화, 에어드랍·트레이), **미디어·캡처**(미디어, 스크린샷, 화면 녹화, 다운로드), **시스템**(배터리, 집중 모드, HUD, 잠금화면, 일정), **AI**(실시간 모니터링, AI 채팅, 코딩 에이전트), **기타**(미리보기, 정보). 묶음 이름을 누르면 접힙니다.
 
 - 사이드바 맨 위 **검색**으로 모든 설정을 한국어·영어로 찾습니다. 비슷한 말(볼륨 → 음량)과 초성(ㅇㄹ)으로도 찾을 수 있습니다. 결과를 누르거나 Return을 누르면 그 줄로 가서 잠깐 강조합니다.
 - 페이지 맨 위에는 머리 카드가 있고, 각 줄은 짧은 이름과 그 아래 한 줄 설명으로 되어 있습니다. 긴 설명은 **자세히**로 펼치고, 지금 바꿀 수 없는 구역에는 무엇을 켜야 하는지 보여 줍니다.

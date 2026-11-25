@@ -179,6 +179,21 @@ enum SettingsProbe {
         check(Format.seconds(1) == T("1초", "1s") && Format.seconds(1.5) == T("1.5초", "1.5s") && Format.seconds(0.35, digits: 2) == T("0.35초", "0.35s"), "seconds format")
         check(Format.percent(0.355) == "36%" && Format.period(minutes: 10080) == T("7일", "7 days") && Format.period(minutes: 60) == T("1시간", "1 hour"), "percent and period format")
 
+        // 확장 노치에 보일 서비스: 최소 1개, 최대 3개
+        let all = AIService.allCases
+        check(AIService.shown("", connected: all) == Array(all.prefix(3)), "services: automatic shows the first three")
+        check(AIService.shown("", connected: []).isEmpty, "services: none connected")
+        check(AIService.shown("gemini,claude", connected: all) == [.claude, .gemini], "services: chosen ones, in the usual order")
+        check(AIService.shown("gemini", connected: [.claude]) == [.claude], "services: falls back when the chosen one signs out")
+        check(AIService.shown("gemini,unknown,claude", connected: [.claude, .gemini]) == [.claude, .gemini], "services: unknown names are ignored")
+        check(AIService.toggled(.claude, on: false, shown: [.claude, .gemini]) == [.gemini], "services: turning one off")
+        check(AIService.toggled(.claude, on: false, shown: [.claude]) == [.claude], "services: the last one stays")
+        check(AIService.toggled(.chatgpt, on: true, shown: [.claude]) == [.claude, .chatgpt], "services: turning one on")
+        check(AIService.refreshTargets(shown: [.claude], pinned: .gemini, connected: all) == [.claude, .gemini], "services: refresh what shows and what's pinned")
+        check(AIService.refreshTargets(shown: [.claude], pinned: nil, connected: all) == [.claude], "services: hidden ones aren't read")
+        check(SettingsIndex.search("Claude Code").contains { $0.page == .agent } && SettingsIndex.search("Codex").contains { $0.page == .agent }
+              && SettingsIndex.search("antigravity").contains { $0.page == .agent }, "search: old name still finds Coding Agents")
+
         // 설정 검색 (가이드라인 §10.3)
         let index = SettingsIndex.all
         let indexed = Set(index.flatMap(\.keys))

@@ -38,6 +38,13 @@ struct MonitoringSettingsPage: View {
                 Choice(T("표시 형태", "Style"), selection: $settings.aiUsageStyle)
                 expandPicker(aiOn: aiOn, resourceOn: resourceOn)
             }
+            SettingsSection(T("확장 노치 서비스", "Services in Expanded Notch"),
+                            footer: T("연결된 서비스 중 1~3개를 골라 보입니다.", "Choose one to three connected services to show."),
+                            more: T("홈의 AI 사용량 페이지에 보일 서비스입니다. 보이지 않는 서비스는 노치에 상시 표시하지 않는 한 새로고침하지 않습니다. 하나도 고르지 않았다면 연결된 앞 3개를 보입니다.",
+                                    "The services on the AI Usage page in Home. A hidden service isn't refreshed unless it's the one kept in the notch. If you haven't chosen any, the first three connected services show."),
+                            disabled: !aiOn, disabledNote: T("AI 사용량을 켜면 바꿀 수 있습니다.", "Turn on AI Usage to change this.")) {
+                shownServices
+            }
             SettingsSection(SectionTitle.details, footer: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다.", "AI usage is read by signing in to each service's website."), more: T("AI 사용량은 각 서비스 웹사이트에 로그인해 읽습니다. 로그인 정보는 이 앱 전용 웹 저장소에만 남습니다. 상시 표시를 끄면 백그라운드에서 새로고침하지 않고, 홈의 AI 사용량 페이지를 열 때만 새로고침합니다. 시스템 모니터링은 노치에 보이는 동안만 읽습니다.",
                                                            "AI usage is read by signing in to each service's website. Sign-in data stays in this app's own web storage. With the Live Activity off, AI usage refreshes only when you open its Home page. System Monitoring is read only while it's visible in the notch.")) {
                 ValueMenu(title: T("AI 사용량 새로고침", "Refresh AI usage every"), selection: $settings.aiRefreshMinutes, values: Choices.refresh, label: Format.minutes)
@@ -114,6 +121,25 @@ struct MonitoringSettingsPage: View {
                selection: Binding(get: { options.contains(settings.monitorExpand) ? settings.monitorExpand : .follow },
                                   set: { settings.monitorExpand = $0 }),
                options: options, style: .menu)
+        }
+    }
+
+    // MARK: 확장 노치 서비스
+
+    @ViewBuilder
+    private var shownServices: some View {
+        let connected = AIService.connected(settings.aiConnected)
+        let shown = AIService.shown(settings.aiUsageShown, connected: connected)
+        if connected.isEmpty {
+            Text(T("아래에서 로그인하면 고를 수 있습니다.", "Sign in below to choose services.")).foregroundStyle(.secondary)
+        }
+        ForEach(connected) { service in
+            let on = shown.contains(service)
+            Toggle(service.name, isOn: Binding(get: { on }, set: {
+                settings.aiUsageShown = AIService.toggled(service, on: $0, shown: shown).map(\.rawValue).joined(separator: ",")
+            }))
+            // 최소 1개, 최대 3개
+            .disabled(on ? shown.count == 1 : shown.count >= AIService.maxShown)
         }
     }
 

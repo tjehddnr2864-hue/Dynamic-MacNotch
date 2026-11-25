@@ -37,7 +37,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .calendar: return T("일정", "Calendar")
         case .aiUsage: return T("실시간 모니터링", "Live Monitoring")
         case .chat: return T("AI 채팅", "AI Chat")
-        case .agent: return "Claude Code · Codex"
+        case .agent: return T("코딩 에이전트", "Coding Agents")
         case .preview: return T("미리보기", "Preview")
         case .permissions: return T("권한 관리", "Permissions")
         case .about: return T("정보", "About")
@@ -68,7 +68,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .calendar: return T("오늘 일정과 다가오는 일정 알림", "Today's events and upcoming event alerts")
         case .aiUsage: return T("AI 사용량 한도와 이 Mac의 자원", "AI usage limits and this Mac's resources")
         case .chat: return T("노치에서 바로 묻는 AI 채팅", "Ask AI right from the notch")
-        case .agent: return T("Claude Code·Codex 작업 완료 알림", "Task finished alerts from Claude Code and Codex")
+        case .agent: return T("Claude Code·Codex·Antigravity 작업 완료 알림", "Task finished alerts from Claude Code, Codex and Antigravity")
         case .preview: return T("모든 알림을 노치에 띄워 보기", "Try every alert in the notch")
         case .about: return T("버전과 정보", "Version and info")
         }

@@ -67,6 +67,27 @@ enum AIService: String, CaseIterable, Identifiable, Codable {
         let set = Set(AppSettings.list(csv))
         return allCases.filter { set.contains($0.rawValue) }
     }
+
+    /// 확장 노치에 한 번에 보이는 서비스 수
+    static let maxShown = 3
+
+    /// 확장 노치에 보일 서비스: 고른 것 중 연결된 것(최대 3개), 없으면 연결된 앞 3개
+    static func shown(_ csv: String, connected: [AIService]) -> [AIService] {
+        let set = Set(AppSettings.list(csv))
+        let picked = connected.filter { set.contains($0.rawValue) }
+        return Array((picked.isEmpty ? connected : picked).prefix(maxShown))
+    }
+
+    /// 설정의 스위치를 켜고 끈 뒤의 목록. 최소 1개, 최대 3개를 벗어나면 그대로 둔다.
+    static func toggled(_ service: AIService, on: Bool, shown: [AIService]) -> [AIService] {
+        let next = allCases.filter { $0 == service ? on : shown.contains($0) }
+        return next.isEmpty || next.count > maxShown ? shown : next
+    }
+
+    /// 새로고침할 서비스: 확장 노치에 보이는 것 + 노치 양옆에 상시 표시하는 것
+    static func refreshTargets(shown: [AIService], pinned: AIService?, connected: [AIService]) -> [AIService] {
+        connected.filter { shown.contains($0) || $0 == pinned }
+    }
 }
 
 /// 한 기간(5시간·주간·30일 등)의 사용량
@@ -211,6 +232,14 @@ final class UsageStore: ObservableObject {
         settings.isHomeFeatureOn("usage") ? AIService.connected(settings.aiConnected) : []
     }
 
+    /// 확장 노치에 보일 서비스 (설정 → 실시간 모니터링)
+    var shown: [AIService] { AIService.shown(settings.aiUsageShown, connected: connected) }
+
+    /// 실제로 읽어 올 서비스. 보이지 않는 서비스는 읽지 않는다.
+    private var targets: [AIService] {
+        AIService.refreshTargets(shown: shown, pinned: aiLive ? pinnedService : nil, connected: connected)
+    }
+
     func start() {
         settings.$aiUsagePinned.map { _ in () }
             .merge(with: settings.$aiRefreshMinutes.map { _ in () },
@@ -220,6 +249,7 @@ final class UsageStore: ObservableObject {
                    settings.$aiUsageService.map { _ in () },
                    settings.$aiUsageStyle.map { _ in () },
                    settings.$homeDisabled.map { _ in () })
+            .merge(with: settings.$aiUsageShown.map { _ in () })
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] in self?.settingsChanged() }
             .store(in: &cancellables)
@@ -266,17 +296,18 @@ final class UsageStore: ObservableObject {
         if !covered, aiLive, isStale(max(1, settings.aiRefreshMinutes) * 60) { refresh() }
     }
 
-    private var lastConnected: [AIService] = []
+    private var lastTargets: [AIService] = []
 
     private func settingsChanged() {
         // 로그아웃한 서비스의 기록은 지운다
         let now = connected
         for s in AIService.allCases where !now.contains(s) && usage[s] != nil { usage[s] = nil }
-        let newlyConnected = now.filter { !lastConnected.contains($0) }
-        lastConnected = now
+        let wanted = targets
+        let added = wanted.filter { !lastTargets.contains($0) }
+        lastTargets = wanted
         reschedule()
-        // 새로 연결했거나 상시 표시를 켰는데 기록이 오래됐으면 바로 한 번
-        if !newlyConnected.isEmpty || (aiLive && isStale(60)) { refresh() }
+        // 새로 연결했거나 보이게 했거나, 상시 표시를 켰는데 기록이 오래됐으면 바로 한 번
+        if !added.isEmpty || (aiLive && isStale(60)) { refresh() }
     }
 
     private func reschedule() {
@@ -294,7 +325,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func isStale(_ seconds: TimeInterval) -> Bool {
-        connected.contains { s in usage[s].map { Date().timeIntervalSince($0.fetched) > seconds } ?? true }
+        targets.contains { s in usage[s].map { Date().timeIntervalSince($0.fetched) > seconds } ?? true }
     }
 
     /// 사용량 페이지가 열렸을 때: 1분 넘게 지났으면 새로고침
@@ -303,7 +334,7 @@ final class UsageStore: ObservableObject {
     }
 
     func refresh() {
-        let services = connected
+        let services = targets
         guard !refreshing, !services.isEmpty, let exe = Bundle.main.executableURL else { return }
         refreshing = true
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -410,7 +441,7 @@ struct UsagePage: View {
     var openSettings: () -> Void
 
     var body: some View {
-        let services = store.connected
+        let services = store.shown
         VStack(spacing: 6) {
             HStack {
                 Text(T("AI 사용량", "AI Usage"))
