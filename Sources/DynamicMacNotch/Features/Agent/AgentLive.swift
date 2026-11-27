@@ -184,6 +184,8 @@ final class AgentLiveStore: ObservableObject {
         let index = sessions.firstIndex { $0.source == source && $0.key == key }
         if phase == .stop {
             if let index {
+                pendingThinking[sessions[index].id]?.cancel()
+                pendingThinking[sessions[index].id] = nil
                 let ended = sessions.remove(at: index)
                 // 작업 팝업을 보고 있던 중에 끝나면: 설정과 상관없이 상세 작업 완료 알림을 띄운다
                 if isViewing?() == true { announceFinished(ended) }
@@ -204,6 +206,8 @@ final class AgentLiveStore: ObservableObject {
             s.started = now
             s.working = false
         case .toolStart:
+            pendingThinking[s.id]?.cancel()
+            pendingThinking[s.id] = nil
             s.working = true
             if !label.isEmpty {
                 s.action = label
@@ -211,7 +215,21 @@ final class AgentLiveStore: ObservableObject {
                 s.recent = Array(s.recent.prefix(Self.recentLimit))
             }
         case .toolEnd:
-            s.working = false
+            // 바로 다음 도구가 이어지면 '생각 중'으로 바꿨다가 되돌리지 않도록 잠깐 미룬다 (노치를 덜 다시 그림)
+            if thinkingDelay > 0 {
+                let id = s.id
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self, let i = self.sessions.firstIndex(where: { $0.id == id }) else { return }
+                    self.pendingThinking[id] = nil
+                    self.sessions[i].working = false
+                    self.publish()
+                }
+                pendingThinking[id]?.cancel()
+                pendingThinking[id] = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + thinkingDelay, execute: work)
+            } else {
+                s.working = false
+            }
         case .stop:
             break
         }
@@ -227,6 +245,10 @@ final class AgentLiveStore: ObservableObject {
         sessions.removeAll { now.timeIntervalSince($0.updated) > ($0.working ? Self.workingLimit : Self.idleLimit) }
         if sessions.count != before { publish() }
     }
+
+    /// 도구가 끝난 뒤 '생각 중'으로 바꾸기까지 기다리는 시간 (점검에서는 0)
+    var thinkingDelay: TimeInterval = 1.0
+    private var pendingThinking: [String: DispatchWorkItem] = [:]
 
     /// 작업 팝업(길게 눌러 연 확장 노치)을 지금 보고 있는지 (AppDelegate가 정한다)
     var isViewing: (() -> Bool)?
@@ -274,7 +296,7 @@ final class AgentLiveStore: ObservableObject {
             kind: .agentLive, priority: ActivityPriority.pinned, symbol: s.source.symbol, tint: s.source.tint,
             value: .text(Self.stateText(s) + more),
             title: s.project.isEmpty ? s.source.name : "\(s.source.name) · \(s.project)",
-            subtitle: s.action.isEmpty ? Self.stateText(s) : s.action, targetApp: s.target))
+            targetApp: s.target))   // 작업 이름은 접힌 노치에 보이지 않으므로 넣지 않는다 (팝업은 저장소를 직접 읽음)
     }
 
     /// 미리보기: 실제 에이전트 없이 작업 중인 세션 둘을 보인다 (2분 뒤 사라짐)

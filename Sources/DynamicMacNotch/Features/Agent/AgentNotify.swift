@@ -649,6 +649,7 @@ enum AgentProbe {
 
         // 실시간 작업: 세션 상태
         let live = AgentLiveStore()
+        live.thinkingDelay = 0   // 점검에서는 바로 바꾼다
         let t0 = Date()
         live.apply(source: .claude, session: "a", phase: .prompt, label: "", project: "P", target: nil, now: t0)
         check(live.sessions.count == 1 && live.sessions.first?.working == false && live.sessions.first?.recent.isEmpty == true, "live: a new request is thinking")
