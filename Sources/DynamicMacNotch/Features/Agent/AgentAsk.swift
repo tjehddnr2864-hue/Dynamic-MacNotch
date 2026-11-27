@@ -170,10 +170,20 @@ enum AgentAsk {
     static func requestFile(_ id: String) -> URL { folder.appendingPathComponent("\(id).request.json") }
     static func replyFile(_ id: String) -> URL { folder.appendingPathComponent("\(id).reply.json") }
 
+    /// 만들 때부터 이 사용자만 읽게 쓴다 (임시 파일에 쓰고 이름을 바꿔, 읽는 쪽이 반쯤 쓴 파일을 보지 않게)
     static func write<T: Encodable>(_ value: T, to url: URL) {
         guard let data = try? JSONEncoder().encode(value) else { return }
-        try? data.write(to: url, options: .atomic)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        let temp = url.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).tmp")
+        guard FileManager.default.createFile(atPath: temp.path, contents: data, attributes: [.posixPermissions: 0o600]) else { return }
+        if rename(temp.path, url.path) != 0 { try? FileManager.default.removeItem(at: temp) }
+    }
+
+    /// 질문 id는 훅이 만든 UUID뿐이다 (다른 경로를 가리키지 못하게)
+    static func isValidID(_ id: String) -> Bool { UUID(uuidString: id) != nil }
+
+    /// 남은 질문 파일 지우기: 훅이 강제로 끝나면(SIGKILL) 파일이 남는다. 기다리는 시간보다 오래된 것만.
+    static func sweep(now: Date = Date()) {
+        AgentChannel.sweep(folder, olderThan: waitLimit + 120, now: now)
     }
 
     static func read<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
@@ -217,8 +227,12 @@ enum AgentAsk {
             exit(0)
         }
 
-        var acked = false
-        let ackObserver = center.addObserver(forName: ackNote, object: id, queue: nil) { _ in acked = true }
+        // 본 앱이 받았다고 답하면 그 프로세스 번호도 받는다: 답을 기다리는 동안 앱이 끝나면(종료·다시 시작·충돌) 바로 원래 화면으로
+        var acked = false, appPID: pid_t = 0
+        let ackObserver = center.addObserver(forName: ackNote, object: id, queue: nil) { note in
+            acked = true
+            appPID = pid_t(note.userInfo?["pid"] as? Int ?? 0)
+        }
         _ = ackObserver
         // 에이전트가 훅을 끝내면(사용자가 취소 등) 노치의 질문도 지운다
         for sig in [SIGTERM, SIGINT, SIGHUP] {
@@ -242,6 +256,8 @@ enum AgentAsk {
             let waited = Date().timeIntervalSince(start)
             // 본 앱이 꺼져 있으면 바로 원래 화면에서 묻는다
             if !acked, waited > ackLimit { finish(nil) }
+            // 기다리는 동안 본 앱이 끝났다: 노치의 질문은 사라졌으므로 원래 화면에서 묻는다
+            if acked, appPID > 0, kill(appPID, 0) != 0, errno == ESRCH { finish(nil) }
             if waited > waitLimit {
                 center.postNotificationName(goneNote, object: id, userInfo: nil, deliverImmediately: true)
                 finish(nil)
@@ -281,9 +297,10 @@ final class AgentAskStore: ObservableObject {
 
     func start(center: ActivityCenter) {
         self.center = center
+        AgentAsk.sweep()
         let dnc = DistributedNotificationCenter.default()
         observers.append(dnc.addObserver(forName: AgentAsk.requestNote, object: nil, queue: .main) { [weak self] note in
-            guard let id = note.object as? String else { return }
+            guard let id = note.object as? String, AgentAsk.isValidID(id) else { return }
             self?.received(id)
         })
         observers.append(dnc.addObserver(forName: AgentAsk.goneNote, object: nil, queue: .main) { [weak self] note in
@@ -308,7 +325,7 @@ final class AgentAskStore: ObservableObject {
             append(request)
             return
         }
-        DistributedNotificationCenter.default().postNotificationName(AgentAsk.ackNote, object: id, userInfo: nil, deliverImmediately: true)
+        DistributedNotificationCenter.default().postNotificationName(AgentAsk.ackNote, object: id, userInfo: ["pid": Int(getpid())], deliverImmediately: true)
         // 꺼져 있거나 그 앱을 보고 있으면 원래 화면에서 묻는다
         guard settings.agentAsk, !isViewing(request) else { return reply(request, .init(kind: .release)) }
         append(request)
@@ -335,6 +352,11 @@ final class AgentAskStore: ObservableObject {
     /// 원래 화면(터미널 등)에서 묻게 한다
     func release(_ request: AgentAsk.Request) {
         if request.kind == .notice { remove { $0.id == request.id } } else { reply(request, .init(kind: .release)) }
+    }
+
+    /// 앱이 끝나기 전: 기다리는 질문을 모두 원래 화면(터미널 등)으로 돌려보낸다
+    func releaseAll() {
+        for r in requests where r.kind != .notice { reply(r, .init(kind: .release)) }
     }
 
     /// 알림을 그냥 눌렀을 때: 질문한 앱을 열고 거기서 답하게 한다

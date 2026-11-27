@@ -54,7 +54,8 @@ enum AgentLive {
                 label = toolLabel(input["tool_name"] as? String ?? "", input["tool_input"] as? [String: Any] ?? [:])
             }
         }
-        return Event(source: source, session: session, phase: phase, label: AgentNotify.oneLine(label, limit: 90),
+        // 명령·요청에 섞인 비밀번호·토큰은 가린다 (노치에 보이고 메모리에 남는 글)
+        return Event(source: source, session: session, phase: phase, label: AgentChannel.redact(AgentNotify.oneLine(label, limit: 90)),
                      project: URL(fileURLWithPath: folder).lastPathComponent)
     }
 
@@ -119,10 +120,11 @@ enum AgentLive {
         // 노치 채팅이 띄운 CLI는 알리지 않는다
         guard ProcessInfo.processInfo.environment["DMN_CHAT"] == nil, let e = event(from: input, source: source) else { exit(0) }
         let host = AgentNotify.guiHost()
-        DistributedNotificationCenter.default().postNotificationName(note, object: source.rawValue, userInfo: [
+        // 요청·명령 글은 다른 프로세스가 볼 수 있는 알림에 싣지 않는다 (AgentChannel)
+        AgentChannel.post(note, object: source.rawValue, payload: [
             "session": e.session, "phase": e.phase.rawValue, "label": e.label, "project": e.project,
             "bundle": host?.bundleIdentifier ?? "", "pid": Int(host?.processIdentifier ?? 0),
-        ], deliverImmediately: true)
+        ])
         exit(0)
     }
 }
@@ -164,8 +166,9 @@ final class AgentLiveStore: ObservableObject {
     func start(center: ActivityCenter) {
         self.center = center
         observer = DistributedNotificationCenter.default().addObserver(forName: AgentLive.note, object: nil, queue: .main) { [weak self] note in
-            guard let self, AppSettings.shared.agentLive, let raw = note.object as? String, let source = AgentSource(rawValue: raw),
-                  let info = note.userInfo, let phase = (info["phase"] as? String).flatMap(AgentLive.Phase.init(rawValue:)) else { return }
+            // 파일은 표시를 끄고 있어도 먼저 읽어 지운다
+            guard let info = AgentChannel.take(note), let self, AppSettings.shared.agentLive, let raw = note.object as? String,
+                  let source = AgentSource(rawValue: raw), let phase = (info["phase"] as? String).flatMap(AgentLive.Phase.init(rawValue:)) else { return }
             let bundle = info["bundle"] as? String ?? "", pid = info["pid"] as? Int ?? 0
             self.apply(source: source, session: info["session"] as? String ?? "", phase: phase, label: info["label"] as? String ?? "",
                        project: info["project"] as? String ?? "", target: bundle.isEmpty ? nil : "\(bundle)|\(pid)")

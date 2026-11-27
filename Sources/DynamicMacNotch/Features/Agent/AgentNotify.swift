@@ -91,14 +91,13 @@ enum AgentNotify {
             failed = event.failed
         }
         let app = guiHost()
-        DistributedNotificationCenter.default().postNotificationName(
-            notification, object: source.rawValue,
-            userInfo: ["project": URL(fileURLWithPath: folder).lastPathComponent,
-                       "task": oneLine(task, limit: 80),
-                       "failed": failed,
-                       "bundle": app?.bundleIdentifier ?? "",
-                       "pid": Int(app?.processIdentifier ?? 0)],
-            deliverImmediately: true)
+        // 요청 글은 다른 프로세스가 볼 수 있는 알림에 싣지 않는다 (AgentChannel)
+        AgentChannel.post(notification, object: source.rawValue, payload: [
+            "project": URL(fileURLWithPath: folder).lastPathComponent,
+            "task": AgentChannel.redact(oneLine(task, limit: 80)),
+            "failed": failed,
+            "bundle": app?.bundleIdentifier ?? "",
+            "pid": Int(app?.processIdentifier ?? 0)])
         exit(0)
     }
 
@@ -166,9 +165,9 @@ enum AgentNotify {
     /// 알림을 받아 노치에 띄운다. 누르면 열 앱은 activity.targetApp("번들ID|pid")에 담는다.
     static func observe(center: ActivityCenter) -> NSObjectProtocol {
         DistributedNotificationCenter.default().addObserver(forName: notification, object: nil, queue: .main) { note in
-            guard AppSettings.shared.agentAlerts,
+            // 파일은 알림을 쓰지 않더라도 먼저 읽어 지운다
+            guard let info = AgentChannel.take(note), AppSettings.shared.agentAlerts,
                   let raw = note.object as? String, let source = AgentSource(rawValue: raw) else { return }
-            let info = note.userInfo ?? [:]
             let project = info["project"] as? String ?? ""
             let bundle = info["bundle"] as? String ?? ""
             let pid = info["pid"] as? Int ?? 0
@@ -690,7 +689,7 @@ enum AgentProbe {
         }
 
         // 실제 훅 프로세스: 질문 → (시험 통로의 본 앱 역할) 답 → 표준 출력. 본 앱이 없으면 바로 끝난다.
-        func runHook(_ input: [String: Any], answer: AgentAsk.Reply?) -> (out: String, seconds: Double, request: AgentAsk.Request?) {
+        func runHook(_ input: [String: Any], answer: AgentAsk.Reply?, ackPID: pid_t? = nil) -> (out: String, seconds: Double, request: AgentAsk.Request?) {
             let channel = "probe-" + UUID().uuidString.prefix(8)
             let p = Process()
             p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath!)
@@ -703,7 +702,13 @@ enum AgentProbe {
             var seen: AgentAsk.Request?
             let folder = AgentAsk.folder.deletingLastPathComponent().appendingPathComponent("agent-ask." + channel)
             let token = dnc.addObserver(forName: Notification.Name("com.dynamicmacnotch.app.agent-ask." + channel), object: nil, queue: .main) { note in
-                guard let id = note.object as? String, let answer else { return }
+                guard let id = note.object as? String else { return }
+                if let ackPID, answer == nil {
+                    // 본 앱이 받았다고 답만 하고 답은 주지 않는다 (그 뒤 앱이 끝나는 경우)
+                    dnc.postNotificationName(Notification.Name("com.dynamicmacnotch.app.agent-ask-ack." + channel), object: id, userInfo: ["pid": Int(ackPID)], deliverImmediately: true)
+                    return
+                }
+                guard let answer else { return }
                 seen = AgentAsk.read(AgentAsk.Request.self, from: folder.appendingPathComponent("\(id).request.json"))
                 dnc.postNotificationName(Notification.Name("com.dynamicmacnotch.app.agent-ask-ack." + channel), object: id, userInfo: nil, deliverImmediately: true)
                 AgentAsk.write(answer, to: folder.appendingPathComponent("\(id).reply.json"))
@@ -731,6 +736,49 @@ enum AgentProbe {
         check(released.out.isEmpty, "released: the agent asks in its own screen")
         let noApp = runHook(askInput, answer: nil)
         check(noApp.out.isEmpty && noApp.seconds < 3, "no app: gives up quickly (\(String(format: "%.1f", noApp.seconds))s)")
+        // F-1: 본 앱이 받은 뒤 끝나면(다시 시작·종료·충돌) 10분을 기다리지 않고 원래 화면으로
+        let shortLived = Process()
+        shortLived.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        shortLived.arguments = ["1.5"]
+        try? shortLived.run()
+        let appGone = runHook(askInput, answer: nil, ackPID: shortLived.processIdentifier)
+        check(appGone.out.isEmpty && appGone.seconds < 4, "app ends while waiting: gives up at once (\(String(format: "%.1f", appGone.seconds))s)")
+
+        // F-2: 훅 소식은 파일로, 알림에는 id만. 가리기.
+        let channelDir = fm.temporaryDirectory.appendingPathComponent("dmn-channel-" + UUID().uuidString)
+        try? fm.createDirectory(at: channelDir, withIntermediateDirectories: true)
+        let probeNote = Notification.Name("com.dynamicmacnotch.app.probe-" + UUID().uuidString)
+        var received: Notification?
+        let probeToken = DistributedNotificationCenter.default().addObserver(forName: probeNote, object: nil, queue: .main) { received = $0 }
+        AgentChannel.post(probeNote, object: "claude", payload: ["task": "secret plan", "pid": 7], in: channelDir)
+        let until = Date().addingTimeInterval(3)
+        while received == nil, Date() < until { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+        DistributedNotificationCenter.default().removeObserver(probeToken)
+        check(received?.userInfo?.count == 1 && received?.userInfo?["id"] != nil && received?.userInfo?["task"] == nil, "the notification carries only an id")
+        let files = (try? fm.contentsOfDirectory(atPath: channelDir.path)) ?? []
+        let mode = files.first.flatMap { (try? fm.attributesOfItem(atPath: channelDir.appendingPathComponent($0).path)[.posixPermissions]) as? Int }
+        check(files.count == 1 && mode == 0o600, "the text is in a file only this user can read (\(String(mode ?? 0, radix: 8)))")
+        let taken = received.flatMap { AgentChannel.take($0, in: channelDir) }
+        check(taken?["task"] as? String == "secret plan" && taken?["pid"] as? Int == 7 && ((try? fm.contentsOfDirectory(atPath: channelDir.path)) ?? []).isEmpty, "reading removes the file")
+        check(AgentChannel.take(Notification(name: probeNote, object: nil, userInfo: ["id": "../../etc/passwd"]), in: channelDir) == nil
+              && AgentChannel.take(Notification(name: probeNote, object: nil, userInfo: nil), in: channelDir) == nil, "only UUID ids are read")
+        let stale = channelDir.appendingPathComponent(UUID().uuidString + ".json"), fresh = channelDir.appendingPathComponent(UUID().uuidString + ".json")
+        fm.createFile(atPath: stale.path, contents: Data("{}".utf8))
+        fm.createFile(atPath: fresh.path, contents: Data("{}".utf8))
+        try? fm.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)], ofItemAtPath: stale.path)
+        check(AgentChannel.sweep(channelDir, olderThan: 60) == 1 && fm.fileExists(atPath: fresh.path) && !fm.fileExists(atPath: stale.path), "F-3: sweeping removes only old files")
+        try? fm.removeItem(at: channelDir)
+        let redactions: [(String, String)] = [
+            ("curl -H \"Authorization: Bearer abc.def.ghi\" https://x", "curl -H \"Authorization: Bearer •••\" https://x"),
+            ("mysql --password=hunter2 -u root", "mysql --password=••• -u root"),
+            ("export API_KEY=xyz123 && run", "export API_KEY=••• && run"),
+            ("git clone https://me:tok3n@github.com/a/b", "git clone https://me:•••@github.com/a/b"),
+            ("use sk-ant-REDACTED_TEST_KEY_0000 now", "use ••• now"),
+            ("swift build -c release", "swift build -c release"),
+        ]
+        for (input, want) in redactions { check(AgentChannel.redact(input) == want, "redact: \(want)") }
+        check(AgentLive.event(from: ["hook_event_name": "PreToolUse", "session_id": "s", "tool_name": "Bash", "tool_input": ["command": "TOKEN=abc123 deploy"]], source: .claude)?.label == "TOKEN=••• deploy", "live labels are redacted")
+        check(AgentAsk.isValidID(UUID().uuidString) && !AgentAsk.isValidID("../x"), "question ids are UUIDs")
 
         func stop(_ s: String) -> (folder: String?, task: String, failed: Bool)? { AgentNotify.antigravityStop(Data(s.utf8)) }
         let done = stop(#"{"workspacePaths":["/a/Proj","/b"],"lastUserInput":"fix it","terminationReason":"model_stop","fullyIdle":true,"executionNum":1}"#)

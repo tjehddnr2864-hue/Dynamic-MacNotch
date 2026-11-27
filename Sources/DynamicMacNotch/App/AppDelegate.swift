@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usage.start()
         monitor.start()
         agentObserver = AgentNotify.observe(center: center)
+        AgentChannel.sweep(AgentChannel.folder, olderThan: 60)   // 앱이 꺼져 있던 동안 읽히지 않은 훅 소식
         AgentAskStore.shared.start(center: center)
         AgentLiveStore.shared.start(center: center)
         // 어느 디스플레이에서든 에이전트 작업 팝업을 열어 두었는지
@@ -285,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        AgentAskStore.shared.releaseAll()   // 기다리던 에이전트 질문은 원래 화면에서 묻게 한다
         media.stop()
         memo.saveNow()   // 쓰던 메모 (다시 시작·메모리 정리 재시작 포함)
     }
@@ -295,7 +297,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 자동 재시작해도 사용자가 알아채지 못할 때: 노치가 닫혀 있고 알림·조작·진행 중인 작업이 없음.
     /// (음악 재생은 다른 앱에서 계속되므로 막지 않는다)
     private func isIdleForRelaunch() -> Bool {
-        let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer]
+        // 에이전트 질문이 답을 기다리는 동안 다시 시작하면 에이전트가 원래 화면을 기다리게 된다
+        let busyKinds: Set<ActivityKind> = [.download, .airdrop, .recording, .call, .demo, .timer, .agentAsk]
         return !hub.anyExpanded && !hub.anyHovering && !hub.anyFileDragging
             && center.transient == nil && center.persistentKinds.isDisjoint(with: busyKinds)
             && recording.startedAt == nil && call.state == .idle && !timer.isActive && !chat.isStreaming && chat.draft.isEmpty && chat.pending.isEmpty && chat.attaching == 0
