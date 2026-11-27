@@ -27,10 +27,17 @@ enum AgentChannel {
     static func take(_ note: Notification, in folder: URL = folder) -> [String: Any]? {
         guard let id = note.userInfo?["id"] as? String, UUID(uuidString: id) != nil else { return nil }
         let url = folder.appendingPathComponent("\(id).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        defer {
+            try? FileManager.default.removeItem(at: url)
+            // 50번에 한 번은 읽히지 못하고 남은 파일(앱이 다시 켜지는 순간 온 것 등)도 지운다
+            taken &+= 1
+            if taken % 50 == 0 { sweep(folder, olderThan: 60) }
+        }
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
+
+    private static var taken = 0
 
     /// 오래된 파일 지우기 (앱이 켜질 때). 반환: 지운 개수
     @discardableResult

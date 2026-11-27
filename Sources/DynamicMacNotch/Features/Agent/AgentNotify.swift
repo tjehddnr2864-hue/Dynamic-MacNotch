@@ -804,6 +804,17 @@ enum AgentProbe {
         for (input, want) in redactions { check(AgentChannel.redact(input) == want, "redact: \(want)") }
         check(AgentLive.event(from: ["hook_event_name": "PreToolUse", "session_id": "s", "tool_name": "Bash", "tool_input": ["command": "TOKEN=abc123 deploy"]], source: .claude)?.label == "TOKEN=••• deploy", "live labels are redacted")
         check(AgentAsk.isValidID(UUID().uuidString) && !AgentAsk.isValidID("../x"), "question ids are UUIDs")
+        // S5-1: 끌기·에어드랍용 임시 스크린샷은 10분 지나면, 앱이 끝날 때는 모두 지운다
+        let shotDir = fm.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true)
+        try? fm.createDirectory(at: shotDir, withIntermediateDirectories: true)
+        let oldShot = shotDir.appendingPathComponent("probe-old-\(UUID().uuidString).png"), newShot = shotDir.appendingPathComponent("probe-new-\(UUID().uuidString).png")
+        fm.createFile(atPath: oldShot.path, contents: Data([1]))
+        fm.createFile(atPath: newShot.path, contents: Data([1]))
+        try? fm.setAttributes([.modificationDate: Date().addingTimeInterval(-ScreenshotMonitor.tempKeep - 5)], ofItemAtPath: oldShot.path)
+        ScreenshotMonitor.cleanTemp()
+        check(!fm.fileExists(atPath: oldShot.path) && fm.fileExists(atPath: newShot.path), "temp screenshots older than 10 minutes are removed")
+        ScreenshotMonitor.cleanTemp(olderThan: 0)
+        check(!fm.fileExists(atPath: newShot.path), "all temp screenshots go when the app quits")
 
         func stop(_ s: String) -> (folder: String?, task: String, failed: Bool)? { AgentNotify.antigravityStop(Data(s.utf8)) }
         let done = stop(#"{"workspacePaths":["/a/Proj","/b"],"lastUserInput":"fix it","terminationReason":"model_stop","fullyIdle":true,"executionNum":1}"#)

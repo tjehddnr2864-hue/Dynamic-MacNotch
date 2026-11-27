@@ -44,6 +44,7 @@ final class ScreenshotMonitor: ObservableObject {
     }
 
     func start() {
+        Self.cleanTemp()
         // ⌘⇧3/4/5 캡처는 스크린샷 도구가 '앱'으로 실행되지 않는 경우가 많아 실행 알림으로는 감지할 수 없다.
         // 클립보드 변경 번호(changeCount)만 0.5초마다 확인한다: 프로세스 간 정수 하나 읽기라 CPU 부담이 거의 없다.
         lastChangeCount = NSPasteboard.general.changeCount
@@ -327,9 +328,24 @@ final class ScreenshotMonitor: ObservableObject {
 
     /// 드래그·에어드랍에 쓰는 임시 파일 자리 (스크린샷_년도_월_일_시_분_초.png)
     private static func tempURL(for date: Date) -> URL {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent(fileName(for: date) + ".png")
+        cleanTemp()
+        try? FileManager.default.createDirectory(at: tempFolder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        return tempFolder.appendingPathComponent(fileName(for: date) + ".png")
+    }
+
+    private static var tempFolder: URL { FileManager.default.temporaryDirectory.appendingPathComponent("DynamicMacNotch", isDirectory: true) }
+    /// 끌어 놓은 앱·에어드랍이 파일을 다 읽을 시간
+    static let tempKeep: TimeInterval = 10 * 60
+
+    /// 화면 내용이 담긴 임시 PNG를 지운다 (새로 만들 때·앱을 켤 때는 10분 지난 것, 앱이 끝날 때는 전부)
+    static func cleanTemp(olderThan age: TimeInterval = tempKeep, now: Date = Date()) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: tempFolder.path) else { return }
+        for name in names where name.hasSuffix(".png") {
+            let url = tempFolder.appendingPathComponent(name)
+            let modified = (try? fm.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? .distantPast
+            if now.timeIntervalSince(modified) >= age { try? fm.removeItem(at: url) }
+        }
     }
 
     /// 드래그로 첨부할 임시 파일 (스크린샷_년도_월_일_시_분_초.png).

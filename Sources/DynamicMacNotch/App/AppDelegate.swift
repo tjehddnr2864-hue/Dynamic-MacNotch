@@ -59,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.start()
         agentObserver = AgentNotify.observe(center: center)
         AgentChannel.sweep(AgentChannel.folder, olderThan: 60)   // 앱이 꺼져 있던 동안 읽히지 않은 훅 소식
+        // 켜지는 바로 그 순간 온 소식은 위에서 지워지지 않으므로 2분 뒤 한 번 더 (그 뒤로는 소식을 받을 때 가끔)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120) { AgentChannel.sweep(AgentChannel.folder, olderThan: 60) }
         AgentAskStore.shared.start(center: center)
         AgentLiveStore.shared.start(center: center)
         // 어느 디스플레이에서든 에이전트 작업 팝업을 열어 두었는지
@@ -287,6 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         AgentAskStore.shared.releaseAll()   // 기다리던 에이전트 질문은 원래 화면에서 묻게 한다
+        ScreenshotMonitor.cleanTemp(olderThan: 0)   // 끌기·에어드랍용 임시 스크린샷
         media.stop()
         memo.saveNow()   // 쓰던 메모 (다시 시작·메모리 정리 재시작 포함)
     }
