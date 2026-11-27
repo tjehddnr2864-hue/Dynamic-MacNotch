@@ -23,7 +23,7 @@ extension SettingsIndex {
         SettingsEntry(page: .calendar, section: nil, title: ("일정", "Calendar"), detail: ("오늘 일정과 다가오는 일정 알림", "Today's events and upcoming event alerts"), keys: [], isPage: true),
         SettingsEntry(page: .aiUsage, section: nil, title: ("실시간 모니터링", "Live Monitoring"), detail: ("AI 사용량 한도와 이 Mac의 자원", "AI usage limits and this Mac's resources"), keys: [], isPage: true),
         SettingsEntry(page: .chat, section: nil, title: ("AI 채팅", "AI Chat"), detail: ("노치에서 바로 묻는 AI 채팅", "Ask AI right from the notch"), keys: [], isPage: true),
-        SettingsEntry(page: .agent, section: nil, title: ("코딩 에이전트", "Coding Agents"), detail: ("Claude Code·Codex·Antigravity 작업 완료 알림", "Task finished alerts from Claude Code, Codex and Antigravity"), keys: [], isPage: true),
+        SettingsEntry(page: .agent, section: nil, title: ("코딩 에이전트", "Coding Agents"), detail: ("Claude Code·Codex·Antigravity 작업 표시·질문·완료 알림", "Activity, questions and finished alerts from Claude Code, Codex and Antigravity"), keys: [], isPage: true),
         SettingsEntry(page: .preview, section: nil, title: ("미리보기", "Preview"), detail: ("모든 알림을 노치에 띄워 보기", "Try every alert in the notch"), keys: [], isPage: true),
         SettingsEntry(page: .permissions, section: nil, title: ("권한 관리", "Permissions"), detail: ("기능에 필요한 macOS 권한", "macOS permissions the features need"), keys: [], isPage: true),
         SettingsEntry(page: .about, section: nil, title: ("정보", "About"), detail: ("버전과 정보", "Version and info"), keys: [], isPage: true),
@@ -141,6 +141,7 @@ extension SettingsIndex {
         SettingsEntry(page: .chat, section: ("저장된 대화", "Saved Conversations"), title: ("저장 용량", "Storage"), detail: nil, keys: []),
         SettingsEntry(page: .chat, section: ("저장된 대화", "Saved Conversations"), title: ("첨부 파일 안내", "About Attachments"), detail: nil, keys: []),
         SettingsEntry(page: .agent, section: ("표시", "Show"), title: ("작업 완료 알림", "Task finished alert"), detail: ("누르면 그 작업이 돌던 앱이 열립니다.", "Click it to open the app the task ran in."), keys: ["agentAlerts"]),
+        SettingsEntry(page: .agent, section: ("실시간 작업", "Live Activity"), title: ("에이전트 작업 표시", "Show agent activity"), detail: ("생각 중·작업 중과 지금 하는 작업", "Thinking or working, and the current step"), keys: ["agentLive"]),
         SettingsEntry(page: .agent, section: ("질문에 답하기", "Answer Questions"), title: ("노치에서 답하기", "Answer in the notch"), detail: ("Claude Code 질문·실행 허락, Codex 실행 허락", "Claude Code questions and permissions, Codex permissions"), keys: ["agentAsk"]),
         SettingsEntry(page: .agent, section: ("표시 방식", "Appearance"), title: ("표시 형태", "Style"), detail: nil, keys: ["agentStyle"]),
     ]

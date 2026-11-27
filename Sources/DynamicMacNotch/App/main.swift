@@ -7,6 +7,10 @@ signal(SIGPIPE, SIG_IGN)
 ChatProbe.runIfRequested()
 #endif
 
+if let agent = AgentLive.source(from: CommandLine.arguments) {
+    AgentLive.runHook(agent)   // 코딩 에이전트의 실시간 작업: 알리고 바로 종료
+}
+
 if let agent = AgentNotify.source(from: CommandLine.arguments) {
     AgentNotify.runHook(agent, arguments: CommandLine.arguments)   // 코딩 에이전트 작업 완료 훅: 알리고 바로 종료
 }

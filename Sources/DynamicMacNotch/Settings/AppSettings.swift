@@ -77,7 +77,7 @@ final class AppSettings: ObservableObject {
 
     /// 상시 표시 항목 우선순위 (앞일수록 먼저 노치에 표시)
     @Setting("persistentOrder", default: AppSettings.defaultPersistentOrder, sanitize: AppSettings.fixedPersistentOrder) var persistentOrder: [String]
-    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "media", "aiUsage", "resource", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
+    static let defaultPersistentOrder = ["call", "recording", "timer", "airdrop", "download", "agentLive", "media", "aiUsage", "resource", "battery", "calendar", "vpn", "hotspot", "focusPinned"]
 
     /// 통화는 기존 사용자도 맨 위로.
     static func fixedPersistentOrder(_ saved: [String]) -> [String] {
@@ -433,6 +433,8 @@ final class AppSettings: ObservableObject {
     @Setting("agentAlerts", default: true) var agentAlerts: Bool
     /// 에이전트가 작업 중에 묻는 것(선택 질문·실행 허락)을 노치에서 답하기
     @Setting("agentAsk", default: true) var agentAsk: Bool
+    /// 에이전트가 지금 하는 일(생각 중·작업 중과 작업 이름)을 상시 표시
+    @Setting("agentLive", default: true) var agentLive: Bool
     /// 작업 완료 알림 형태 (상세: 끝난 작업 이름까지)
     @Setting("agentStyle", default: AlertStyle.compact) var agentStyle: AlertStyle
 

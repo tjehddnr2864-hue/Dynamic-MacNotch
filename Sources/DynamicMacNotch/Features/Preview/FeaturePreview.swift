@@ -31,7 +31,7 @@ enum PreviewID: String, CaseIterable {
     case updateDone = "update-done"
     case chatDone = "chat-done"
     // 코딩 에이전트
-    case agentDone = "agent-done", agentAsk = "agent-ask", agentAllow = "agent-allow"
+    case agentDone = "agent-done", agentAsk = "agent-ask", agentAllow = "agent-allow", agentLive = "agent-live"
     // 모두 끝내기
     case stopAll = "stop-all"
 }
@@ -55,7 +55,7 @@ extension PreviewID {
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone, .chatDone:
             return .detailOnly
         case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned, .resourceLive, .monitorLive,
-             .mediaStart, .mediaStop, .stopAll, .agentAsk, .agentAllow:
+             .mediaStart, .mediaStop, .stopAll, .agentAsk, .agentAllow, .agentLive:
             return .compactOnly
         }
     }
@@ -233,6 +233,8 @@ final class FeaturePreview {
                                                         .init(label: T("노치 조작", "Notch Controls"), detail: T("클릭·호버 설정 옆", "Next to click and hover")),
                                                         .init(label: T("새 페이지", "New page"), detail: "")],
                                               multiSelect: false)]))
+        case .agentLive:
+            AgentLiveStore.shared.preview()
         case .agentAllow:
             AgentAskStore.shared.preview(AgentAsk.Request(
                 id: UUID().uuidString, source: AgentSource.codex.rawValue, kind: .permission, project: "DynamicMacNotch", hostBundle: "", hostPID: 0, hookPID: -1,

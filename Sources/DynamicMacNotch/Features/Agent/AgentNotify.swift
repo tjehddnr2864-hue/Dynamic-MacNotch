@@ -90,7 +90,7 @@ enum AgentNotify {
             task = event.task
             failed = event.failed
         }
-        let app = guiAncestor()
+        let app = guiHost()
         DistributedNotificationCenter.default().postNotificationName(
             notification, object: source.rawValue,
             userInfo: ["project": URL(fileURLWithPath: folder).lastPathComponent,
@@ -144,7 +144,7 @@ enum AgentNotify {
     }
 
     /// 이 프로세스를 띄운 화면 앱 (부모 프로세스를 거슬러 올라가 처음 만나는 일반 앱: 터미널·VS Code·Claude 등)
-    private static func guiAncestor() -> NSRunningApplication? {
+    static func guiHost() -> NSRunningApplication? {
         var pid = getppid()
         for _ in 0..<40 where pid > 1 {
             if let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular { return app }
@@ -262,8 +262,13 @@ enum AgentHooks {
         (try? String(contentsOf: s == .codex ? codexHooksFile : file(s), encoding: .utf8))?.contains("--agent-ask=\(s.rawValue)") ?? false
     }
 
-    /// 예전에 작업 완료 알림만 연결한 경우: 다시 연결하면 질문 훅도 들어간다
-    static func needsUpdate(_ s: AgentSource) -> Bool { isInstalled(s) && !isAskInstalled(s) }
+    /// 실시간 작업 훅이 들어 있는지
+    static func isLiveInstalled(_ s: AgentSource) -> Bool {
+        (try? String(contentsOf: s == .codex ? codexHooksFile : file(s), encoding: .utf8))?.contains("--agent-live=\(s.rawValue)") ?? false
+    }
+
+    /// 예전에 연결한 경우(작업 완료만, 또는 질문까지): 다시 연결하면 빠진 훅만 더한다
+    static func needsUpdate(_ s: AgentSource) -> Bool { isInstalled(s) && (!isAskInstalled(s) || !isLiveInstalled(s)) }
 
     static func install(_ s: AgentSource) throws {
         switch s {
@@ -283,7 +288,7 @@ enum AgentHooks {
 
     // Claude Code·Codex 훅 형식: {"hooks": {"이벤트": [{"matcher": …, "hooks": [{"type": "command", "command": …}]}]}}
 
-    private static func addHook(_ obj: inout [String: Any], event: String, matcher: String?, command: String, timeout: Int?) {
+    private static func addHook(_ obj: inout [String: Any], event: String, matcher: String?, command: String, timeout: Int?, async: Bool = false) {
         var hooks = obj["hooks"] as? [String: Any] ?? [:]
         var groups = hooks[event] as? [[String: Any]] ?? []
         // 같은 표시(--agent-…=…)가 이미 있으면 (실행 파일 위치가 달라도) 더하지 않는다
@@ -291,6 +296,7 @@ enum AgentHooks {
         guard !groups.contains(where: { (($0["hooks"] as? [[String: Any]]) ?? []).contains { (($0["command"] as? String) ?? "").contains(marker) } }) else { return }
         var handler: [String: Any] = ["type": "command", "command": command]
         if let timeout { handler["timeout"] = timeout }
+        if async { handler["async"] = true }
         var group: [String: Any] = ["hooks": [handler]]
         if let matcher { group["matcher"] = matcher }
         groups.append(group)
@@ -341,12 +347,17 @@ enum AgentHooks {
 
     /// 작업 완료(Stop), 선택 질문(PreToolUse · AskUserQuestion), 실행 허락(PermissionRequest)
     private static func installClaude() throws {
-        guard !isInstalled(.claude) || !isAskInstalled(.claude) else { return }
+        guard !isInstalled(.claude) || !isAskInstalled(.claude) || !isLiveInstalled(.claude) else { return }
         var obj = try readClaude()
         addHook(&obj, event: "Stop", matcher: nil, command: "\"\(exe)\" --agent-done=claude", timeout: nil)
         let ask = "\"\(exe)\" --agent-ask=claude"
         addHook(&obj, event: "PreToolUse", matcher: "AskUserQuestion", command: ask, timeout: AgentAsk.hookTimeout)
         addHook(&obj, event: "PermissionRequest", matcher: nil, command: ask, timeout: AgentAsk.hookTimeout)
+        // 실시간 작업: Claude Code를 기다리게 하지 않도록 따로 돌린다(async)
+        let live = "\"\(exe)\" --agent-live=claude"
+        for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SessionEnd"] {
+            addHook(&obj, event: event, matcher: nil, command: live, timeout: 10, async: true)
+        }
         try writeClaude(obj)
     }
 
@@ -355,6 +366,7 @@ enum AgentHooks {
         guard obj["hooks"] != nil else { return }
         removeHooks(&obj, marker: "--agent-done=claude")
         removeHooks(&obj, marker: "--agent-ask=claude")
+        removeHooks(&obj, marker: "--agent-live=claude")
         try writeClaude(obj)
     }
 
@@ -376,9 +388,12 @@ enum AgentHooks {
     }
 
     private static func installCodexAsk() throws {
-        guard !isAskInstalled(.codex) else { return }
+        guard !isAskInstalled(.codex) || !isLiveInstalled(.codex) else { return }
         var obj = try readCodexHooks()
         addHook(&obj, event: "PermissionRequest", matcher: nil, command: "\"\(exe)\" --agent-ask=codex", timeout: AgentAsk.hookTimeout)
+        for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"] {
+            addHook(&obj, event: event, matcher: nil, command: "\"\(exe)\" --agent-live=codex", timeout: 5)
+        }
         try writeCodexHooks(obj)
     }
 
@@ -386,6 +401,7 @@ enum AgentHooks {
         guard FileManager.default.fileExists(atPath: codexHooksFile.path) else { return }
         var obj = try readCodexHooks()
         removeHooks(&obj, marker: "--agent-ask=codex")
+        removeHooks(&obj, marker: "--agent-live=codex")
         try writeCodexHooks(obj)
     }
 
@@ -413,13 +429,16 @@ enum AgentHooks {
 
     /// 이 앱 이름의 훅 하나: 작업 완료(Stop)와 선택 질문 알림(ask_question 앞·뒤)
     private static func installAntigravity() throws {
-        guard !isInstalled(.antigravity) || !isAskInstalled(.antigravity) else { return }
+        guard !isInstalled(.antigravity) || !isAskInstalled(.antigravity) || !isLiveInstalled(.antigravity) else { return }
         var obj = try readAntigravity()
-        let ask = "\"\(exe)\" --agent-ask=antigravity"
+        let ask = "\"\(exe)\" --agent-ask=antigravity", live = "\"\(exe)\" --agent-live=antigravity"
+        func handler(_ command: String) -> [String: Any] { ["type": "command", "command": command, "timeout": 10] }
+        // 형식은 2026-11 agy 1.5.17의 작업 폴더 훅으로 확인 (PreInvocation·PreToolUse·PostToolUse·Stop)
         obj[antigravityHook] = [
-            "Stop": [["type": "command", "command": "\"\(exe)\" --agent-done=antigravity", "timeout": 10] as [String: Any]],
-            "PreToolUse": [["matcher": "ask_question", "hooks": [["type": "command", "command": ask, "timeout": 10] as [String: Any]]] as [String: Any]],
-            "PostToolUse": [["matcher": "ask_question", "hooks": [["type": "command", "command": ask + " --answered", "timeout": 10] as [String: Any]]] as [String: Any]],
+            "Stop": [handler("\"\(exe)\" --agent-done=antigravity"), handler(live)],
+            "PreInvocation": [handler(live)],
+            "PreToolUse": [["matcher": "ask_question", "hooks": [handler(ask)]] as [String: Any], ["matcher": ".*", "hooks": [handler(live)]] as [String: Any]],
+            "PostToolUse": [["matcher": "ask_question", "hooks": [handler(ask + " --answered")]] as [String: Any], ["matcher": ".*", "hooks": [handler(live)]] as [String: Any]],
         ]
         try writeAntigravity(obj)
     }
@@ -565,8 +584,13 @@ enum AgentProbe {
         let ch = claudeJSON()["hooks"] as? [String: Any] ?? [:]
         let pre = ch["PreToolUse"] as? [[String: Any]] ?? []
         check(AgentHooks.isInstalled(.claude) && AgentHooks.isAskInstalled(.claude) && claudeJSON()["model"] as? String == "x", "Claude: done and question hooks, other settings kept")
-        check(pre.count == 2 && pre.contains { $0["matcher"] as? String == "AskUserQuestion" } && pre.contains { $0["matcher"] as? String == "Bash" }, "Claude: question hook next to the user's hook")
-        check((ch["PermissionRequest"] as? [[String: Any]])?.count == 1 && (((pre.last?["hooks"] as? [[String: Any]])?.first?["timeout"]) as? Int) == AgentAsk.hookTimeout, "Claude: permission hook, long timeout")
+        check(pre.count == 3 && pre.contains { $0["matcher"] as? String == "AskUserQuestion" } && pre.contains { $0["matcher"] as? String == "Bash" }, "Claude: question hook next to the user's hook")
+        let askGroup = pre.first { $0["matcher"] as? String == "AskUserQuestion" }
+        check((ch["PermissionRequest"] as? [[String: Any]])?.count == 1 && (((askGroup?["hooks"] as? [[String: Any]])?.first?["timeout"]) as? Int) == AgentAsk.hookTimeout, "Claude: permission hook, long timeout")
+        let liveHandlers = ["UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SessionEnd"].compactMap { event in
+            (ch[event] as? [[String: Any]])?.flatMap { ($0["hooks"] as? [[String: Any]]) ?? [] }.first { (($0["command"] as? String) ?? "").contains("--agent-live=claude") }
+        }
+        check(AgentHooks.isLiveInstalled(.claude) && liveHandlers.count == 5 && liveHandlers.allSatisfy { $0["async"] as? Bool == true }, "Claude: live hooks on five events, async so Claude never waits")
         try? AgentHooks.uninstall(.claude)
         let back = claudeJSON()["hooks"] as? [String: Any] ?? [:]
         check(!AgentHooks.isInstalled(.claude) && !AgentHooks.isAskInstalled(.claude) && back.count == 1 && (back["PreToolUse"] as? [[String: Any]])?.count == 1, "Claude: removes only its own hooks")
@@ -574,16 +598,52 @@ enum AgentProbe {
         try? old.write(to: claude, atomically: true, encoding: .utf8)
         check(AgentHooks.needsUpdate(.claude), "Claude: an older connection asks to reconnect")
         try? AgentHooks.install(.claude)
-        check(!AgentHooks.needsUpdate(.claude) && ((claudeJSON()["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]])?.count == 1, "Claude: reconnecting adds only what's missing")
+        let stops = ((claudeJSON()["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]] ?? []).flatMap { ($0["hooks"] as? [[String: Any]]) ?? [] }
+        check(!AgentHooks.needsUpdate(.claude) && stops.filter { (($0["command"] as? String) ?? "").contains("--agent-done=claude") }.count == 1, "Claude: reconnecting adds only what's missing")
         try? AgentHooks.install(.codex)
         let codexHooks = (try? Data(contentsOf: AgentHooks.codexHooksFile)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         check(AgentHooks.isAskInstalled(.codex) && ((codexHooks?["hooks"] as? [String: Any])?["PermissionRequest"] as? [[String: Any]])?.count == 1, "Codex: permission hook in hooks.json")
+        check(AgentHooks.isLiveInstalled(.codex) && ((codexHooks?["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]])?.count == 1, "Codex: live hooks in hooks.json")
         try? AgentHooks.uninstall(.codex)
         check(!AgentHooks.isAskInstalled(.codex) && !AgentHooks.isInstalled(.codex), "Codex: both removed")
         try? fm.removeItem(at: AgentHooks.antigravityFile)
         try? AgentHooks.install(.antigravity)
         let ag = json()["dynamic-macnotch"] as? [String: Any] ?? [:]
         check(ag["Stop"] != nil && ((ag["PreToolUse"] as? [[String: Any]])?.first?["matcher"] as? String) == "ask_question" && ag["PostToolUse"] != nil, "Antigravity: Stop and question hooks")
+        check(AgentHooks.isLiveInstalled(.antigravity) && (ag["PreInvocation"] as? [[String: Any]])?.count == 1 && (ag["Stop"] as? [[String: Any]])?.count == 2
+              && (ag["PreToolUse"] as? [[String: Any]])?.count == 2, "Antigravity: live hooks next to the others")
+
+        // 실시간 작업: 훅 입력 → 사건
+        let claudeBash = AgentLive.event(from: ["hook_event_name": "PreToolUse", "session_id": "s1", "cwd": "/w/Proj", "tool_name": "Bash",
+                                                "tool_input": ["command": "swift build", "description": "Built and ran all probes"]], source: .claude)
+        check(claudeBash == AgentLive.Event(source: .claude, session: "s1", phase: .toolStart, label: "Built and ran all probes", project: "Proj"), "live: Claude's own description is the label")
+        check(AgentLive.toolLabel("Read", ["file_path": "/a/b/Main.swift"]) == T("Main.swift 읽기", "Read Main.swift") && AgentLive.toolLabel("Bash", ["command": "ls -la"]) == "ls -la"
+              && AgentLive.toolLabel("mcp__github__create_issue", [:]) == "github · create_issue" && AgentLive.toolLabel("Bash", ["command": ["git", "status"]]) == "git status", "live: labels for tools without a description")
+        let agTool = AgentLive.event(from: ["hookEventName": "PreToolUse", "conversationId": "c1", "workspacePaths": ["/w/App"],
+                                            "toolCall": ["name": "run_command", "args": ["CommandLine": "ls", "toolSummary": "List workspace directory contents"]]], source: .antigravity)
+        check(agTool?.label == "List workspace directory contents" && agTool?.session == "c1" && agTool?.project == "App", "live: Antigravity's toolSummary (real agy 1.5.17 input)")
+        check(AgentLive.antigravityLabel(["name": "read_file", "args": ["Path": "/w/App/note.txt"]]) == "note.txt" && AgentLive.antigravityLabel(["name": "list_dir", "args": [:]]) == "list dir", "live: Antigravity labels without a summary")
+        check(AgentLive.event(from: ["hookEventName": "PreInvocation", "invocationNum": 0], source: .antigravity)?.phase == .prompt
+              && AgentLive.event(from: ["hookEventName": "PreInvocation", "invocationNum": 2], source: .antigravity)?.phase == .toolEnd, "live: only Antigravity's first invocation is a new request")
+        check(AgentLive.event(from: ["hook_event_name": "Notification"], source: .claude) == nil && AgentLive.event(from: ["hook_event_name": "SessionEnd", "session_id": "x"], source: .claude)?.phase == .stop, "live: other events")
+
+        // 실시간 작업: 세션 상태
+        let live = AgentLiveStore()
+        let t0 = Date()
+        live.apply(source: .claude, session: "a", phase: .prompt, label: "", project: "P", target: nil, now: t0)
+        check(live.sessions.count == 1 && live.sessions.first?.working == false && live.sessions.first?.recent.isEmpty == true, "live: a new request is thinking")
+        for (i, label) in ["one", "two", "two", "three", "four", "five"].enumerated() {
+            live.apply(source: .claude, session: "a", phase: .toolStart, label: label, project: "P", target: nil, now: t0.addingTimeInterval(Double(i + 1)))
+        }
+        check(live.sessions.first?.working == true && live.sessions.first?.action == "five" && live.sessions.first?.recent == ["five", "four", "three", "two"], "live: working, newest first, repeats folded, four kept")
+        live.apply(source: .claude, session: "a", phase: .toolEnd, label: "", project: "P", target: nil, now: t0.addingTimeInterval(10))
+        live.apply(source: .codex, session: "b", phase: .toolStart, label: "npm test", project: "Q", target: "com.apple.Terminal|1", now: t0.addingTimeInterval(20))
+        check(live.sessions.first?.working == false && live.ordered.first?.source == .codex && live.ordered.count == 2, "live: back to thinking; the latest session comes first")
+        live.apply(source: .claude, session: "a", phase: .prompt, label: "", project: "P", target: nil, now: t0.addingTimeInterval(30))
+        check(live.sessions.first { $0.key == "a" }?.recent.isEmpty == true, "live: the next request starts a fresh list")
+        live.apply(source: .codex, session: "b", phase: .stop, label: "", project: "Q", target: nil, now: t0.addingTimeInterval(40))
+        check(live.sessions.map(\.key) == ["a"], "live: a finished turn disappears")
+        check(AgentLivePage.contentHeight([]) == 60 && AgentLivePage.contentHeight(live.ordered) > 40, "live: popup height")
 
         // 훅 입력 → 질문
         let askInput: [String: Any] = ["hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "cwd": "/w/Proj",

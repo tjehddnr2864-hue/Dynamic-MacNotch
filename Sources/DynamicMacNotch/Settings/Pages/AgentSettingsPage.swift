@@ -12,6 +12,13 @@ struct AgentSettingsPage: View {
             SettingsSection(SectionTitle.show) {
                 Toggle(T("작업 완료 알림", "Task finished alert"), detail: T("누르면 그 작업이 돌던 앱이 열립니다.", "Click it to open the app the task ran in."), isOn: $settings.agentAlerts)
             }
+            SettingsSection(T("실시간 작업", "Live Activity"),
+                            footer: T("에이전트가 생각하거나 작업하는 동안 노치에 보입니다.", "Shows in the notch while an agent thinks or works."),
+                            more: T("접힌 노치 왼쪽에는 에이전트 아이콘, 오른쪽에는 '생각 중'·'작업 중'이 보입니다. 길게 누르면 세션마다 지금 하는 작업의 이름(에이전트가 붙인 설명, 없으면 명령·파일 이름)과 바로 앞 작업들이 보이고, 누르면 그 앱이 열립니다. 요청을 마치면 사라집니다. 순서는 상시 표시 우선순위의 '에이전트 작업'을 따릅니다. Claude Code에서는 에이전트를 기다리게 하지 않도록 따로(async) 실행되고, Codex는 /hooks에서 새 훅을 신뢰해야 동작합니다.",
+                                    "The folded notch shows the agent's icon on the left and Thinking or Working on the right. Long-press it to see, for each session, the name of the current step (the agent's own description, or the command or file) and the steps just before; click it to open the app. It goes away when the request is done. Its place follows Agent Activity in Live Activity priority. In Claude Code it runs separately (async) so the agent never waits; in Codex, trust the new hooks in /hooks."),
+                            disabled: AgentSource.allCases.allSatisfy { !AgentHooks.isInstalled($0) }, disabledNote: T("아래에서 연결하면 쓸 수 있습니다.", "Connect an agent below to use this.")) {
+                Toggle(T("에이전트 작업 표시", "Show agent activity"), detail: T("생각 중·작업 중과 지금 하는 작업", "Thinking or working, and the current step"), isOn: $settings.agentLive)
+            }
             SettingsSection(T("질문에 답하기", "Answer Questions"),
                             footer: T("길게 누르면 노치에서 고르고, 누르면 그 앱이 열립니다.", "Long-press to choose in the notch; click to open the app."),
                             more: T("에이전트가 작업 중에 선택지를 묻거나 실행 허락을 구하면 노치에 '질문'·'허락'이 남습니다. 길게 누르면 선택지와 맨 아래 '직접 입력' 칸이 나오고, 고르거나 입력해 보내면 그 답이 에이전트에 전해집니다. 그냥 누르거나 그 앱으로 돌아가면 원래 화면에서 답할 수 있고, 10분 동안 답하지 않아도 원래 화면으로 돌아갑니다. 그 앱을 보고 있을 때는 노치에 띄우지 않습니다.\n\nClaude Code는 선택 질문과 실행 허락, Codex는 실행 허락만 답할 수 있습니다(Codex는 선택 질문에 답하는 훅이 없음). Codex는 처음에 /hooks에서 이 훅을 신뢰해야 동작합니다. Antigravity는 질문을 알리기만 하고, 답은 Antigravity에서 합니다. 질문 내용은 이 Mac 안에서만 주고받습니다.",

@@ -244,7 +244,8 @@ enum MonitorProbe {
         let saved = ["call", "timer", "recording", "download", "airdrop", "media", "hotspot", "battery", "aiUsage", "vpn", "focusPinned", "calendar"]
         let fixed = AppSettings.fixedPersistentOrder(saved)
         check(fixed.firstIndex(of: "resource") == fixed.firstIndex(of: "aiUsage").map { $0 + 1 }, "resource right after aiUsage")
-        check(fixed.filter { $0 != "resource" } == saved, "user order kept")
+        check(fixed.filter { !["resource", "agentLive"].contains($0) } == saved, "user order kept")
+        check(fixed.firstIndex(of: "agentLive") == fixed.firstIndex(of: "download").map { $0 + 1 }, "agent activity right after downloads")
 
         // Claude 응답: 5시간 한도가 없거나 비어 있어도 주간 한도를 읽는다
         func claude(_ json: String) -> ServiceUsage? { UsageParser.claude(Data(json.utf8)) }

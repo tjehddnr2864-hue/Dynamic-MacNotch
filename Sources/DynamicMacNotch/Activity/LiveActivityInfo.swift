@@ -18,6 +18,7 @@ extension ActivityKind {
         case "monitor": return T("AI 사용량 및 시스템 모니터링", "AI Usage & System Monitoring")
         case "battery": return T("충전 중", "Charging")
         case "calendar": return T("일정", "Calendar")
+        case "agentLive": return T("에이전트 작업", "Agent Activity")
         default: return key
         }
     }
@@ -38,6 +39,7 @@ extension ActivityKind {
         case "monitor": return "gauge.medium"
         case "battery": return "battery.100percent.bolt"
         case "calendar": return "calendar"
+        case "agentLive": return "terminal"
         default: return "circle"
         }
     }
@@ -53,6 +55,7 @@ extension ActivityKind {
         case .monitor: return !settings.aiUsagePinned
         case .battery: return !settings.batteryChargingPinned
         case .calendar: return !settings.calendarPinned
+        case .agentLive: return !settings.agentLive
         default: return false
         }
     }

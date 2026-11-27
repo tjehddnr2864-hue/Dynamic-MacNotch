@@ -229,6 +229,8 @@ struct ExpandedView: View {
             UpdateNotesPage()
         case .agentAsk:
             AgentAskPage(store: .shared)
+        case .agentLive:
+            AgentLivePage(store: .shared)
         case .download:
             if let a = vm.displayed, a.kind == .download {
                 DownloadPage(activity: a)

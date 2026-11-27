@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, agentAsk, vpn, update, chat, resource, monitor
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, agentAsk, agentLive, vpn, update, chat, resource, monitor
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).

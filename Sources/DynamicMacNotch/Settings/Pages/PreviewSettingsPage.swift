@@ -35,7 +35,7 @@ struct PreviewSettingsPage: View {
             StylePreviewSection(title: T("배터리", "Battery"), initial: settings.batteryStyle,
                                 items: [(.charger, T("충전기 연결", "Charger Connected")), (.low, T("배터리 부족", "Low Battery")), (.full, T("완충", "Fully Charged"))])
             StylePreviewSection(title: T("코딩 에이전트", "Coding Agents"), initial: settings.agentStyle,
-                                items: [(.agentDone, T("작업 완료", "Task Finished")), (.agentAsk, T("선택 질문", "Question")), (.agentAllow, T("실행 허락", "Permission"))])
+                                items: [(.agentDone, T("작업 완료", "Task Finished")), (.agentAsk, T("선택 질문", "Question")), (.agentAllow, T("실행 허락", "Permission")), (.agentLive, T("실시간 작업", "Live Activity"))])
             // 형태가 정해진 알림
             fixedSection(T("컴팩트로만 표시", "Compact Only"),
                          [(.hudVolume, T("음량 HUD", "Volume HUD")), (.hudBrightness, T("화면 밝기 HUD", "Display Brightness HUD")),
