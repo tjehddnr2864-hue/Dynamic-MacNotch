@@ -10,6 +10,10 @@ extension AppDelegate {
             case "media": self.vm.expand(page: .activity(.media))
             case "agentask": self.vm.expand(page: .activity(.agentAsk))   // 개발용: 에이전트 질문 팝업 열기
             case "agentlive": self.vm.expand(page: .activity(.agentLive))   // 개발용: 에이전트 작업 팝업 열기
+            case "livestop":   // 개발용: 미리보기 세션 하나를 끝낸다 (작업 완료)
+                AgentLiveStore.shared.apply(source: .claude, session: "preview-1", phase: .stop, label: "", project: "DynamicMacNotch", target: nil)
+            case "livestop2":   // 개발용: 남은 미리보기 세션도 끝낸다
+                AgentLiveStore.shared.apply(source: .antigravity, session: "preview-2", phase: .stop, label: "", project: "WebApp", target: nil)
             case "shot": self.screenshot.debugPresentClipboard()
             case let c where c.hasPrefix("popup:"):
                 if let kind = ActivityKind(rawValue: String(c.dropFirst(6))) { self.vm.expand(page: .activity(kind)) }

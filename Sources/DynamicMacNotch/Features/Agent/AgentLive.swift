@@ -44,7 +44,10 @@ enum AgentLive {
         let session = input["session_id"] as? String ?? input["conversationId"] as? String ?? ""
         let folder = input["cwd"] as? String ?? (input["workspacePaths"] as? [String])?.first ?? FileManager.default.currentDirectoryPath
         var label = ""
-        if phase == .toolStart {
+        if phase == .prompt {
+            // 요청 내용 (작업 완료 알림에 쓴다)
+            label = input["prompt"] as? String ?? input["lastUserInput"] as? String ?? ""
+        } else if phase == .toolStart {
             if let call = input["toolCall"] as? [String: Any] {
                 label = antigravityLabel(call)
             } else {
@@ -140,6 +143,8 @@ final class AgentLiveStore: ObservableObject {
         var action: String
         /// 이번 요청에서 한 작업들 (최근 것이 앞)
         var recent: [String]
+        /// 이번 요청 내용
+        var request = ""
         var started: Date
         var updated: Date
         var target: String?
@@ -175,7 +180,11 @@ final class AgentLiveStore: ObservableObject {
         let key = session.isEmpty ? project : session
         let index = sessions.firstIndex { $0.source == source && $0.key == key }
         if phase == .stop {
-            if let index { sessions.remove(at: index) }
+            if let index {
+                let ended = sessions.remove(at: index)
+                // 작업 팝업을 보고 있던 중에 끝나면: 설정과 상관없이 상세 작업 완료 알림을 띄운다
+                if isViewing?() == true { announceFinished(ended) }
+            }
             return publish()
         }
         var s = index.map { sessions[$0] } ?? Session(source: source, key: key, project: project, working: false, action: "", recent: [],
@@ -186,6 +195,7 @@ final class AgentLiveStore: ObservableObject {
         switch phase {
         case .prompt:
             // 새 요청: 지난 작업 목록을 비운다
+            if !label.isEmpty { s.request = label }
             s.recent = []
             s.action = ""
             s.started = now
@@ -213,6 +223,26 @@ final class AgentLiveStore: ObservableObject {
         let before = sessions.count
         sessions.removeAll { now.timeIntervalSince($0.updated) > ($0.working ? Self.workingLimit : Self.idleLimit) }
         if sessions.count != before { publish() }
+    }
+
+    /// 작업 팝업(길게 눌러 연 확장 노치)을 지금 보고 있는지 (AppDelegate가 정한다)
+    var isViewing: (() -> Bool)?
+    /// 그 팝업을 접는다 (다른 세션이 남아 있어도 완료 알림이 가려지지 않게)
+    var closeViewer: (() -> Void)?
+    /// 방금 상세 완료 알림을 띄운 세션: 같은 끝남에 대한 작업 완료 훅 알림은 건너뛴다
+    private var announced: [(source: AgentSource, project: String, at: Date)] = []
+
+    private func announceFinished(_ s: Session) {
+        closeViewer?()
+        center?.post(AgentNotify.activity(s.source, project: s.project, task: s.request.isEmpty ? (s.recent.first ?? "") : s.request,
+                                          target: s.target, style: .detail))
+        announced.append((s.source, s.project, Date()))
+        announced.removeAll { Date().timeIntervalSince($0.at) > 10 }
+    }
+
+    /// 작업 완료 훅의 알림을 띄워도 되는지 (방금 같은 끝남을 상세로 알렸으면 false)
+    func shouldPostDone(_ source: AgentSource, project: String) -> Bool {
+        !announced.contains { $0.source == source && $0.project == project && Date().timeIntervalSince($0.at) < 10 }
     }
 
     func clear() {
@@ -247,7 +277,7 @@ final class AgentLiveStore: ObservableObject {
     /// 미리보기: 실제 에이전트 없이 작업 중인 세션 둘을 보인다 (2분 뒤 사라짐)
     func preview() {
         let now = Date()
-        apply(source: .claude, session: "preview-1", phase: .prompt, label: "", project: "DynamicMacNotch", target: nil, now: now)
+        apply(source: .claude, session: "preview-1", phase: .prompt, label: T("설정 화면 정리하고 배포 준비", "Tidy the settings and get ready to ship"), project: "DynamicMacNotch", target: nil, now: now)
         for label in [T("설정 화면 규칙 점검", "Check the settings screen rules"), T("README 갱신", "Update the README"), T("빌드하고 점검 실행", "Built and ran all probes")] {
             apply(source: .claude, session: "preview-1", phase: .toolStart, label: label, project: "DynamicMacNotch", target: nil, now: now)
         }

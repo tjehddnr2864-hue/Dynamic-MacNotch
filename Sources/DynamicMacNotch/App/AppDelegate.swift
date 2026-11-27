@@ -60,6 +60,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         agentObserver = AgentNotify.observe(center: center)
         AgentAskStore.shared.start(center: center)
         AgentLiveStore.shared.start(center: center)
+        // 어느 디스플레이에서든 에이전트 작업 팝업을 열어 두었는지
+        AgentLiveStore.shared.isViewing = { [weak self] in
+            self?.hub.displays.contains { $0.vm.isExpanded && $0.vm.expandedPage == .activity(.agentLive) } ?? false
+        }
+        AgentLiveStore.shared.closeViewer = { [weak self] in
+            for d in self?.hub.displays ?? [] where d.vm.isExpanded && d.vm.expandedPage == .activity(.agentLive) { d.vm.collapse() }
+        }
         startUpdaterAndMemoryGuard()
         missionControl.onChange = { [weak self] active in self?.hub.setMissionControlActive(active) }
         missionControl.start()

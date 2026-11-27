@@ -176,6 +176,8 @@ enum AgentNotify {
             let failed = info["failed"] as? Bool ?? false
             // 그 에이전트가 돌던 앱을 지금 보고 있으면 알리지 않는다 (화면이 잠겨 있으면 보고 있는 것이 아님)
             if isViewing(source, bundle: bundle, pid: pid) { return }
+            // 작업 팝업을 보던 중이라 이미 상세 완료 알림을 띄웠으면 다시 띄우지 않는다
+            guard AgentLiveStore.shared.shouldPostDone(source, project: project) else { return }
             center.post(activity(source, project: project, task: task, target: bundle.isEmpty ? nil : "\(bundle)|\(pid)", failed: failed))
         }
     }
@@ -632,6 +634,19 @@ enum AgentProbe {
         let t0 = Date()
         live.apply(source: .claude, session: "a", phase: .prompt, label: "", project: "P", target: nil, now: t0)
         check(live.sessions.count == 1 && live.sessions.first?.working == false && live.sessions.first?.recent.isEmpty == true, "live: a new request is thinking")
+        check(AgentLive.event(from: ["hook_event_name": "UserPromptSubmit", "session_id": "s", "prompt": "fix the build"], source: .claude)?.label == "fix the build"
+              && AgentLive.event(from: ["hookEventName": "PreInvocation", "invocationNum": 0, "lastUserInput": "list files"], source: .antigravity)?.label == "list files", "live: the request text is kept for the finished alert")
+        live.apply(source: .claude, session: "r", phase: .prompt, label: "ship it", project: "R", target: nil, now: t0)
+        check(live.sessions.first { $0.key == "r" }?.request == "ship it", "live: request stored")
+        var viewed = false
+        live.isViewing = { viewed }
+        live.apply(source: .claude, session: "r", phase: .stop, label: "", project: "R", target: nil, now: t0)
+        check(live.shouldPostDone(.claude, project: "R"), "live: not viewing, the usual finished alert decides")
+        live.apply(source: .claude, session: "r", phase: .prompt, label: "again", project: "R", target: nil, now: t0)
+        viewed = true
+        live.apply(source: .claude, session: "r", phase: .stop, label: "", project: "R", target: nil, now: t0)
+        check(!live.shouldPostDone(.claude, project: "R") && live.shouldPostDone(.codex, project: "R"), "live: viewing, the detailed alert replaces the usual one")
+        live.isViewing = nil
         for (i, label) in ["one", "two", "two", "three", "four", "five"].enumerated() {
             live.apply(source: .claude, session: "a", phase: .toolStart, label: label, project: "P", target: nil, now: t0.addingTimeInterval(Double(i + 1)))
         }
