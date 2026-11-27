@@ -167,7 +167,14 @@ final class MediaController: ObservableObject {
     /// ② 두 앱이 동시에 재생되면 먼저 재생한 앱을 계속 보여 준다. 먼저 앱이 멈추면 보류해 둔 앱으로 넘어간다.
     private func receive(_ np: NowPlaying, artwork: Data?) {
         if testActive { return }
-        if let wanted = settings.mediaSource.bundleID, np.bundleID != wanted { return }
+        switch sourceAllowed(np) {
+        case false?: return
+        case nil:
+            // YouTube인지 브라우저에 묻는 중: 답이 오면 다시 판정한다
+            classifyYouTube(np) { [weak self] in self?.receive(np, artwork: artwork) }
+            return
+        default: break
+        }
         if let cur = nowPlaying, cur.playing, np.playing, cur.bundleID != np.bundleID {
             deferred = (np, artwork ?? deferred.flatMap { $0.np.bundleID == np.bundleID ? $0.artwork : nil })
             if let owner = cur.bundleID, Self.trusted.contains(owner) {
@@ -297,8 +304,63 @@ final class MediaController: ObservableObject {
     // MARK: - 상태 반영
 
     private func accepts(_ np: NowPlaying?) -> Bool {
-        guard let np, np.bundleID != Self.testBundle, let wanted = settings.mediaSource.bundleID else { return true }
-        return np.bundleID == wanted
+        guard let np, np.bundleID != Self.testBundle else { return true }
+        return sourceAllowed(np) == true
+    }
+
+    // MARK: - 재생 소스
+
+    /// 이 재생을 보일지. nil = YouTube인지 아직 모름 (브라우저에 물어야 함)
+    private func sourceAllowed(_ np: NowPlaying) -> Bool? {
+        let list = settings.mediaSourceList
+        guard !list.isEmpty, np.bundleID != Self.testBundle else { return true }
+        guard let bundle = np.bundleID else { return false }
+        if list.contains(where: { $0.bundleID == bundle }) { return true }
+        guard list.contains(.youtube) else { return false }
+        let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.localizedName
+        let site: YouTubeSite
+        if let known = YouTubeSite.fromApp(bundleID: bundle, name: app) { site = known } else if let cached = youTubeCache[Self.youTubeKey(np)] { site = cached } else { return nil }
+        return site == .music || (site == .video && settings.mediaYouTubeScope == .all)
+    }
+
+    private static func youTubeKey(_ np: NowPlaying) -> String { "\(np.bundleID ?? "")|\(np.title)" }
+    /// 곡마다 한 번만 브라우저에 묻는다
+    private var youTubeCache: [String: YouTubeSite] = [:]
+    private var youTubeAsking: Set<String> = []
+
+    /// 브라우저에 탭 주소·제목을 물어 YouTube인지 가린다 (osascript로, 메인 스레드를 막지 않게)
+    private func classifyYouTube(_ np: NowPlaying, then: @escaping () -> Void) {
+        let key = Self.youTubeKey(np)
+        guard let raw = np.bundleID, !youTubeAsking.contains(key) else { return }
+        // WebKit 프로세스로 보고되면 Safari로 본다
+        let bundle = raw.hasPrefix("com.apple.WebKit") ? "com.apple.Safari" : raw
+        guard let script = YouTubeSite.tabScript(bundleID: bundle), !NSRunningApplication.runningApplications(withBundleIdentifier: bundle).isEmpty else {
+            youTubeCache[key] = .other
+            return then()
+        }
+        youTubeAsking.insert(key)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            p.arguments = ["-e", script]
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            var text: String?
+            if (try? p.run()) != nil {
+                let data = out.fileHandleForReading.readDataToEndOfFile()
+                p.waitUntilExit()
+                if p.terminationStatus == 0 { text = String(decoding: data, as: UTF8.self) }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.youTubeAsking.remove(key)
+                // 권한이 없거나 실패하면 이번 곡은 YouTube가 아닌 것으로 본다 (다음 곡에서 다시 묻는다)
+                if self.youTubeCache.count > 50 { self.youTubeCache.removeAll() }
+                self.youTubeCache[key] = text.map { YouTubeSite.fromTabs($0, title: np.title, album: np.album) } ?? .other
+                then()
+            }
+        }
     }
 
     private func update(_ incoming: NowPlaying?) {

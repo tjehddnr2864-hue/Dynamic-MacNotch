@@ -268,6 +268,7 @@ extension AlertScope: SettingOption {}
 extension ChatReopen: SettingOption {}
 extension UsageStyle: SettingOption {}
 extension MediaSource: SettingOption {}
+extension YouTubeScope: SettingOption {}
 extension AppLanguage: SettingOption {}
 extension MonitorContent: SettingOption {}
 extension MonitorExpand: SettingOption {}

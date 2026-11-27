@@ -45,7 +45,7 @@ Every permission is optional — without one, only the matching feature turns of
 | Calendars (Full Access) | Today's events and upcoming-event alerts |
 | Bluetooth | Accessory connections and battery levels |
 | Location Services | Showing the connected Wi-Fi name (macOS requires this for SSIDs) |
-| Automation (Music, Spotify) | Media control, favorites, lyrics |
+| Automation (Music, Spotify, browsers) | Media control, favorites, lyrics; recognizing YouTube when it's a chosen source |
 | Focus Status | Showing when a Focus turns on/off |
 | Full Disk Access | Showing the Focus *name and icon* (Work, Sleep, …) |
 | Files & Folders | Watching Downloads, saving screenshots to Desktop |
@@ -104,7 +104,7 @@ Reorder the pages or turn features off in **Settings → Home Features**. A feat
   - ⭐ **Favorite** — synced with Apple Music's Favorite.
   - **Output** icon (MacBook speakers, headphones, AirPods, display, AirPlay…): **click** to pick an output (paired Bluetooth headphones that aren't connected are listed too and get connected); **long-press** to show a volume bar under the controls.
 - Hides N seconds after pausing (optional).
-- When two apps play at the same time, the one that **started first stays** in the notch; when it pauses or stops, the notch switches to the other one. With the source set to Apple Music or Spotify, other apps (YouTube in a browser, …) never replace it.
+- When two apps play at the same time, the one that **started first stays** in the notch; when it pauses or stops, the notch switches to the other one. Settings → Media → **Source** chooses what shows: **All Media**, or any of Apple Music, Spotify and YouTube (all of youtube.com, or music.youtube.com only). macOS doesn't say which site a browser is playing, so for YouTube the app asks the browser (Safari, Chrome, Edge, Brave, Arc and others; not Firefox) for its open tabs' addresses and titles; the browser asks once for Automation permission, and nothing is stored. Sources you didn't turn on never replace what's showing.
 
 ### Phone calls
 Calls from your iPhone (Continuity) and FaceTime audio calls appear in the notch.
@@ -253,7 +253,7 @@ scripts/build.sh --install --run  # install to /Applications
 | 캘린더(전체 접근) | 오늘 일정, 일정 시작 전 알림 |
 | 블루투스 | 액세서리 연결·배터리 표시 |
 | 위치 서비스 | 연결된 Wi-Fi 이름 표시 (macOS가 SSID에 요구) |
-| 자동화(Music, Spotify) | 미디어 제어, 즐겨찾기, 가사 |
+| 자동화(Music, Spotify, 브라우저) | 미디어 제어, 즐겨찾기, 가사, 재생 소스에 YouTube를 골랐을 때 YouTube인지 확인 |
 | 집중 모드 상태 | 집중 모드 켜짐/꺼짐 표시 |
 | 전체 디스크 접근 | 집중 모드 *이름·아이콘*(업무, 수면 등) 표시 |
 | 파일 및 폴더 | 다운로드 폴더 감시, 데스크탑에 스크린샷 저장 |
@@ -312,7 +312,7 @@ scripts/build.sh --install --run  # install to /Applications
   - ⭐ **즐겨찾기** — Apple Music의 즐겨찾기와 연동.
   - **출력 기기** 아이콘(맥북 스피커, 헤드폰, AirPods, 디스플레이, AirPlay 등): **클릭**하면 출력 기기 선택(연결이 끊긴 블루투스 헤드폰도 목록에 나오고 고르면 연결), **길게 누르면** 아래에 음량 바가 펼쳐집니다.
 - 일시정지 후 N초 뒤 숨기기 (선택).
-- 두 앱이 동시에 재생되면 **먼저 재생한 앱이 계속** 노치에 남고, 그 앱이 멈추거나 일시정지되면 다른 앱으로 넘어갑니다. 재생 소스를 Apple Music이나 Spotify로 정하면 다른 앱(브라우저의 유튜브 등)이 대신 표시되지 않습니다.
+- 두 앱이 동시에 재생되면 **먼저 재생한 앱이 계속** 노치에 남고, 그 앱이 멈추거나 일시정지되면 다른 앱으로 넘어갑니다. 설정 → 미디어 → **재생 소스**에서 **모든 미디어** 또는 Apple Music·Spotify·YouTube(youtube.com 전체 또는 music.youtube.com만)를 골라 켭니다. macOS는 브라우저가 어느 사이트를 재생하는지 알려 주지 않아, YouTube는 브라우저(Safari·Chrome·Edge·Brave·Arc 등, Firefox 제외)에 열린 탭의 주소와 제목을 물어 확인합니다. 브라우저가 처음 한 번 자동화 권한을 묻고, 아무것도 저장하지 않습니다. 켜지 않은 소스는 보이는 재생을 대신하지 않습니다.
 
 ### 전화
 iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니다.

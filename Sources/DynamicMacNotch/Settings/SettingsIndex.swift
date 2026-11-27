@@ -34,6 +34,8 @@ enum SettingsIndex {
         SettingsEntry(page: .home, section: nil, title: ("홈 페이지 순서", "Home page order"),
                       detail: ("끌어서 순서를 바꾸고 기능을 켜고 끕니다.", "Drag to reorder and turn features on or off."), keys: ["homeOrder", "homeDisabled"]),
         SettingsEntry(page: .airdrop, section: ("표시", "Show"), title: ("끌어올 때 보일 화면", "When dragging files"), detail: nil, keys: ["fileDragPage"]),
+        SettingsEntry(page: .media, section: ("재생 소스", "Source"), title: ("재생 소스", "Source"),
+                      detail: ("모든 미디어 또는 Apple Music·Spotify·YouTube", "All media, or Apple Music, Spotify and YouTube"), keys: ["mediaSource", "mediaSources"]),
         SettingsEntry(page: .aiUsage, section: ("표시 방식", "Appearance"), title: ("꾹 눌렀을 때 보일 내용", "On long-press, show"), detail: nil, keys: ["monitorExpand"]),
         SettingsEntry(page: .aiUsage, section: ("상시 표시", "Live Activity"), title: ("왼쪽·오른쪽 칸", "Left and right sides"),
                       detail: ("노치 양옆에 보일 한도나 지표", "Limits or metrics beside the notch"),
@@ -70,6 +72,7 @@ enum SettingsIndex {
 
     /// 같은 뜻의 말. 한 묶음의 어느 말로 찾아도 나머지 말이 들어간 줄이 나온다.
     static let synonyms: [[String]] = [
+        ["유튜브", "youtube", "youtube music"],
         ["음량", "볼륨", "소리", "volume", "sound"],
         ["밝기", "명도", "brightness"],
         ["wi-fi", "wifi", "와이파이", "무선"],

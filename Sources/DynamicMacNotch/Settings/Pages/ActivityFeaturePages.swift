@@ -17,10 +17,31 @@ struct MediaSettingsPage: View {
                 ValueMenu(title: T("일시정지 후 숨김", "Hide after pause"), selection: $settings.mediaHideAfterPause, values: Choices.mediaHide,
                           zero: T("숨기지 않음", "Never"), label: Format.seconds)
             }
-            SettingsSection(SectionTitle.details) {
-                Choice(T("재생 소스", "Source"), selection: $settings.mediaSource)
+            SettingsSection(T("재생 소스", "Source"),
+                            footer: T("켠 소스의 재생만 노치에 보입니다.", "Only the sources you turn on show in the notch."),
+                            more: T("모든 미디어를 켜면 나머지 스위치가 꺼지고, 하나라도 켜면 모든 미디어가 꺼집니다. 다 끄면 모든 미디어로 돌아갑니다. YouTube는 macOS가 사이트 주소를 알려 주지 않아, 브라우저(Safari·Chrome·Edge·Brave·Arc 등)에 열린 탭의 주소와 제목을 물어 확인합니다. 처음 한 번 브라우저 제어(자동화) 권한을 묻고, 탭 주소는 확인에만 쓰고 저장하지 않습니다. Firefox는 탭 주소를 알려 주지 않아 YouTube로 확인할 수 없습니다.",
+                                    "Turning on All Media turns the others off, and turning any of them on turns All Media off. Turning them all off goes back to All Media. macOS doesn't say which site is playing, so for YouTube the app asks your browser (Safari, Chrome, Edge, Brave, Arc and others) for the addresses and titles of its open tabs. The browser asks once for Automation permission; tab addresses are only checked, never stored. Firefox doesn't share tab addresses, so YouTube can't be recognized there.")) {
+                sourceToggles
             }
             PreviewSection([(.mediaStart, T("재생 테스트 시작", "Start Playback Test")), (.mediaStop, T("테스트 중지", "Stop Test"))])
+        }
+    }
+}
+
+extension MediaSettingsPage {
+    @ViewBuilder
+    var sourceToggles: some View {
+        let list = settings.mediaSourceList
+        Toggle(T("모든 미디어", "All Media"), detail: T("브라우저·동영상 앱을 포함한 모든 재생", "Everything that plays, including browsers and video apps"),
+               isOn: Binding(get: { list.isEmpty }, set: { if $0 { settings.setMediaSources([]) } }))
+        ForEach(MediaSource.pickable) { source in
+            Toggle(source.label, isOn: Binding(get: { list.contains(source) },
+                                               set: { settings.setMediaSources(MediaSource.toggled(source, on: $0, in: list)) }))
+            if source == .youtube {
+                Indented(enabled: list.contains(.youtube)) {
+                    Choice(T("YouTube 범위", "YouTube scope"), detail: T("music.youtube.com만 보일지 고릅니다.", "Whether to show only music.youtube.com."), selection: $settings.mediaYouTubeScope)
+                }
+            }
         }
     }
 }

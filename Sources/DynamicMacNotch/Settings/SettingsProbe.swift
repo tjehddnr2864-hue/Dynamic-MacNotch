@@ -179,6 +179,19 @@ enum SettingsProbe {
         check(Format.seconds(1) == T("1초", "1s") && Format.seconds(1.5) == T("1.5초", "1.5s") && Format.seconds(0.35, digits: 2) == T("0.35초", "0.35s"), "seconds format")
         check(Format.percent(0.355) == "36%" && Format.period(minutes: 10080) == T("7일", "7 days") && Format.period(minutes: 60) == T("1시간", "1 hour"), "percent and period format")
 
+        // 재생 소스: 모든 미디어 ↔ 하나씩 켜기
+        check(MediaSource.toggled(.youtube, on: true, in: []) == [.youtube], "sources: turning one on leaves All Media")
+        check(MediaSource.toggled(.spotify, on: true, in: [.youtube]) == [.spotify, .youtube], "sources: several at once, in order")
+        check(MediaSource.toggled(.youtube, on: false, in: [.youtube]).isEmpty && MediaSource.toggled(.all, on: true, in: [.spotify]).isEmpty, "sources: none or All Media means everything")
+        let tabs = "https://www.youtube.com/watch?v=1\tFunny Cat - YouTube\nhttps://music.youtube.com/watch?v=2\tSong A - YouTube Music\nhttps://example.com\tSong B\n"
+        check(YouTubeSite.fromTabs(tabs, title: "Song A", album: "") == .music && YouTubeSite.fromTabs(tabs, title: "funny cat", album: "x") == .video, "youtube: the tab whose title has the song")
+        check(YouTubeSite.fromTabs(tabs, title: "Song B", album: "") == .video && YouTubeSite.fromTabs(tabs, title: "Song B", album: "Album") == .music, "youtube: no match with both kinds open")
+        check(YouTubeSite.fromTabs("https://music.youtube.com/\tYouTube Music\n", title: "x", album: "") == .music && YouTubeSite.fromTabs("https://example.com/\tx\n", title: "x", album: "") == .other && YouTubeSite.fromTabs("", title: "x", album: "") == .other, "youtube: only one kind, or none")
+        check(YouTubeSite.fromTabs("https://notyoutube.com/\tx\n", title: "x", album: "") == .other, "youtube: other sites aren't YouTube")
+        check(YouTubeSite.fromApp(bundleID: "com.google.Chrome", name: "Google Chrome") == nil && YouTubeSite.fromApp(bundleID: "com.apple.Safari.WebApp.1", name: "YouTube Music") == .music
+              && YouTubeSite.fromApp(bundleID: "com.google.Chrome.app.abc", name: "YouTube") == .video && YouTubeSite.fromApp(bundleID: "com.apple.TV", name: "TV") == .other, "youtube: browsers, web apps and other apps")
+        check(YouTubeSite.tabScript(bundleID: "com.apple.Safari")?.contains("name of t") == true && YouTubeSite.tabScript(bundleID: "org.mozilla.firefox") == nil, "youtube: browser script")
+
         // 확장 노치에 보일 서비스: 최소 1개, 최대 3개
         let all = AIService.allCases
         check(AIService.shown("", connected: all) == Array(all.prefix(3)), "services: automatic shows the first three")

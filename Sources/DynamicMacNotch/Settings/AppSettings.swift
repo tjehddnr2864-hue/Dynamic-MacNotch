@@ -177,7 +177,23 @@ final class AppSettings: ObservableObject {
 
     // MARK: - 미디어
 
+    /// 예전 재생 소스 (하나만 고르던 때). 새 목록 `mediaSources`가 비어 있을 때만 읽는다
     @Setting("mediaSource", default: MediaSource.all) var mediaSource: MediaSource
+    /// 재생 소스 목록 (rawValue). 비어 있으면 모든 미디어
+    @Setting("mediaSources", default: []) var mediaSources: [String]
+    @Setting("mediaYouTubeScope", default: YouTubeScope.all) var mediaYouTubeScope: YouTubeScope
+
+    /// 고른 재생 소스. 비어 있으면 모든 미디어
+    var mediaSourceList: [MediaSource] {
+        let list = MediaSource.pickable.filter { mediaSources.contains($0.rawValue) }
+        if list.isEmpty, mediaSource != .all { return [mediaSource] }
+        return list
+    }
+
+    func setMediaSources(_ list: [MediaSource]) {
+        mediaSources = list.map(\.rawValue)
+        if mediaSource != .all { mediaSource = .all }   // 예전 값이 다시 쓰이지 않게
+    }
     /// 일시정지 후 숨김까지 초 (0 = 숨기지 않음)
     @Setting("mediaHideAfterPause", default: 30.0, sanitize: { max(0, $0) }) var mediaHideAfterPause: Double
     @Setting("mediaShowTrackChange", default: true) var mediaShowTrackChange: Bool
