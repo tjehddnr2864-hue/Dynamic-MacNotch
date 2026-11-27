@@ -424,9 +424,7 @@ final class AgentAskStore: ObservableObject {
     // MARK: 보고 있는 앱
 
     private func isViewing(_ r: AgentAsk.Request) -> Bool {
-        if let session = CGSessionCopyCurrentDictionary() as? [String: Any], session["CGSSessionScreenIsLocked"] as? Bool == true { return false }
-        guard let front = NSWorkspace.shared.frontmostApplication else { return false }
-        return Self.isHost(front, of: r)
+        AgentNotify.viewedApp().map { Self.isHost($0, of: r) } ?? false
     }
 
     private static func isHost(_ app: NSRunningApplication, of r: AgentAsk.Request) -> Bool {

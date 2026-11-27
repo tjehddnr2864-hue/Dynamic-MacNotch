@@ -17,7 +17,7 @@ final class LockScreenManager: ObservableObject {
     private let settings = AppSettings.shared
     private var playerWindow: NSPanel?
     private var cancellables = Set<AnyCancellable>()
-    /// 개발용 미리보기: 실제로 잠그지 않고 일반 화면에서 잠금 상태를 흉내 낸다.
+    /// 미리보기(설정 → 미리보기, 개발용 명령): 실제로 잠그지 않고 일반 화면에서 잠금 상태를 흉내 낸다.
     private var preview = false
     /// 화면 보호기가 돌고 있는지. 이 동안에는 잠금화면 음악 위젯을 띄우지 않는다.
     private(set) var screenSaverActive = false

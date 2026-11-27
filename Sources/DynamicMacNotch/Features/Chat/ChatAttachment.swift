@@ -237,9 +237,7 @@ enum ChatAttachTool {
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
-    private static func size(_ url: URL) -> Int64 {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
-    }
+    private static func size(_ url: URL) -> Int64 { FileManager.default.fileSize(url) }
 
     private static func image(_ source: URL, _ folder: URL, _ id: UUID, _ name: String) throws -> ChatAttachment {
         guard let src = CGImageSourceCreateWithURL(source as CFURL, nil) else { throw ChatAttachError.unreadable }
@@ -402,7 +400,5 @@ enum ChatBody {
         return url
     }
 
-    static func size(_ url: URL) -> Int64 {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
-    }
+    static func size(_ url: URL) -> Int64 { FileManager.default.fileSize(url) }
 }

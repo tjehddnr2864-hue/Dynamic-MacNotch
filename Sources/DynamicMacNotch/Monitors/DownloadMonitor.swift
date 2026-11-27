@@ -252,7 +252,7 @@ final class DownloadMonitor {
             readSafariInfo(item)
             if item.fraction == nil {
                 // 진행률을 모르면 파일 크기 증가만 추적 (Firefox 등)
-                item.received = Self.size(of: item.tempURL)
+                item.received = FileManager.default.fileSize(item.tempURL)
             }
             let now = Date()
             let dt = now.timeIntervalSince(item.lastSample)
@@ -355,11 +355,6 @@ final class DownloadMonitor {
         let image = NSWorkspace.shared.icon(forFile: url.path)
         iconCache[id] = image
         return image
-    }
-
-    private static func size(of url: URL) -> Int64 {
-        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
-        return (attrs?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     func revealLastCompleted() {

@@ -298,14 +298,6 @@ private struct OutputMenuAnchor: NSViewRepresentable {
 final class OutputMenuView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    /// 화면에 떠 있는 버튼 (개발용 명령에서 메뉴를 열 때 사용)
-    static weak var visible: OutputMenuView?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil { Self.visible = self }
-    }
-
     var onLongPress: (() -> Void)?
     static let longPressDelay: TimeInterval = 0.4
 

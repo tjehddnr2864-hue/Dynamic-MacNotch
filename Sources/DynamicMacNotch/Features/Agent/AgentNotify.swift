@@ -182,9 +182,14 @@ enum AgentNotify {
     }
 
     /// 맨 앞 앱이 에이전트가 돌던 앱인지. 돌던 앱을 알 수 없으면 에이전트 자체 앱(Claude·Codex)으로 판단한다.
+    /// 지금 사용자가 보고 있는 앱. 화면이 잠겨 있으면 아무것도 보고 있지 않은 것으로 본다 (완료 알림·질문 답하기가 함께 쓴다)
+    static func viewedApp() -> NSRunningApplication? {
+        if let session = CGSessionCopyCurrentDictionary() as? [String: Any], session["CGSSessionScreenIsLocked"] as? Bool == true { return nil }
+        return NSWorkspace.shared.frontmostApplication
+    }
+
     private static func isViewing(_ source: AgentSource, bundle: String, pid: Int) -> Bool {
-        if let session = CGSessionCopyCurrentDictionary() as? [String: Any], session["CGSSessionScreenIsLocked"] as? Bool == true { return false }
-        guard let front = NSWorkspace.shared.frontmostApplication else { return false }
+        guard let front = viewedApp() else { return false }
         if pid > 0, front.processIdentifier == pid_t(pid) { return true }
         guard let id = front.bundleIdentifier else { return false }
         return bundle.isEmpty ? id == source.appBundleID : id == bundle
