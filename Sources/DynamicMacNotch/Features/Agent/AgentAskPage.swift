@@ -47,6 +47,27 @@ private struct AgentAskContent: View {
     private let answersState = State(initialValue: [String: String]())
     private let pickedState = State(initialValue: Set<String>())
     private let typedState = State(initialValue: "")
+    /// 방금 고른 것 (선택지 이름, 또는 #send·#allow·#deny). 체크를 보인 뒤 잠깐 있다가 보낸다
+    private let confirmedState = State(initialValue: String?.none)
+    private var confirmed: String? { confirmedState.wrappedValue }
+    /// 체크를 보여 주는 시간
+    private static let confirmDelay: TimeInterval = 0.5
+
+    /// 고른 것에 체크를 보이고, 0.5초 뒤에 보낸다 (그동안 다른 것은 누를 수 없음)
+    private func confirm(_ key: String, then action: @escaping () -> Void) {
+        guard confirmed == nil else { return }
+        withAnimation(.easeOut(duration: 0.15)) { confirmedState.wrappedValue = key }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.confirmDelay) {
+            action()
+            confirmedState.wrappedValue = nil
+        }
+    }
+
+    private func checkMark() -> some View {
+        Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white, request.agent.tint)
+            .transition(.scale(scale: 0.4).combined(with: .opacity))
+    }
 
     private var index: Int { min(indexState.wrappedValue, max(0, request.questions.count - 1)) }
     private var typed: String { typedState.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -118,21 +139,23 @@ private struct AgentAskContent: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if confirmed == option.label { checkMark() }
             }
             .padding(.horizontal, 10)
             .frame(height: option.detail.isEmpty ? AgentAskPage.rowHeight : AgentAskPage.detailRowHeight)
-            .background(Color.white.opacity(picked ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(Color.white.opacity(picked || confirmed == option.label ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(request.kind == .notice)
+        .allowsHitTesting(confirmed == nil)
     }
 
     private func choose(_ label: String, in q: AgentAsk.Question) {
         if q.multiSelect {
             if pickedState.wrappedValue.contains(label) { pickedState.wrappedValue.remove(label) } else { pickedState.wrappedValue.insert(label) }
         } else {
-            next(q, answer: label)
+            confirm(label) { next(q, answer: label) }
         }
     }
 
@@ -152,14 +175,16 @@ private struct AgentAskContent: View {
     private func send() {
         if request.kind == .permission {
             guard !typed.isEmpty else { return }
-            return store.deny(request, message: typed)
+            let message = typed
+            return confirm("#send") { store.deny(request, message: message) }
         }
         guard let q = request.questions[safe: index] else { return }
         // 고른 순서가 아니라 선택지 순서로 잇는다
         var parts = q.options.map(\.label).filter(pickedState.wrappedValue.contains)
         if !typed.isEmpty { parts.append(typed) }
         guard !parts.isEmpty else { return }
-        next(q, answer: parts.joined(separator: ", "))
+        let answer = parts.joined(separator: ", ")
+        confirm("#send") { next(q, answer: answer) }
     }
 
     // MARK: 실행 허락
@@ -173,20 +198,24 @@ private struct AgentAskContent: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: AgentAskPage.rowSpacing) {
-                decisionButton(T("허용", "Allow"), primary: true) { store.allow(request) }
-                decisionButton(T("거부", "Deny"), primary: false) { store.deny(request, message: "") }
+                decisionButton(T("허용", "Allow"), key: "#allow", primary: true) { store.allow(request) }
+                decisionButton(T("거부", "Deny"), key: "#deny", primary: false) { store.deny(request, message: "") }
             }
         }
     }
 
-    private func decisionButton(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+    private func decisionButton(_ title: String, key: String, primary: Bool, action: @escaping () -> Void) -> some View {
+        Button { confirm(key, then: action) } label: {
+            HStack(spacing: 6) {
+                Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                if confirmed == key { checkMark() }
+            }
                 .frame(maxWidth: .infinity).frame(height: AgentAskPage.rowHeight)
                 .background(primary ? request.agent.tint.opacity(0.55) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .allowsHitTesting(confirmed == nil)
     }
 
     // MARK: 아래 줄: 직접 입력 (Antigravity는 그 앱에서 답하기)
@@ -213,11 +242,17 @@ private struct AgentAskContent: View {
                     .frame(height: 28)
                     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 Button(action: send) {
-                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 20))
-                        .foregroundStyle(canSend ? request.agent.tint : .white.opacity(0.25))
+                    if confirmed == "#send" {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 20))
+                            .foregroundStyle(.white, request.agent.tint)
+                            .transition(.scale(scale: 0.4).combined(with: .opacity))
+                    } else {
+                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 20))
+                            .foregroundStyle(canSend ? request.agent.tint : .white.opacity(0.25))
+                    }
                 }
                 .buttonStyle(.plain)
-                .disabled(!canSend)
+                .disabled(!canSend || confirmed != nil)
                 .help(T("보내기", "Send"))
             }
         }
