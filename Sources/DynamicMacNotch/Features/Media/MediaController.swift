@@ -269,11 +269,17 @@ final class MediaController: ObservableObject {
         }
     }
 
+    /// 재생 막대를 못 찾은 횟수와 다시 찾아볼 시각 (막대가 없는 페이지에서 창 트리를 매초 훑지 않게)
+    private var sliderMisses: (key: String, count: Int, retryAt: Date)?
+    /// 이만큼 못 찾으면 잠시 쉰다
+    static let sliderMissLimit = 3, sliderRetryDelay: TimeInterval = 10
+
     private func readPagePosition() {
         guard !positionReading, let np = nowPlaying, let bundle = np.bundleID, Self.artKey(np) == positionMissingKey,
               let pid = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.processIdentifier else { return }
         let key = Self.artKey(np), title = np.title
         let known = pageSlider?.key == key ? pageSlider?.element : nil
+        if known == nil, let miss = sliderMisses, miss.key == key, miss.count >= Self.sliderMissLimit, Date() < miss.retryAt { return }
         positionReading = true
         positionQueue.async { [weak self] in
             var slider = known
@@ -285,7 +291,14 @@ final class MediaController: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.positionReading = false
-                guard let read, let slider, var current = self.nowPlaying, Self.artKey(current) == key else { return }
+                guard let read, let slider, var current = self.nowPlaying, Self.artKey(current) == key else {
+                    // 못 찾음: 같은 곡에서 3번 넘으면 10초에 한 번만 다시 찾는다
+                    let count = (self.sliderMisses?.key == key ? self.sliderMisses?.count ?? 0 : 0) + 1
+                    self.sliderMisses = (key, count, Date().addingTimeInterval(count >= Self.sliderMissLimit ? Self.sliderRetryDelay : 0))
+                    if known != nil { self.pageSlider = nil }   // 쥐고 있던 막대가 사라졌다
+                    return
+                }
+                self.sliderMisses = nil
                 self.pageSlider = (key, slider)
                 self.pagePosition = (key, read.position, read.duration, Date())
                 current.duration = read.duration
@@ -471,6 +484,11 @@ final class MediaController: ObservableObject {
         let trackChanged = np != nil && np?.trackKey != lastTrackKey
         nowPlaying = np
         if let np { lastTrackKey = np.trackKey }
+        // 다른 곡이 되면 지난 곡의 브라우저 객체(재생 막대)를 놓는다
+        if let held = pageSlider?.key, np.map(Self.artKey) != held {
+            pageSlider = nil
+            sliderMisses = nil
+        }
         if trackChanged || np?.bundleID != "com.apple.Music" { refreshFavorite() }
         publishActivity(trackChanged: trackChanged)
         updatePositionPolling()

@@ -269,7 +269,16 @@ enum AgentHooks {
     }
 
     /// 예전에 연결한 경우(작업 완료만, 또는 질문까지): 다시 연결하면 빠진 훅만 더한다
-    static func needsUpdate(_ s: AgentSource) -> Bool { isInstalled(s) && (!isAskInstalled(s) || !isLiveInstalled(s)) }
+    static func needsUpdate(_ s: AgentSource) -> Bool { isInstalled(s) && (!isAskInstalled(s) || !isLiveInstalled(s) || !isCurrent(s)) }
+
+    /// 예전 연결에만 있던 훅이 남아 있지 않은지 (Antigravity: 도구마다 돌던 PostToolUse 실시간 작업 훅)
+    static func isCurrent(_ s: AgentSource) -> Bool {
+        guard s == .antigravity, let data = try? Data(contentsOf: antigravityFile),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let mine = obj[antigravityHook] as? [String: Any],
+              let post = try? JSONSerialization.data(withJSONObject: mine["PostToolUse"] ?? []) else { return true }
+        return !String(decoding: post, as: UTF8.self).contains("--agent-live=antigravity")
+    }
 
     static func install(_ s: AgentSource) throws {
         switch s {
@@ -430,7 +439,7 @@ enum AgentHooks {
 
     /// 이 앱 이름의 훅 하나: 작업 완료(Stop)와 선택 질문 알림(ask_question 앞·뒤)
     private static func installAntigravity() throws {
-        guard !isInstalled(.antigravity) || !isAskInstalled(.antigravity) || !isLiveInstalled(.antigravity) else { return }
+        guard !isInstalled(.antigravity) || !isAskInstalled(.antigravity) || !isLiveInstalled(.antigravity) || !isCurrent(.antigravity) else { return }
         var obj = try readAntigravity()
         let ask = "\"\(exe)\" --agent-ask=antigravity", live = "\"\(exe)\" --agent-live=antigravity"
         func handler(_ command: String) -> [String: Any] { ["type": "command", "command": command, "timeout": 10] }
@@ -439,7 +448,8 @@ enum AgentHooks {
             "Stop": [handler("\"\(exe)\" --agent-done=antigravity"), handler(live)],
             "PreInvocation": [handler(live)],
             "PreToolUse": [["matcher": "ask_question", "hooks": [handler(ask)]] as [String: Any], ["matcher": ".*", "hooks": [handler(live)]] as [String: Any]],
-            "PostToolUse": [["matcher": "ask_question", "hooks": [handler(ask + " --answered")]] as [String: Any], ["matcher": ".*", "hooks": [handler(live)]] as [String: Any]],
+            // 도구가 끝난 것은 다음 PreInvocation(invocationNum > 0)으로 안다: PostToolUse에는 실시간 작업 훅을 두지 않는다 (동기 훅을 도구마다 한 번 줄임)
+            "PostToolUse": [["matcher": "ask_question", "hooks": [handler(ask + " --answered")]] as [String: Any]],
         ]
         try writeAntigravity(obj)
     }
@@ -612,7 +622,16 @@ enum AgentProbe {
         let ag = json()["dynamic-macnotch"] as? [String: Any] ?? [:]
         check(ag["Stop"] != nil && ((ag["PreToolUse"] as? [[String: Any]])?.first?["matcher"] as? String) == "ask_question" && ag["PostToolUse"] != nil, "Antigravity: Stop and question hooks")
         check(AgentHooks.isLiveInstalled(.antigravity) && (ag["PreInvocation"] as? [[String: Any]])?.count == 1 && (ag["Stop"] as? [[String: Any]])?.count == 2
-              && (ag["PreToolUse"] as? [[String: Any]])?.count == 2, "Antigravity: live hooks next to the others")
+              && (ag["PreToolUse"] as? [[String: Any]])?.count == 2 && (ag["PostToolUse"] as? [[String: Any]])?.count == 1, "Antigravity: live hooks next to the others, none after each tool")
+        // 예전 연결(PostToolUse에도 실시간 작업 훅)은 '다시 연결'로 정리된다
+        var older = json()
+        var entry = older["dynamic-macnotch"] as? [String: Any] ?? [:]
+        entry["PostToolUse"] = [["matcher": ".*", "hooks": [["type": "command", "command": "\"/x\" --agent-live=antigravity"]]]]
+        older["dynamic-macnotch"] = entry
+        if let data = try? JSONSerialization.data(withJSONObject: older) { try? data.write(to: AgentHooks.antigravityFile) }
+        check(AgentHooks.needsUpdate(.antigravity) && !AgentHooks.isCurrent(.antigravity), "Antigravity: an older connection asks to reconnect")
+        try? AgentHooks.install(.antigravity)
+        check(!AgentHooks.needsUpdate(.antigravity) && ((json()["dynamic-macnotch"] as? [String: Any])?["PostToolUse"] as? [[String: Any]])?.count == 1, "Antigravity: reconnecting drops the hook after each tool")
 
         // 실시간 작업: 훅 입력 → 사건
         let claudeBash = AgentLive.event(from: ["hook_event_name": "PreToolUse", "session_id": "s1", "cwd": "/w/Proj", "tool_name": "Bash",

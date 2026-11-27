@@ -14,7 +14,11 @@ import SwiftUI
 /// 답하지 않으면 원래 화면(터미널 등)에서 묻는다: 알림을 그냥 누르거나, 그 앱으로 돌아가거나, 10분이 지나면.
 enum AgentAsk {
     /// 시험용 통로 (`--agent-probe`가 실행 중인 노치 앱과 섞이지 않게)
+    #if DEV
     private static let channel = ProcessInfo.processInfo.environment["DMN_ASK_CHANNEL"].map { "." + $0 } ?? ""
+    #else
+    private static let channel = ""
+    #endif
     static let requestNote = Notification.Name("com.dynamicmacnotch.app.agent-ask" + channel)
     static let ackNote = Notification.Name("com.dynamicmacnotch.app.agent-ask-ack" + channel)
     static let replyNote = Notification.Name("com.dynamicmacnotch.app.agent-ask-reply" + channel)
@@ -205,7 +209,7 @@ enum AgentAsk {
                 // 질문에 답했다 (PostToolUse): 노치의 알림을 지운다
                 center.postNotificationName(goneNote, object: "antigravity", userInfo: nil, deliverImmediately: true)
             } else if var notice = antigravityNotice(from: input) {
-                let host = guiHost()
+                let host = AgentNotify.guiHost()
                 notice.hostBundle = host?.bundleIdentifier ?? ""
                 notice.hostPID = Int(host?.processIdentifier ?? 0)
                 write(notice, to: requestFile(notice.id))
@@ -215,7 +219,7 @@ enum AgentAsk {
         }
 
         guard var request = request(from: input, source: source) else { exit(0) }
-        let host = guiHost()
+        let host = AgentNotify.guiHost()
         request.hostBundle = host?.bundleIdentifier ?? ""
         request.hostPID = Int(host?.processIdentifier ?? 0)
         let id = request.id
@@ -268,18 +272,6 @@ enum AgentAsk {
     private static var signalSources: [DispatchSourceSignal] = []
 
     /// 훅을 실행한 화면 앱 (터미널·VS Code·Claude 등)
-    private static func guiHost() -> NSRunningApplication? {
-        var pid = getppid()
-        for _ in 0..<40 where pid > 1 {
-            if let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular { return app }
-            var info = kinfo_proc()
-            var size = MemoryLayout<kinfo_proc>.stride
-            var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
-            guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
-            pid = info.kp_eproc.e_ppid
-        }
-        return nil
-    }
 }
 
 // MARK: - 본 앱 쪽
@@ -294,6 +286,8 @@ final class AgentAskStore: ObservableObject {
     private var timer: Timer?
 
     var current: AgentAsk.Request? { requests.first }
+    /// 노치에서 한꺼번에 기다릴 수 있는 질문 수. 넘치면 원래 화면에서 묻는다.
+    static let maxWaiting = 5
 
     func start(center: ActivityCenter) {
         self.center = center
@@ -326,8 +320,10 @@ final class AgentAskStore: ObservableObject {
             return
         }
         DistributedNotificationCenter.default().postNotificationName(AgentAsk.ackNote, object: id, userInfo: ["pid": Int(getpid())], deliverImmediately: true)
-        // 꺼져 있거나 그 앱을 보고 있으면 원래 화면에서 묻는다
-        guard settings.agentAsk, !isViewing(request) else { return reply(request, .init(kind: .release)) }
+        // 꺼져 있거나, 그 앱을 보고 있거나, 기다리는 질문이 이미 많으면 원래 화면에서 묻는다
+        guard settings.agentAsk, !isViewing(request), requests.filter({ $0.kind != .notice }).count < Self.maxWaiting else {
+            return reply(request, .init(kind: .release))
+        }
         append(request)
     }
 
