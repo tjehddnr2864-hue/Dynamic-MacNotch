@@ -99,6 +99,8 @@ struct NotchActivity: Identifiable, Equatable {
     var fileURL: URL? = nil
     /// 눌렀을 때 열 앱 ("번들ID|pid", 코딩 에이전트 완료 알림)
     var targetApp: String? = nil
+    /// 이 알림이 가리키는 것의 id (코딩 에이전트 질문)
+    var targetID: String? = nil
     /// 좌측 아이콘 대신 그릴 값 (AI 사용량: 왼쪽 5시간 · 오른쪽 주간)
     var leadingValue: ActivityValue? = nil
     /// 시작 시각 (통화: 왼쪽에 통화 시간을 센다)

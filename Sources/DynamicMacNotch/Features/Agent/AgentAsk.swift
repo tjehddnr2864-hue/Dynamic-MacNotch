@@ -317,6 +317,7 @@ final class AgentAskStore: ObservableObject {
     private func append(_ request: AgentAsk.Request) {
         requests.append(request)
         publish()
+        announce(request)
         if timer == nil {
             // 훅이 끝났으면(에이전트에서 취소 등) 지운다. 알리기만 하는 질문은 10분 뒤에 지운다.
             timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -356,6 +357,10 @@ final class AgentAskStore: ObservableObject {
         requests.removeAll(where: match)
         guard requests.count != before else { return }
         publish()
+        // 답했거나 사라진 질문의 큰 알림이 떠 있으면 닫는다 (남은 질문은 접힌 노치에 그대로)
+        if let shown = center?.transient, shown.kind == .agentAsk, !requests.contains(where: { $0.id == shown.targetID }) {
+            center?.dismissTransient(kind: .agentAsk)
+        }
         if requests.isEmpty {
             timer?.invalidate()
             timer = nil
@@ -375,6 +380,22 @@ final class AgentAskStore: ObservableObject {
             subtitle: Self.summary(r), targetApp: r.target))
     }
 
+    /// 새 질문: 먼저 상세 카드로 크게 알린다. 그동안 조작하지 않으면(커서를 올리면 멈춤) 접혀서 노치 맨 앞에 남는다.
+    /// 카드를 누르면 그 앱이 열리고, 길게 누르면 선택지 팝업이 열린다 (접힌 상태와 같음).
+    private func announce(_ r: AgentAsk.Request) {
+        let label = r.kind == .permission ? T("허락", "Allow?") : T("질문", "Question")
+        var card = NotchActivity(
+            kind: .agentAsk, priority: ActivityPriority.agentAsk, presentation: .detail, duration: Self.cardDuration,
+            symbol: r.agent.symbol, tint: r.agent.tint, value: .text(label),
+            title: r.project.isEmpty ? r.agent.name : "\(r.agent.name) · \(r.project)",
+            subtitle: Self.summary(r), targetApp: r.target)
+        card.targetID = r.id
+        center?.post(card)
+    }
+
+    /// 큰 알림이 떠 있는 시간 (커서를 올리고 있으면 멈춘다)
+    static let cardDuration: TimeInterval = 8
+
     static func summary(_ r: AgentAsk.Request) -> String {
         switch r.kind {
         case .permission: return AgentNotify.oneLine("\(r.tool) \(r.detail)", limit: 80)
@@ -392,7 +413,8 @@ final class AgentAskStore: ObservableObject {
 
     private static func isHost(_ app: NSRunningApplication, of r: AgentAsk.Request) -> Bool {
         if r.hostPID > 0 { return app.processIdentifier == pid_t(r.hostPID) }
-        return app.bundleIdentifier == (r.hostBundle.isEmpty ? r.agent.appBundleID : r.hostBundle)
+        // 질문한 앱을 알 수 없으면 보고 있는 것으로 보지 않는다
+        return !r.hostBundle.isEmpty && app.bundleIdentifier == r.hostBundle
     }
 
     /// 미리보기: 실제 에이전트 없이 질문 하나를 띄운다 (답은 아무 데도 보내지 않음)
@@ -402,5 +424,6 @@ final class AgentAskStore: ObservableObject {
         r.hookPID = -1
         requests.insert(r, at: 0)
         publish()
+        announce(r)
     }
 }
