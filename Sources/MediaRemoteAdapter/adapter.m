@@ -11,6 +11,7 @@ typedef Boolean (*SendCommandFn)(int, CFDictionaryRef);
 typedef void (*SetElapsedFn)(double);
 typedef void (*GetClientFn)(dispatch_queue_t, void (^)(id));
 typedef CFStringRef (*ClientBundleFn)(id);
+static ClientBundleFn clientParent;
 typedef void *(*GetLocalOriginFn)(void);
 typedef void (*GetSupportedFn)(void *, dispatch_queue_t, void (^)(CFArrayRef));
 typedef int (*CommandInfoGetCommandFn)(id);
@@ -37,8 +38,9 @@ static void emit(void) {
     getInfo(dispatch_get_main_queue(), ^(CFDictionaryRef ref) {
         NSDictionary *info = (__bridge NSDictionary *)ref;
         getPlaying(dispatch_get_main_queue(), ^(Boolean playing) {
-            void (^finish)(NSString *) = ^(NSString *bundle) {
+            void (^finish)(NSString *, NSString *) = ^(NSString *bundle, NSString *parent) {
                 NSMutableDictionary *out = [NSMutableDictionary dictionary];
+                if (parent.length) out[@"parent"] = parent;   // WebKit 프로세스 등이면 그것을 띄운 앱
                 out[@"playing"] = @(playing);
                 out[@"bundle"] = bundle ?: (id)[NSNull null];
                 out[@"title"] = S(info, @"kMRMediaRemoteNowPlayingInfoTitle");
@@ -86,10 +88,11 @@ static void emit(void) {
             };
             if (getClient && clientBundle) {
                 getClient(dispatch_get_main_queue(), ^(id client) {
-                    finish(client ? (__bridge NSString *)clientBundle(client) : nil);
+                    finish(client ? (__bridge NSString *)clientBundle(client) : nil,
+                           client && clientParent ? (__bridge NSString *)clientParent(client) : nil);
                 });
             } else {
-                finish(nil);
+                finish(nil, nil);
             }
         });
     });
@@ -123,6 +126,7 @@ void adapter_run(void *interp, void *cv) {
     setElapsed = dlsym(mr, "MRMediaRemoteSetElapsedTime");
     getClient = dlsym(mr, "MRMediaRemoteGetNowPlayingClient");
     clientBundle = dlsym(mr, "MRNowPlayingClientGetBundleIdentifier");
+    clientParent = dlsym(mr, "MRNowPlayingClientGetParentAppBundleIdentifier");
     getLocalOrigin = dlsym(mr, "MRMediaRemoteGetLocalOrigin");
     getSupported = dlsym(mr, "MRMediaRemoteGetSupportedCommandsForOrigin");
     commandOf = dlsym(mr, "MRMediaRemoteCommandInfoGetCommand");

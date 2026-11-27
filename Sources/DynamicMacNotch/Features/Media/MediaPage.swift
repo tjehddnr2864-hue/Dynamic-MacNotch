@@ -83,6 +83,9 @@ struct MediaPage: View {
         TimelineView(.animation(minimumInterval: 0.5, paused: !np.playing || scrub != nil)) { ctx in
             progressBody(np, now: ctx.date)
         }
+        // 길이를 알려 주지 않는 브라우저면 이 화면이 보이는 동안 웹 페이지의 재생 막대를 읽는다
+        .onAppear { media.positionViewAppeared() }
+        .onDisappear { media.positionViewDisappeared() }
     }
 
     private func progressBody(_ np: NowPlaying, now: Date) -> some View {

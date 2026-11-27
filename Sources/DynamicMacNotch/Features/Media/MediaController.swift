@@ -137,7 +137,10 @@ final class MediaController: ObservableObject {
             return
         }
         let ts = (o["timestamp"] as? Double).map { Date(timeIntervalSince1970: $0) } ?? Date()
-        let np = NowPlaying(
+        // WebKit 프로세스로 보고되면 그 프로세스를 띄운 앱(Orion 웹 앱 등)으로 본다
+        var bundle = o["bundle"] as? String
+        if let parent = o["parent"] as? String, !parent.isEmpty, bundle == nil || bundle!.hasPrefix("com.apple.WebKit") { bundle = parent }
+        var np = NowPlaying(
             title: title,
             artist: o["artist"] as? String ?? "",
             album: o["album"] as? String ?? "",
@@ -146,10 +149,23 @@ final class MediaController: ObservableObject {
             timestamp: ts,
             rate: o["rate"] as? Double ?? 0,
             playing: (o["playing"] as? Bool) ?? ((o["playing"] as? Int) == 1),
-            bundleID: o["bundle"] as? String,
+            bundleID: bundle,
             canNext: o["canNext"] as? Bool,
             canPrev: o["canPrev"] as? Bool
         )
+        // 앨범아트는 바뀔 때 한 번만 오므로 곡과 함께 기억해 둔다 (판정을 기다리느라 놓친 아트도 나중에 쓴다)
+        if let artwork { adapterArt = (Self.artKey(np), artwork) }
+        // 길이를 알려 주지 않는 브라우저: 웹 페이지의 재생 막대에서 읽은 값으로 채운다
+        if np.duration <= 0, let b = bundle, !Self.trusted.contains(b) {
+            positionMissingKey = Self.artKey(np)
+            if let read = pagePosition, read.key == positionMissingKey {
+                np.duration = read.duration
+                np.elapsed = read.position + (np.playing ? Date().timeIntervalSince(read.date) : 0)
+                np.timestamp = Date()
+            }
+        } else if positionMissingKey == Self.artKey(np) {
+            positionMissingKey = nil
+        }
         receive(np, artwork: artwork)
     }
 
@@ -188,8 +204,110 @@ final class MediaController: ObservableObject {
     }
 
     private func apply(_ np: NowPlaying?, artwork: Data?) {
-        if let artwork { setArtwork(data: artwork) }
+        if let np {
+            let key = Self.artKey(np)
+            if let artwork {
+                setArtwork(data: artwork)
+                shownArtKey = key
+            } else if shownArtKey != key, let bundle = np.bundleID, !Self.trusted.contains(bundle), bundle != Self.testBundle {
+                // 곡이 바뀌었는데 이 곡의 아트가 아직 없으면 이전 곡 아트 대신 그 곡의 아트나 앱 아이콘을 보인다
+                if let saved = adapterArt, saved.key == key { setArtwork(data: saved.data) } else { setAppIconArtwork(bundle) }
+                shownArtKey = key
+            }
+        } else if let artwork {
+            setArtwork(data: artwork)
+        }
         update(np)
+    }
+
+    private static func artKey(_ np: NowPlaying) -> String { "\(np.bundleID ?? "")|\(np.trackKey)" }
+    /// 어댑터가 마지막으로 보낸 앨범아트와 그 곡
+    private var adapterArt: (key: String, data: Data)?
+    /// 지금 보이는 아트가 어느 곡 것인지 (브라우저 등)
+    private var shownArtKey: String?
+
+    /// 아트가 없는 재생(브라우저의 일부 영상 등): 재생 중인 앱의 아이콘
+    private func setAppIconArtwork(_ bundle: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) else { return }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icon.size = NSSize(width: 256, height: 256)
+        guard let tiff = icon.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return }
+        setArtwork(data: png)
+    }
+
+    // MARK: - 웹 페이지 재생 막대 (길이를 알려 주지 않는 브라우저)
+
+    /// 길이가 없는 곡 (이 곡이면 웹 페이지의 재생 막대를 읽는다)
+    private var positionMissingKey: String?
+    /// 마지막으로 읽은 위치
+    private var pagePosition: (key: String, position: Double, duration: Double, date: Date)?
+    private var pageSlider: (key: String, element: AXUIElement)?
+    private var positionViewers = 0
+    private var positionTimer: Timer?
+    private var positionReading = false
+    private let positionQueue = DispatchQueue(label: "media.page-position", qos: .utility)
+
+    /// 진행 바를 그리는 화면이 보이는 동안만 읽는다
+    func positionViewAppeared() {
+        positionViewers += 1
+        updatePositionPolling()
+    }
+
+    func positionViewDisappeared() {
+        positionViewers = max(0, positionViewers - 1)
+        updatePositionPolling()
+    }
+
+    private func updatePositionPolling() {
+        let needed = positionViewers > 0 && nowPlaying.map { Self.artKey($0) == positionMissingKey } == true
+        if needed, positionTimer == nil {
+            readPagePosition()
+            positionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.readPagePosition() }
+        } else if !needed {
+            positionTimer?.invalidate()
+            positionTimer = nil
+        }
+    }
+
+    private func readPagePosition() {
+        guard !positionReading, let np = nowPlaying, let bundle = np.bundleID, Self.artKey(np) == positionMissingKey,
+              let pid = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.processIdentifier else { return }
+        let key = Self.artKey(np), title = np.title
+        let known = pageSlider?.key == key ? pageSlider?.element : nil
+        positionReading = true
+        positionQueue.async { [weak self] in
+            var slider = known
+            var read = slider.flatMap(BrowserPosition.read)
+            if read == nil {
+                slider = BrowserPosition.findSlider(pid: pid, title: title)
+                read = slider.flatMap(BrowserPosition.read)
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.positionReading = false
+                guard let read, let slider, var current = self.nowPlaying, Self.artKey(current) == key else { return }
+                self.pageSlider = (key, slider)
+                self.pagePosition = (key, read.position, read.duration, Date())
+                current.duration = read.duration
+                current.elapsed = read.position
+                current.timestamp = Date()
+                self.nowPlaying = current
+            }
+        }
+    }
+
+    /// 웹 페이지의 재생 막대를 같은 위치로 옮긴다 (막대를 아직 못 찾았으면 찾아서)
+    private func seekPage(to seconds: Double) {
+        guard let np = nowPlaying, let bundle = np.bundleID, !Self.trusted.contains(bundle), bundle != Self.testBundle,
+              let pid = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.processIdentifier else { return }
+        let key = Self.artKey(np), title = np.title
+        let known = pageSlider?.key == key ? pageSlider?.element : nil
+        if key == positionMissingKey { pagePosition = (key, seconds, np.duration, Date()) }
+        positionQueue.async { [weak self] in
+            guard let slider = known ?? BrowserPosition.findSlider(pid: pid, title: title) else { return }
+            BrowserPosition.seek(slider, to: seconds)
+            if known == nil { DispatchQueue.main.async { self?.pageSlider = (key, slider) } }
+        }
     }
 
     /// 먼저 재생한 Music/Spotify가 아직 재생 중인지 백그라운드에서 확인한다 (앱을 새로 띄우지 않음).
@@ -355,6 +473,7 @@ final class MediaController: ObservableObject {
         if let np { lastTrackKey = np.trackKey }
         if trackChanged || np?.bundleID != "com.apple.Music" { refreshFavorite() }
         publishActivity(trackChanged: trackChanged)
+        updatePositionPolling()
     }
 
     /// 앨범아트: 디코딩 → 600px로 축소 → 평균색. 모두 vImage로 처리 (CoreGraphics draw 누수 회피).
@@ -487,6 +606,8 @@ final class MediaController: ObservableObject {
             DispatchQueue.global().async { Self.runScript("tell application id \"\(bundle)\" to set player position to \(seconds)") }
         } else {
             send("seek \(seconds)")
+            // 브라우저는 시스템의 위치 이동 명령을 받지 않을 수 있어, 웹 페이지의 재생 막대도 같은 위치로 옮긴다
+            seekPage(to: seconds)
         }
         if var np = nowPlaying {
             np.elapsed = seconds

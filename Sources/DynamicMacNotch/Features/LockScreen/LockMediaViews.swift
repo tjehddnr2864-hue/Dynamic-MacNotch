@@ -245,6 +245,8 @@ struct LockPlayerView: View {
             progressBody(now: ctx.date)
         }
         .matchedGeometryEffect(id: "progress", in: ns)
+        .onAppear { media.positionViewAppeared() }
+        .onDisappear { media.positionViewDisappeared() }
     }
 
     /// 음악 팝업과 같은 바: 마우스를 올리면 두꺼워지고, 누르는 동안 더 두꺼워지며 양옆 시간이 바깥으로 밀려난다.
