@@ -19,8 +19,8 @@ struct MediaSettingsPage: View {
             }
             SettingsSection(T("재생 소스", "Source"),
                             footer: T("켠 소스의 재생만 노치에 보입니다.", "Only the sources you turn on show in the notch."),
-                            more: T("모든 미디어를 켜면 나머지 스위치가 꺼지고, 하나라도 켜면 모든 미디어가 꺼집니다. 다 끄면 모든 미디어로 돌아갑니다. YouTube는 macOS가 사이트 주소를 알려 주지 않아, 브라우저(Safari·Chrome·Edge·Brave·Arc 등)에 열린 탭의 주소와 제목을 물어 확인합니다. 처음 한 번 브라우저 제어(자동화) 권한을 묻고, 탭 주소는 확인에만 쓰고 저장하지 않습니다. Firefox는 탭 주소를 알려 주지 않아 YouTube로 확인할 수 없습니다.",
-                                    "Turning on All Media turns the others off, and turning any of them on turns All Media off. Turning them all off goes back to All Media. macOS doesn't say which site is playing, so for YouTube the app asks your browser (Safari, Chrome, Edge, Brave, Arc and others) for the addresses and titles of its open tabs. The browser asks once for Automation permission; tab addresses are only checked, never stored. Firefox doesn't share tab addresses, so YouTube can't be recognized there.")) {
+                            more: T("모든 미디어를 켜면 나머지 스위치가 꺼지고, 하나라도 켜면 모든 미디어가 꺼집니다. 다 끄면 모든 미디어로 돌아갑니다. YouTube는 macOS가 어느 사이트인지 알려 주지 않아, 손쉬운 사용 권한으로 브라우저의 창·탭 제목(“… - YouTube”, “… | YouTube Music”)을 읽어 확인합니다. 제목은 확인에만 쓰고 저장하지 않습니다. 손쉬운 사용 권한이 없으면 YouTube로 확인할 수 없습니다.",
+                                    "Turning on All Media turns the others off, and turning any of them on turns All Media off. Turning them all off goes back to All Media. macOS doesn't say which site is playing, so for YouTube the app reads the browser's window and tab titles (“… - YouTube”, “… | YouTube Music”) with Accessibility permission. Titles are only checked, never stored. Without Accessibility permission, YouTube can't be recognized.")) {
                 sourceToggles
             }
             PreviewSection([(.mediaStart, T("재생 테스트 시작", "Start Playback Test")), (.mediaStop, T("테스트 중지", "Stop Test"))])

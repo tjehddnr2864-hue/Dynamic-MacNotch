@@ -40,64 +40,66 @@ enum YouTubeScope: String, CaseIterable, Identifiable {
     var label: String { self == .all ? T("모든 YouTube", "All of YouTube") : T("YouTube Music만", "YouTube Music only") }
 }
 
-/// 브라우저에서 재생 중인 것이 YouTube인지. macOS의 재생 정보에는 주소가 없어 브라우저의 탭 주소·제목으로 가린다.
+/// 브라우저에서 재생 중인 것이 YouTube인지. macOS의 재생 정보에는 사이트 주소가 없어,
+/// 손쉬운 사용 권한으로 그 앱의 창·탭 제목을 읽어 가린다 (YouTube는 "… - YouTube", YouTube Music은 "… | YouTube Music").
 enum YouTubeSite: Equatable {
     case music, video, other
 
-    /// 브라우저 (탭 주소를 물을 수 있는 것). Firefox는 탭 주소를 알려 주지 않아 없다.
-    static let safariLike: Set<String> = ["com.apple.Safari", "com.apple.SafariTechnologyPreview"]
-    static let chromiumLike: Set<String> = ["com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary", "com.microsoft.edgemac",
-                                            "com.brave.Browser", "company.thebrowser.Browser", "com.vivaldi.Vivaldi", "com.operasoftware.Opera",
-                                            "org.chromium.Chromium"]
     /// YouTube Music 데스크탑 앱
     static let musicApps: Set<String> = ["com.github.th-ch.youtube-music", "com.ytmdesktop.ytmdesktop"]
+    /// 창·탭 제목을 볼 필요가 없는 앱
+    static let notBrowsers: Set<String> = ["com.apple.Music", "com.spotify.client", "com.apple.TV", "com.apple.podcasts", "com.apple.QuickTimePlayerX"]
 
-    /// 웹 앱(Dock에 추가한 사이트)이나 전용 앱이면 이름으로 바로 안다. 브라우저면 nil (탭을 물어야 함).
-    static func fromApp(bundleID: String, name: String?) -> YouTubeSite? {
+    /// 전용 앱이면 바로 안다. 브라우저 등이면 nil (창·탭 제목을 봐야 함).
+    static func fromApp(bundleID: String) -> YouTubeSite? {
         if musicApps.contains(bundleID) { return .music }
-        if safariLike.contains(bundleID) || chromiumLike.contains(bundleID) || bundleID.hasPrefix("com.apple.WebKit") { return nil }
-        guard bundleID.hasPrefix("com.apple.Safari.WebApp") || bundleID.contains(".app.") else { return .other }
-        let n = (name ?? "").lowercased()
-        return n.contains("youtube music") ? .music : n.contains("youtube") ? .video : .other
+        if notBrowsers.contains(bundleID) { return .other }
+        return nil
     }
 
-    /// 탭 목록("주소<TAB>제목" 줄)에서 지금 곡이 재생 중인 탭을 찾는다.
-    /// 제목에 곡 이름이 들어간 YouTube 탭을 먼저 보고, 없으면 YouTube 탭의 종류로 짐작한다.
-    static func fromTabs(_ text: String, title: String, album: String) -> YouTubeSite {
+    /// 제목 하나의 종류
+    static func kind(ofTitle title: String) -> YouTubeSite {
+        let t = title.trimmingCharacters(in: .whitespaces).lowercased()
+        if t == "youtube music" || t.hasSuffix("| youtube music") || t.hasSuffix("- youtube music") { return .music }
+        if t == "youtube" || t.hasSuffix("- youtube") { return .video }
+        return .other
+    }
+
+    /// 창·탭 제목들에서 지금 곡이 재생 중인 것을 찾는다.
+    /// 곡 이름이 들어간 YouTube 제목을 먼저 보고, 없으면 열린 YouTube의 종류로 짐작한다.
+    static func fromTitles(_ titles: [String], title: String, album: String) -> YouTubeSite {
         var music = false, video = false, matched: YouTubeSite?
         let wanted = title.trimmingCharacters(in: .whitespaces).lowercased()
-        for line in text.split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
-            guard let host = parts.first.flatMap({ URL(string: $0)?.host?.lowercased() }) else { continue }
-            let kind: YouTubeSite
-            if host == "music.youtube.com" { kind = .music } else if host == "youtube.com" || host.hasSuffix(".youtube.com") || host == "youtu.be" { kind = .video } else { continue }
+        for t in titles {
+            let kind = kind(ofTitle: t)
+            guard kind != .other else { continue }
             if kind == .music { music = true } else { video = true }
-            if !wanted.isEmpty, parts.count > 1, parts[1].lowercased().contains(wanted) { matched = matched ?? kind }
+            if !wanted.isEmpty, t.lowercased().contains(wanted) { matched = matched ?? kind }
         }
         if let matched { return matched }
         if music && video { return album.isEmpty ? .video : .music }
         return music ? .music : video ? .video : .other
     }
 
-    /// 탭 주소·제목을 묻는 AppleScript (실행 중인 브라우저에만, 3초 제한)
-    static func tabScript(bundleID: String) -> String? {
-        let titleKey: String
-        if safariLike.contains(bundleID) { titleKey = "name" } else if chromiumLike.contains(bundleID) { titleKey = "title" } else { return nil }
-        return """
-        set out to ""
-        with timeout of 3 seconds
-        tell application id "\(bundleID)"
-        repeat with w in windows
-        repeat with t in tabs of w
-        try
-        set out to out & (URL of t) & tab & (\(titleKey) of t) & linefeed
-        end try
-        end repeat
-        end repeat
-        end tell
-        end timeout
-        return out
-        """
+    /// 앱의 창 제목과 탭 제목 (손쉬운 사용 권한 필요, 메뉴는 보지 않음). 백그라운드에서 부른다.
+    static func windowAndTabTitles(pid: pid_t, limit: Int = 4000) -> [String] {
+        guard AXIsProcessTrusted() else { return [] }
+        var titles: [String] = [], stack = [AXUIElementCreateApplication(pid)], visited = 0
+        while let element = stack.popLast(), visited < limit {
+            visited += 1
+            func value(_ name: String) -> CFTypeRef? {
+                var v: CFTypeRef?
+                return AXUIElementCopyAttributeValue(element, name as CFString, &v) == .success ? v : nil
+            }
+            let role = value(kAXRoleAttribute) as? String ?? ""
+            if role == "AXMenuBar" { continue }
+            if role == "AXWindow" || role == "AXRadioButton" || role == "AXTab" || role == "AXTabButton",
+               let text = [value(kAXTitleAttribute), value(kAXDescriptionAttribute)].compactMap({ $0 as? String }).first(where: { !$0.isEmpty }) {
+                titles.append(text)
+            }
+            if let children = value(kAXChildrenAttribute) as? [AXUIElement] { stack += children }
+        }
+        return titles
     }
 }
 

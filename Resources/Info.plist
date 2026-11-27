@@ -34,7 +34,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Used to read and control playback in Apple Music and Spotify, and to check whether media playing in your browser is from YouTube.</string>
+	<string>Used to read and control playback in Apple Music and Spotify.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Used to show Bluetooth accessory connections and battery levels.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

@@ -183,14 +183,12 @@ enum SettingsProbe {
         check(MediaSource.toggled(.youtube, on: true, in: []) == [.youtube], "sources: turning one on leaves All Media")
         check(MediaSource.toggled(.spotify, on: true, in: [.youtube]) == [.spotify, .youtube], "sources: several at once, in order")
         check(MediaSource.toggled(.youtube, on: false, in: [.youtube]).isEmpty && MediaSource.toggled(.all, on: true, in: [.spotify]).isEmpty, "sources: none or All Media means everything")
-        let tabs = "https://www.youtube.com/watch?v=1\tFunny Cat - YouTube\nhttps://music.youtube.com/watch?v=2\tSong A - YouTube Music\nhttps://example.com\tSong B\n"
-        check(YouTubeSite.fromTabs(tabs, title: "Song A", album: "") == .music && YouTubeSite.fromTabs(tabs, title: "funny cat", album: "x") == .video, "youtube: the tab whose title has the song")
-        check(YouTubeSite.fromTabs(tabs, title: "Song B", album: "") == .video && YouTubeSite.fromTabs(tabs, title: "Song B", album: "Album") == .music, "youtube: no match with both kinds open")
-        check(YouTubeSite.fromTabs("https://music.youtube.com/\tYouTube Music\n", title: "x", album: "") == .music && YouTubeSite.fromTabs("https://example.com/\tx\n", title: "x", album: "") == .other && YouTubeSite.fromTabs("", title: "x", album: "") == .other, "youtube: only one kind, or none")
-        check(YouTubeSite.fromTabs("https://notyoutube.com/\tx\n", title: "x", album: "") == .other, "youtube: other sites aren't YouTube")
-        check(YouTubeSite.fromApp(bundleID: "com.google.Chrome", name: "Google Chrome") == nil && YouTubeSite.fromApp(bundleID: "com.apple.Safari.WebApp.1", name: "YouTube Music") == .music
-              && YouTubeSite.fromApp(bundleID: "com.google.Chrome.app.abc", name: "YouTube") == .video && YouTubeSite.fromApp(bundleID: "com.apple.TV", name: "TV") == .other, "youtube: browsers, web apps and other apps")
-        check(YouTubeSite.tabScript(bundleID: "com.apple.Safari")?.contains("name of t") == true && YouTubeSite.tabScript(bundleID: "org.mozilla.firefox") == nil, "youtube: browser script")
+        let titles = ["Funny Cat - YouTube", "Side Quest King (Instrumental) - Honkai: Star Rail OST | YouTube Music", "Song B - Example", "YouTube"]
+        check(YouTubeSite.fromTitles(titles, title: "Side Quest King (Instrumental)", album: "") == .music && YouTubeSite.fromTitles(titles, title: "funny cat", album: "x") == .video, "youtube: the title that has the song")
+        check(YouTubeSite.fromTitles(titles, title: "Song B", album: "") == .video && YouTubeSite.fromTitles(titles, title: "Song B", album: "Album") == .music, "youtube: no match with both kinds open")
+        check(YouTubeSite.fromTitles(["YouTube Music"], title: "x", album: "") == .music && YouTubeSite.fromTitles(["x - Example"], title: "x", album: "") == .other && YouTubeSite.fromTitles([], title: "x", album: "") == .other, "youtube: only one kind, or none")
+        check(YouTubeSite.kind(ofTitle: "How YouTube works - Example") == .other && YouTubeSite.kind(ofTitle: "a - YouTube Music") == .music, "youtube: only the site name at the end counts")
+        check(YouTubeSite.fromApp(bundleID: "app.zen-browser.zen") == nil && YouTubeSite.fromApp(bundleID: "com.github.th-ch.youtube-music") == .music && YouTubeSite.fromApp(bundleID: "com.apple.Music") == .other, "youtube: browsers, music apps and others")
 
         // 확장 노치에 보일 서비스: 최소 1개, 최대 3개
         let all = AIService.allCases

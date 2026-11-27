@@ -317,9 +317,8 @@ final class MediaController: ObservableObject {
         guard let bundle = np.bundleID else { return false }
         if list.contains(where: { $0.bundleID == bundle }) { return true }
         guard list.contains(.youtube) else { return false }
-        let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.localizedName
         let site: YouTubeSite
-        if let known = YouTubeSite.fromApp(bundleID: bundle, name: app) { site = known } else if let cached = youTubeCache[Self.youTubeKey(np)] { site = cached } else { return nil }
+        if let known = YouTubeSite.fromApp(bundleID: bundle) { site = known } else if let cached = youTubeCache[Self.youTubeKey(np)] { site = cached } else { return nil }
         return site == .music || (site == .video && settings.mediaYouTubeScope == .all)
     }
 
@@ -328,36 +327,22 @@ final class MediaController: ObservableObject {
     private var youTubeCache: [String: YouTubeSite] = [:]
     private var youTubeAsking: Set<String> = []
 
-    /// 브라우저에 탭 주소·제목을 물어 YouTube인지 가린다 (osascript로, 메인 스레드를 막지 않게)
+    /// 그 앱의 창·탭 제목을 읽어 YouTube인지 가린다 (메인 스레드를 막지 않게 백그라운드에서)
     private func classifyYouTube(_ np: NowPlaying, then: @escaping () -> Void) {
         let key = Self.youTubeKey(np)
         guard let raw = np.bundleID, !youTubeAsking.contains(key) else { return }
         // WebKit 프로세스로 보고되면 Safari로 본다
         let bundle = raw.hasPrefix("com.apple.WebKit") ? "com.apple.Safari" : raw
-        guard let script = YouTubeSite.tabScript(bundleID: bundle), !NSRunningApplication.runningApplications(withBundleIdentifier: bundle).isEmpty else {
-            youTubeCache[key] = .other
-            return then()
-        }
+        let pids = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).map(\.processIdentifier)
         youTubeAsking.insert(key)
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            p.arguments = ["-e", script]
-            let out = Pipe()
-            p.standardOutput = out
-            p.standardError = FileHandle.nullDevice
-            var text: String?
-            if (try? p.run()) != nil {
-                let data = out.fileHandleForReading.readDataToEndOfFile()
-                p.waitUntilExit()
-                if p.terminationStatus == 0 { text = String(decoding: data, as: UTF8.self) }
-            }
+            let titles = pids.flatMap { YouTubeSite.windowAndTabTitles(pid: $0) }
+            let site = YouTubeSite.fromTitles(titles, title: np.title, album: np.album)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.youTubeAsking.remove(key)
-                // 권한이 없거나 실패하면 이번 곡은 YouTube가 아닌 것으로 본다 (다음 곡에서 다시 묻는다)
                 if self.youTubeCache.count > 50 { self.youTubeCache.removeAll() }
-                self.youTubeCache[key] = text.map { YouTubeSite.fromTabs($0, title: np.title, album: np.album) } ?? .other
+                self.youTubeCache[key] = site
                 then()
             }
         }
