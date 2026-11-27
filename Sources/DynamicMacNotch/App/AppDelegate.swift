@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usage.start()
         monitor.start()
         agentObserver = AgentNotify.observe(center: center)
+        AgentAskStore.shared.start(center: center)
         startUpdaterAndMemoryGuard()
         missionControl.onChange = { [weak self] active in self?.hub.setMissionControlActive(active) }
         missionControl.start()

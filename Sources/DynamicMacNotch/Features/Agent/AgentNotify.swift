@@ -241,6 +241,8 @@ enum AgentHooks {
     static var claudeFile: URL { home.appendingPathComponent(".claude/settings.json") }
     static var codexFile: URL { home.appendingPathComponent(".codex/config.toml") }
     static var antigravityFile: URL { home.appendingPathComponent(".gemini/config/hooks.json") }
+    /// Codex의 훅 파일 (질문·실행 허락용. 작업 완료는 config.toml의 notify)
+    static var codexHooksFile: URL { home.appendingPathComponent(".codex/hooks.json") }
 
     static func file(_ s: AgentSource) -> URL {
         switch s {
@@ -255,10 +257,18 @@ enum AgentHooks {
         (try? String(contentsOf: file(s), encoding: .utf8))?.contains("--agent-done=\(s.rawValue)") ?? false
     }
 
+    /// 질문·실행 허락 훅이 들어 있는지
+    static func isAskInstalled(_ s: AgentSource) -> Bool {
+        (try? String(contentsOf: s == .codex ? codexHooksFile : file(s), encoding: .utf8))?.contains("--agent-ask=\(s.rawValue)") ?? false
+    }
+
+    /// 예전에 작업 완료 알림만 연결한 경우: 다시 연결하면 질문 훅도 들어간다
+    static func needsUpdate(_ s: AgentSource) -> Bool { isInstalled(s) && !isAskInstalled(s) }
+
     static func install(_ s: AgentSource) throws {
         switch s {
         case .claude: try installClaude()
-        case .codex: try installCodex()
+        case .codex: try installCodex(); try installCodexAsk()
         case .antigravity: try installAntigravity()
         }
     }
@@ -266,9 +276,43 @@ enum AgentHooks {
     static func uninstall(_ s: AgentSource) throws {
         switch s {
         case .claude: try uninstallClaude()
-        case .codex: try uninstallCodex()
+        case .codex: try uninstallCodex(); try uninstallCodexAsk()
         case .antigravity: try uninstallAntigravity()
         }
+    }
+
+    // Claude Code·Codex 훅 형식: {"hooks": {"이벤트": [{"matcher": …, "hooks": [{"type": "command", "command": …}]}]}}
+
+    private static func addHook(_ obj: inout [String: Any], event: String, matcher: String?, command: String, timeout: Int?) {
+        var hooks = obj["hooks"] as? [String: Any] ?? [:]
+        var groups = hooks[event] as? [[String: Any]] ?? []
+        // 같은 표시(--agent-…=…)가 이미 있으면 (실행 파일 위치가 달라도) 더하지 않는다
+        let marker = command.components(separatedBy: " ").first { $0.hasPrefix("--agent-") } ?? command
+        guard !groups.contains(where: { (($0["hooks"] as? [[String: Any]]) ?? []).contains { (($0["command"] as? String) ?? "").contains(marker) } }) else { return }
+        var handler: [String: Any] = ["type": "command", "command": command]
+        if let timeout { handler["timeout"] = timeout }
+        var group: [String: Any] = ["hooks": [handler]]
+        if let matcher { group["matcher"] = matcher }
+        groups.append(group)
+        hooks[event] = groups
+        obj["hooks"] = hooks
+    }
+
+    /// 이 앱의 명령(표시 글자가 들어간 것)만 지운다. 비면 그 이벤트·hooks 키도 지운다.
+    private static func removeHooks(_ obj: inout [String: Any], marker: String) {
+        guard var hooks = obj["hooks"] as? [String: Any] else { return }
+        for (event, value) in hooks {
+            guard let groups = value as? [[String: Any]] else { continue }
+            let kept = groups.compactMap { group -> [String: Any]? in
+                var g = group
+                let list = (g["hooks"] as? [[String: Any]] ?? []).filter { !(($0["command"] as? String) ?? "").contains(marker) }
+                if list.isEmpty { return nil }
+                g["hooks"] = list
+                return g
+            }
+            hooks[event] = kept.isEmpty ? nil : kept
+        }
+        obj["hooks"] = hooks.isEmpty ? nil : hooks
     }
 
     private static func backup(_ file: URL) {
@@ -295,30 +339,54 @@ enum AgentHooks {
         try data.write(to: claudeFile, options: .atomic)
     }
 
+    /// 작업 완료(Stop), 선택 질문(PreToolUse · AskUserQuestion), 실행 허락(PermissionRequest)
     private static func installClaude() throws {
-        guard !isInstalled(.claude) else { return }
+        guard !isInstalled(.claude) || !isAskInstalled(.claude) else { return }
         var obj = try readClaude()
-        var hooks = obj["hooks"] as? [String: Any] ?? [:]
-        var stop = hooks["Stop"] as? [[String: Any]] ?? []
-        stop.append(["hooks": [["type": "command", "command": "\"\(exe)\" --agent-done=claude"]]])
-        hooks["Stop"] = stop
-        obj["hooks"] = hooks
+        addHook(&obj, event: "Stop", matcher: nil, command: "\"\(exe)\" --agent-done=claude", timeout: nil)
+        let ask = "\"\(exe)\" --agent-ask=claude"
+        addHook(&obj, event: "PreToolUse", matcher: "AskUserQuestion", command: ask, timeout: AgentAsk.hookTimeout)
+        addHook(&obj, event: "PermissionRequest", matcher: nil, command: ask, timeout: AgentAsk.hookTimeout)
         try writeClaude(obj)
     }
 
     private static func uninstallClaude() throws {
         var obj = try readClaude()
-        guard var hooks = obj["hooks"] as? [String: Any], let stop = hooks["Stop"] as? [[String: Any]] else { return }
-        let kept = stop.compactMap { group -> [String: Any]? in
-            var g = group
-            let list = (g["hooks"] as? [[String: Any]] ?? []).filter { !(($0["command"] as? String) ?? "").contains("--agent-done=claude") }
-            if list.isEmpty { return nil }
-            g["hooks"] = list
-            return g
-        }
-        if kept.isEmpty { hooks["Stop"] = nil } else { hooks["Stop"] = kept }
-        if hooks.isEmpty { obj["hooks"] = nil } else { obj["hooks"] = hooks }
+        guard obj["hooks"] != nil else { return }
+        removeHooks(&obj, marker: "--agent-done=claude")
+        removeHooks(&obj, marker: "--agent-ask=claude")
         try writeClaude(obj)
+    }
+
+    // Codex 질문 훅: ~/.codex/hooks.json 의 PermissionRequest (Codex에서 /hooks로 한 번 신뢰해야 실행된다)
+
+    private static func readCodexHooks() throws -> [String: Any] {
+        guard let data = try? Data(contentsOf: codexHooksFile), !String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [:] }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw HookError.unreadable(T("~/.codex/hooks.json을 읽을 수 없습니다 (JSON 형식 확인)", "Can't read ~/.codex/hooks.json (check the JSON)"))
+        }
+        return obj
+    }
+
+    private static func writeCodexHooks(_ obj: [String: Any]) throws {
+        backup(codexHooksFile)
+        try FileManager.default.createDirectory(at: codexHooksFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let data = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        try data.write(to: codexHooksFile.resolvingSymlinksInPath(), options: .atomic)
+    }
+
+    private static func installCodexAsk() throws {
+        guard !isAskInstalled(.codex) else { return }
+        var obj = try readCodexHooks()
+        addHook(&obj, event: "PermissionRequest", matcher: nil, command: "\"\(exe)\" --agent-ask=codex", timeout: AgentAsk.hookTimeout)
+        try writeCodexHooks(obj)
+    }
+
+    private static func uninstallCodexAsk() throws {
+        guard FileManager.default.fileExists(atPath: codexHooksFile.path) else { return }
+        var obj = try readCodexHooks()
+        removeHooks(&obj, marker: "--agent-ask=codex")
+        try writeCodexHooks(obj)
     }
 
     // Antigravity: {"훅 이름": {"Stop": [{"type": "command", "command": "…"}]}} (antigravity.google/docs/hooks)
@@ -343,10 +411,16 @@ enum AgentHooks {
         try data.write(to: antigravityFile.resolvingSymlinksInPath(), options: .atomic)
     }
 
+    /// 이 앱 이름의 훅 하나: 작업 완료(Stop)와 선택 질문 알림(ask_question 앞·뒤)
     private static func installAntigravity() throws {
-        guard !isInstalled(.antigravity) else { return }
+        guard !isInstalled(.antigravity) || !isAskInstalled(.antigravity) else { return }
         var obj = try readAntigravity()
-        obj[antigravityHook] = ["Stop": [["type": "command", "command": "\"\(exe)\" --agent-done=antigravity", "timeout": 10] as [String: Any]]]
+        let ask = "\"\(exe)\" --agent-ask=antigravity"
+        obj[antigravityHook] = [
+            "Stop": [["type": "command", "command": "\"\(exe)\" --agent-done=antigravity", "timeout": 10] as [String: Any]],
+            "PreToolUse": [["matcher": "ask_question", "hooks": [["type": "command", "command": ask, "timeout": 10] as [String: Any]]] as [String: Any]],
+            "PostToolUse": [["matcher": "ask_question", "hooks": [["type": "command", "command": ask + " --answered", "timeout": 10] as [String: Any]]] as [String: Any]],
+        ]
         try writeAntigravity(obj)
     }
 
@@ -480,6 +554,108 @@ enum AgentProbe {
             try? AgentHooks.uninstall(s)
             check(!AgentHooks.isInstalled(s), "\(s.name) still uninstalls")
         }
+
+        // 질문 훅 설치: 사용자의 다른 훅은 그대로, 예전 연결은 '다시 연결'로 질문 훅만 더한다
+        let claude = AgentHooks.claudeFile
+        try? fm.createDirectory(at: claude.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let theirs = #"{"model":"x","hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"./guard.sh"}]}]}}"#
+        try? theirs.write(to: claude, atomically: true, encoding: .utf8)
+        try? AgentHooks.install(.claude)
+        func claudeJSON() -> [String: Any] { (try? Data(contentsOf: claude)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:] }
+        let ch = claudeJSON()["hooks"] as? [String: Any] ?? [:]
+        let pre = ch["PreToolUse"] as? [[String: Any]] ?? []
+        check(AgentHooks.isInstalled(.claude) && AgentHooks.isAskInstalled(.claude) && claudeJSON()["model"] as? String == "x", "Claude: done and question hooks, other settings kept")
+        check(pre.count == 2 && pre.contains { $0["matcher"] as? String == "AskUserQuestion" } && pre.contains { $0["matcher"] as? String == "Bash" }, "Claude: question hook next to the user's hook")
+        check((ch["PermissionRequest"] as? [[String: Any]])?.count == 1 && (((pre.last?["hooks"] as? [[String: Any]])?.first?["timeout"]) as? Int) == AgentAsk.hookTimeout, "Claude: permission hook, long timeout")
+        try? AgentHooks.uninstall(.claude)
+        let back = claudeJSON()["hooks"] as? [String: Any] ?? [:]
+        check(!AgentHooks.isInstalled(.claude) && !AgentHooks.isAskInstalled(.claude) && back.count == 1 && (back["PreToolUse"] as? [[String: Any]])?.count == 1, "Claude: removes only its own hooks")
+        let old = #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/old/DynamicMacNotch --agent-done=claude"}]}]}}"#
+        try? old.write(to: claude, atomically: true, encoding: .utf8)
+        check(AgentHooks.needsUpdate(.claude), "Claude: an older connection asks to reconnect")
+        try? AgentHooks.install(.claude)
+        check(!AgentHooks.needsUpdate(.claude) && ((claudeJSON()["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]])?.count == 1, "Claude: reconnecting adds only what's missing")
+        try? AgentHooks.install(.codex)
+        let codexHooks = (try? Data(contentsOf: AgentHooks.codexHooksFile)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        check(AgentHooks.isAskInstalled(.codex) && ((codexHooks?["hooks"] as? [String: Any])?["PermissionRequest"] as? [[String: Any]])?.count == 1, "Codex: permission hook in hooks.json")
+        try? AgentHooks.uninstall(.codex)
+        check(!AgentHooks.isAskInstalled(.codex) && !AgentHooks.isInstalled(.codex), "Codex: both removed")
+        try? fm.removeItem(at: AgentHooks.antigravityFile)
+        try? AgentHooks.install(.antigravity)
+        let ag = json()["dynamic-macnotch"] as? [String: Any] ?? [:]
+        check(ag["Stop"] != nil && ((ag["PreToolUse"] as? [[String: Any]])?.first?["matcher"] as? String) == "ask_question" && ag["PostToolUse"] != nil, "Antigravity: Stop and question hooks")
+
+        // 훅 입력 → 질문
+        let askInput: [String: Any] = ["hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "cwd": "/w/Proj",
+                                       "tool_input": ["questions": [["question": "Pick a color", "header": "Color", "multiSelect": false,
+                                                                     "options": [["label": "Red", "description": "Choose red"], ["label": "Green", "description": ""]]]]]]
+        let ask = AgentAsk.request(from: askInput, source: .claude)
+        check(ask?.kind == .question && ask?.project == "Proj" && ask?.questions.first?.options.map(\.label) == ["Red", "Green"] && ask?.questions.first?.header == "Color", "question from AskUserQuestion")
+        let bash: [String: Any] = ["hook_event_name": "PermissionRequest", "tool_name": "Bash", "tool_input": ["command": "rm -rf build"]]
+        check(AgentAsk.request(from: bash, source: .codex)?.kind == .permission && AgentAsk.request(from: bash, source: .codex)?.detail == "rm -rf build", "permission from PermissionRequest")
+        check(AgentAsk.request(from: ["hook_event_name": "PermissionRequest", "tool_name": "AskUserQuestion"], source: .claude) == nil
+              && AgentAsk.request(from: ["hook_event_name": "PreToolUse", "tool_name": "Bash"], source: .claude) == nil
+              && AgentAsk.request(from: ["hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_input": [:]], source: .claude) == nil, "other hooks are left alone")
+        check(AgentAsk.permissionDetail(["command": ["git", "push"]]) == "git push" && AgentAsk.permissionDetail(["file_path": "/a/b"]) == "/a/b", "permission detail")
+        let notice = AgentAsk.antigravityNotice(from: ["toolCall": ["name": "ask_question", "args": #"{"questions":[{"question":"Which?","options":["A","B"],"is_multi_select":true}]}"#], "workspacePaths": ["/w/App"]])
+        check(notice?.kind == .notice && notice?.questions.first?.multiSelect == true && notice?.questions.first?.options.count == 2 && notice?.project == "App", "Antigravity question notice")
+
+        // 답 → 에이전트에 돌려줄 출력
+        func object(_ s: String?) -> [String: Any] { s.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] } ?? [:] }
+        if let ask {
+            let out = object(AgentAsk.output(for: .init(kind: .answer, answers: ["Pick a color": "Green"]), request: ask, input: askInput))["hookSpecificOutput"] as? [String: Any]
+            let updated = out?["updatedInput"] as? [String: Any]
+            check(out?["permissionDecision"] as? String == "allow" && (updated?["answers"] as? [String: String]) == ["Pick a color": "Green"] && (updated?["questions"] as? [Any])?.count == 1, "answer keeps the questions and adds answers")
+            check(AgentAsk.output(for: .init(kind: .release), request: ask, input: askInput) == nil, "release writes nothing")
+        }
+        if let perm = AgentAsk.request(from: bash, source: .claude) {
+            let deny = (object(AgentAsk.output(for: .init(kind: .deny, message: "use make clean"), request: perm, input: bash))["hookSpecificOutput"] as? [String: Any])?["decision"] as? [String: Any]
+            check(deny?["behavior"] as? String == "deny" && deny?["message"] as? String == "use make clean", "deny with what to do instead")
+            check(((object(AgentAsk.output(for: .init(kind: .allow), request: perm, input: bash))["hookSpecificOutput"] as? [String: Any])?["decision"] as? [String: Any])?["behavior"] as? String == "allow", "allow")
+        }
+
+        // 실제 훅 프로세스: 질문 → (시험 통로의 본 앱 역할) 답 → 표준 출력. 본 앱이 없으면 바로 끝난다.
+        func runHook(_ input: [String: Any], answer: AgentAsk.Reply?) -> (out: String, seconds: Double, request: AgentAsk.Request?) {
+            let channel = "probe-" + UUID().uuidString.prefix(8)
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath!)
+            p.arguments = ["--agent-ask=claude"]
+            p.environment = ProcessInfo.processInfo.environment.merging(["DMN_ASK_CHANNEL": String(channel)]) { $1 }
+            let stdin = Pipe(), stdout = Pipe()
+            p.standardInput = stdin
+            p.standardOutput = stdout
+            let dnc = DistributedNotificationCenter.default()
+            var seen: AgentAsk.Request?
+            let folder = AgentAsk.folder.deletingLastPathComponent().appendingPathComponent("agent-ask." + channel)
+            let token = dnc.addObserver(forName: Notification.Name("com.dynamicmacnotch.app.agent-ask." + channel), object: nil, queue: .main) { note in
+                guard let id = note.object as? String, let answer else { return }
+                seen = AgentAsk.read(AgentAsk.Request.self, from: folder.appendingPathComponent("\(id).request.json"))
+                dnc.postNotificationName(Notification.Name("com.dynamicmacnotch.app.agent-ask-ack." + channel), object: id, userInfo: nil, deliverImmediately: true)
+                AgentAsk.write(answer, to: folder.appendingPathComponent("\(id).reply.json"))
+            }
+            let start = Date()
+            try? p.run()
+            stdin.fileHandleForWriting.write((try? JSONSerialization.data(withJSONObject: input)) ?? Data())
+            try? stdin.fileHandleForWriting.close()
+            while p.isRunning, Date().timeIntervalSince(start) < 8 { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+            if p.isRunning { p.terminate() }
+            dnc.removeObserver(token)
+            let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            let left = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? []
+            check(left.isEmpty, "hook cleans up its files: \(left)")
+            try? fm.removeItem(at: folder)
+            return (out, Date().timeIntervalSince(start), seen)
+        }
+        let answered = runHook(askInput, answer: .init(kind: .answer, answers: ["Pick a color": "Red"]))
+        let answeredOut = object(answered.out.trimmingCharacters(in: .whitespacesAndNewlines))["hookSpecificOutput"] as? [String: Any]
+        check(((answeredOut?["updatedInput"] as? [String: Any])?["answers"] as? [String: String]) == ["Pick a color": "Red"], "hook returns the notch's answer: \(answered.out.prefix(80))")
+        check(answered.request?.questions.first?.question == "Pick a color" && answered.request?.hookPID ?? 0 > 0, "the app reads the question from the file")
+        let typed = runHook(askInput, answer: .init(kind: .answer, answers: ["Pick a color": "something else"]))
+        check(typed.out.contains("something else"), "typed answer goes through")
+        let released = runHook(askInput, answer: .init(kind: .release))
+        check(released.out.isEmpty, "released: the agent asks in its own screen")
+        let noApp = runHook(askInput, answer: nil)
+        check(noApp.out.isEmpty && noApp.seconds < 3, "no app: gives up quickly (\(String(format: "%.1f", noApp.seconds))s)")
 
         func stop(_ s: String) -> (folder: String?, task: String, failed: Bool)? { AgentNotify.antigravityStop(Data(s.utf8)) }
         let done = stop(#"{"workspacePaths":["/a/Proj","/b"],"lastUserInput":"fix it","terminationReason":"model_stop","fullyIdle":true,"executionNum":1}"#)

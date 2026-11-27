@@ -55,6 +55,9 @@ extension DisplayNotchState {
             return usageSize
         case .resource:
             return resourceSize
+        case .agentAsk:
+            // 질문과 선택지 수에 맞춘 높이, AI 사용량과 같은 폭
+            return CGSize(width: usageFullSize.width, height: n.height + 6 + AgentAskPage.contentHeight(AgentAskStore.shared.current) + 22)
         case .update:
             // 업데이트 내용: AI 사용량과 같은 폭, 글이 들어가도록 더 높게
             return CGSize(width: usageFullSize.width, height: n.height + 6 + 190 + 22)

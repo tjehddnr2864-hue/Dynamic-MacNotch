@@ -11,6 +11,10 @@ if let agent = AgentNotify.source(from: CommandLine.arguments) {
     AgentNotify.runHook(agent, arguments: CommandLine.arguments)   // 코딩 에이전트 작업 완료 훅: 알리고 바로 종료
 }
 
+if let agent = AgentAsk.source(from: CommandLine.arguments) {
+    AgentAsk.runHook(agent, arguments: CommandLine.arguments)   // 코딩 에이전트의 질문: 노치에서 답할 때까지 기다렸다가 답을 돌려줌
+}
+
 if let op = ChatAttachTool.op(from: CommandLine.arguments) {
     ChatAttachTool.runHelper(op, arguments: CommandLine.arguments)   // 채팅 첨부 처리 도우미: 처리 후 바로 종료
 }

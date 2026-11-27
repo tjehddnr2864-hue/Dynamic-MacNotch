@@ -8,6 +8,7 @@ extension AppDelegate {
             case "home": self.vm.expand(page: .home)
             case "collapse": self.vm.collapse()
             case "media": self.vm.expand(page: .activity(.media))
+            case "agentask": self.vm.expand(page: .activity(.agentAsk))   // 개발용: 에이전트 질문 팝업 열기
             case "shot": self.screenshot.debugPresentClipboard()
             case let c where c.hasPrefix("popup:"):
                 if let kind = ActivityKind(rawValue: String(c.dropFirst(6))) { self.vm.expand(page: .activity(kind)) }

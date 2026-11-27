@@ -72,6 +72,10 @@ final class DisplayNotchState: ObservableObject {
                 if option != .camera, self?.cameraOn == true { self?.cameraOn = false }
             }
             .store(in: &cancellables)
+        // 에이전트 질문이 바뀌면 팝업 높이를 다시 잰다
+        AgentAskStore.shared.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
         // 액티비티 변화도 뷰 갱신을 일으키도록 전달한다.
         center.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }

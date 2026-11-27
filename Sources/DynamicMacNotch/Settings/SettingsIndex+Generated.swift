@@ -141,6 +141,7 @@ extension SettingsIndex {
         SettingsEntry(page: .chat, section: ("저장된 대화", "Saved Conversations"), title: ("저장 용량", "Storage"), detail: nil, keys: []),
         SettingsEntry(page: .chat, section: ("저장된 대화", "Saved Conversations"), title: ("첨부 파일 안내", "About Attachments"), detail: nil, keys: []),
         SettingsEntry(page: .agent, section: ("표시", "Show"), title: ("작업 완료 알림", "Task finished alert"), detail: ("누르면 그 작업이 돌던 앱이 열립니다.", "Click it to open the app the task ran in."), keys: ["agentAlerts"]),
+        SettingsEntry(page: .agent, section: ("질문에 답하기", "Answer Questions"), title: ("노치에서 답하기", "Answer in the notch"), detail: ("Claude Code 질문·실행 허락, Codex 실행 허락", "Claude Code questions and permissions, Codex permissions"), keys: ["agentAsk"]),
         SettingsEntry(page: .agent, section: ("표시 방식", "Appearance"), title: ("표시 형태", "Style"), detail: nil, keys: ["agentStyle"]),
     ]
 }

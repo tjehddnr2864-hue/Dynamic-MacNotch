@@ -31,7 +31,7 @@ enum PreviewID: String, CaseIterable {
     case updateDone = "update-done"
     case chatDone = "chat-done"
     // 코딩 에이전트
-    case agentDone = "agent-done"
+    case agentDone = "agent-done", agentAsk = "agent-ask", agentAllow = "agent-allow"
     // 모두 끝내기
     case stopAll = "stop-all"
 }
@@ -55,7 +55,7 @@ extension PreviewID {
         case .offline, .airdropReceive, .screenshot, .timerDone, .calendar, .callIncoming, .updateDone, .chatDone:
             return .detailOnly
         case .hudVolume, .hudBrightness, .hudKeyboard, .download, .airdropSend, .recording, .callActive, .lock, .aiUsage, .chargingPinned, .calendarPinned, .vpnPinned, .resourceLive, .monitorLive,
-             .mediaStart, .mediaStop, .stopAll:
+             .mediaStart, .mediaStop, .stopAll, .agentAsk, .agentAllow:
             return .compactOnly
         }
     }
@@ -224,6 +224,19 @@ final class FeaturePreview {
                                          value: .labeledText(label: T("다음", "next"), text: "15:00"),
                                          title: T("팀 회의", "Team Meeting"), subtitle: T("15:00 – 16:00", "3:00 – 4:00 PM"),
                                          detailValue: .text("15:00"), wing: NotchActivity.compactWing), for: 6)
+        case .agentAsk:
+            // 상시 표시로 남는다. 길게 누르면 선택지, 고르면 사라진다 (답은 아무 데도 보내지 않음)
+            AgentAskStore.shared.preview(AgentAsk.Request(
+                id: UUID().uuidString, source: AgentSource.claude.rawValue, kind: .question, project: "DynamicMacNotch", hostBundle: "", hostPID: 0, hookPID: -1,
+                questions: [AgentAsk.Question(question: T("설정 화면의 새 항목을 어디에 둘까요?", "Where should the new setting go?"), header: T("위치", "Place"),
+                                              options: [.init(label: T("일반", "General"), detail: T("앱 전체 설정과 함께", "With app-wide settings")),
+                                                        .init(label: T("노치 조작", "Notch Controls"), detail: T("클릭·호버 설정 옆", "Next to click and hover")),
+                                                        .init(label: T("새 페이지", "New page"), detail: "")],
+                                              multiSelect: false)]))
+        case .agentAllow:
+            AgentAskStore.shared.preview(AgentAsk.Request(
+                id: UUID().uuidString, source: AgentSource.codex.rawValue, kind: .permission, project: "DynamicMacNotch", hostBundle: "", hostPID: 0, hookPID: -1,
+                questions: [], tool: "Bash", detail: "swift build -c release"))
         case .agentDone:
             center.post(AgentNotify.activity(.claude, project: "DynamicMacNotch", task: T("메모 기능 UI 수정", "Tweak the memo UI"),
                                              target: nil, style: style ?? AppSettings.shared.agentStyle))

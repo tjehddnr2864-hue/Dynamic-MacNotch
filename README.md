@@ -134,6 +134,8 @@ When several activities run at once (screen recording, timer, AirDrop, download,
 ### Coding agents (Claude Code · Codex · Antigravity)
 When a Claude Code, Codex or Antigravity task finishes, the notch shows **Done**; click it to bring up the app it ran in (Terminal, VS Code, Claude, Codex…). No alert appears if you're already looking at that app. Choose Compact (icon and Done) or Detailed ("Claude Code · project" plus the finished task, i.e. your last request). Turn it on in Settings → Coding Agents with **Connect**: this adds a Stop hook to `~/.claude/settings.json` (Claude Code) or `~/.gemini/config/hooks.json` (Antigravity, keeping your other hooks), and sets `notify` in `~/.codex/config.toml`. If Codex already had a `notify` command, that command still runs, and Disconnect restores it. A backup (`.dynamicmacnotch.bak`) is kept before the first change.
 
+**Answer questions from the notch.** When an agent stops to ask you something, **Question** (or **Allow?**) stays in the notch. Click it to jump to the app and answer there, or long-press it to pick an option, or type your own answer in the last field and send it; the answer goes straight back to the agent. Nothing shows while you're already looking at that app, and after 10 minutes the question goes back to the agent's own screen. Claude Code: multiple-choice questions (AskUserQuestion) and permission prompts. Codex: permission prompts only (it has no hook for answering questions); trust the hook once with `/hooks` in Codex. Antigravity: questions are shown, and you answer in Antigravity. Connecting adds PreToolUse and PermissionRequest hooks for Claude Code, `~/.codex/hooks.json` for Codex, and question hooks to Antigravity's hooks file; an earlier connection shows **Reconnect** to add them. Questions are passed through a private folder on this Mac only.
+
 ### Multiple displays
 The notch stays on one display until you choose otherwise. **Settings → Displays** lists every connected display plus **All Displays**. Once two displays are connected, the same page gains per-display options:
 
@@ -341,6 +343,8 @@ iPhone 전화(연속성)와 FaceTime 오디오 통화가 노치에 나타납니�
 
 ### 코딩 에이전트 (Claude Code · Codex · Antigravity)
 Claude Code·Codex·Antigravity 작업이 끝나면 노치에 **완료**가 뜨고, 누르면 그 작업이 돌던 앱(터미널·VS Code·Claude·Codex 등)이 열립니다. 그 앱을 보고 있을 때는 알림이 뜨지 않습니다. 컴팩트(아이콘·완료) 또는 상세("Claude Code · 프로젝트"와 끝난 작업 = 마지막으로 보낸 요청)를 고를 수 있습니다. 설정 → 코딩 에이전트에서 **연결**을 누르면 `~/.claude/settings.json`(Claude Code)이나 `~/.gemini/config/hooks.json`(Antigravity, 다른 훅은 그대로)에 작업 완료(Stop) 훅을, `~/.codex/config.toml`의 `notify`에 이 앱을 넣습니다. Codex에 원래 notify가 있었다면 그 명령도 그대로 실행되고, 연결 해제 시 원래대로 돌아갑니다. 처음 바꾸기 전 원본은 `.dynamicmacnotch.bak`으로 남깁니다.
+
+**노치에서 질문에 답하기.** 에이전트가 작업 중에 무언가를 물으면 노치에 **질문**(또는 **허락**)이 남습니다. 그냥 누르면 그 앱이 열려 거기서 답하고, 길게 누르면 선택지 중에서 고르거나 맨 아래 칸에 직접 입력해 보낼 수 있으며, 답은 바로 에이전트에 전해집니다. 그 앱을 보고 있을 때는 띄우지 않고, 10분이 지나면 에이전트의 원래 화면에서 묻습니다. Claude Code는 선택 질문(AskUserQuestion)과 실행 허락, Codex는 실행 허락만 답할 수 있고(선택 질문에 답하는 훅이 없음) Codex에서 `/hooks`로 이 훅을 한 번 신뢰해야 합니다. Antigravity는 질문을 알리기만 하고 답은 Antigravity에서 합니다. 연결하면 Claude Code에는 PreToolUse·PermissionRequest 훅을, Codex에는 `~/.codex/hooks.json`을, Antigravity 훅 파일에는 질문 훅을 넣으며, 예전에 연결했다면 **다시 연결**을 누르면 됩니다. 질문은 이 Mac 안의 개인 폴더로만 주고받습니다.
 
 ### 여러 디스플레이
 따로 고르기 전까지 노치는 디스플레이 하나에만 뜹니다. **설정 → 디스플레이**에 연결된 디스플레이와 **모든 디스플레이**가 보입니다. 디스플레이가 2개 이상이면 같은 페이지에 디스플레이별 옵션이 나타납니다.

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActivityKind: String, Hashable {
-    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, vpn, update, chat, resource, monitor
+    case lock, battery, timer, calendar, media, download, airdrop, screenshot, recording, network, hotspot, bluetooth, focus, focusPinned, hud, demo, call, aiUsage, agent, agentAsk, vpn, update, chat, resource, monitor
 }
 
 /// 우선순위: 값이 클수록 먼저 표시된다 (가이드라인 2.3).
@@ -10,6 +10,7 @@ enum ActivityPriority {
     static let call = 95
     static let lock = 90
     static let batteryLow = 85
+    static let agentAsk = 75   // 코딩 에이전트가 답을 기다림 (음악·타이머보다 먼저)
     static let screenshot = 70
     static let info = 50
     static let recording = 40

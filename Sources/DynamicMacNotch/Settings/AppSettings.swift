@@ -431,6 +431,8 @@ final class AppSettings: ObservableObject {
 
     /// 작업 완료 알림
     @Setting("agentAlerts", default: true) var agentAlerts: Bool
+    /// 에이전트가 작업 중에 묻는 것(선택 질문·실행 허락)을 노치에서 답하기
+    @Setting("agentAsk", default: true) var agentAsk: Bool
     /// 작업 완료 알림 형태 (상세: 끝난 작업 이름까지)
     @Setting("agentStyle", default: AlertStyle.compact) var agentStyle: AlertStyle
 

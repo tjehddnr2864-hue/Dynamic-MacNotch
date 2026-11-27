@@ -4,7 +4,7 @@ import SwiftUI
 /// 노치를 눌렀을 때: 길게 누르기와 짧은 클릭
 extension AppDelegate {
     /// 길게 누르면 자기 확장 화면이 열리는 활동 (나머지 알림은 확장 화면이 없다)
-    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download, .aiUsage, .resource, .monitor]
+    private static let pagedKinds: Set<ActivityKind> = [.timer, .media, .recording, .call, .download, .aiUsage, .resource, .monitor, .agentAsk]
 
     /// 길게누르기·누름 반응이 있는지: 상세로 이미 떠 있는 알림과 HUD는 클릭만 받는다.
     func hasLongPressAction(_ activity: NotchActivity?) -> Bool {
@@ -79,6 +79,9 @@ extension AppDelegate {
             // 업데이트 완료 알림(오른쪽 문서 아이콘)을 누르면 업데이트 내용
             vm.expand(page: .activity(.update))
             center.dismissTransient()
+        case .agentAsk:
+            // 에이전트의 질문: 그냥 누르면 질문한 앱을 열고 거기서 답한다 (길게 누르면 노치에서 고름)
+            AgentAskStore.shared.openHost()
         case .agent:
             // Claude Code·Codex 작업 완료: 그 에이전트가 돌던 앱을 연다
             AgentNotify.open(activity.targetApp)

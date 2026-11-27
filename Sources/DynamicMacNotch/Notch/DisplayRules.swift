@@ -145,6 +145,10 @@ struct DisplayRules {
                 kinds.insert(kind)
             }
         }
+        // 에이전트가 답을 기다리는 질문은 디스플레이별 선택과 상관없이 알림이 가는 디스플레이에 보인다
+        if active.contains(.agentAsk), ctx.enabled.contains(ctx.uuid), alertScopeAll || !ctx.enabled.contains(ctx.main) || ctx.uuid == ctx.main {
+            kinds.insert(.agentAsk)
+        }
         return kinds
     }
 
